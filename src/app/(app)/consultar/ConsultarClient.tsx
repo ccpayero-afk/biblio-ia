@@ -120,7 +120,7 @@ export default function ConsultarClient() {
   }
 
   return (
-    <div className="flex h-full flex-col -m-6">
+    <div className="flex h-full flex-col -m-4 md:-m-6">
       {/* Historial de turnos */}
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
         {turnos.length === 0 && !consultando && (

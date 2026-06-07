@@ -128,7 +128,7 @@ export default function GrafoClient() {
   }
 
   return (
-    <div className="-m-6 flex h-full flex-col">
+    <div className="-m-4 md:-m-6 flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-3">
         <div className="flex items-center gap-4 text-xs text-neutral-500">
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" />Documentos</span>

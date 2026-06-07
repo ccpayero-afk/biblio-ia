@@ -2,19 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { X } from 'lucide-react'
 import {
-  BookOpen,
-  FileText,
-  MessageSquare,
-  StickyNote,
-  Quote,
-  GitFork,
-  FolderOpen,
-  Brain,
-  Users,
-  Upload,
-  Settings,
-  Library,
+  BookOpen, FileText, MessageSquare, StickyNote, Quote,
+  GitFork, FolderOpen, Brain, Users, Upload, Settings, Library,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -32,25 +23,31 @@ const NAV_ITEMS = [
   { href: '/configuracion', label: 'Configuración', icon: Settings },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ onClose }: { onClose?: () => void }) {
   const pathname = usePathname()
 
   return (
-    <aside className="flex h-full w-56 flex-col border-r border-neutral-800 bg-neutral-950">
-      <div className="flex h-14 items-center border-b border-neutral-800 px-4">
-        <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-white">
+    <aside className="flex h-full w-64 flex-col border-r border-neutral-800 bg-neutral-950 md:w-56">
+      <div className="flex h-14 items-center justify-between border-b border-neutral-800 px-4">
+        <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-white" onClick={onClose}>
           BiblioIA
         </Link>
+        {onClose && (
+          <button onClick={onClose} className="rounded p-1 text-neutral-500 hover:text-white md:hidden">
+            <X className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + '/')
+          const active = pathname === href || (href !== '/lector' && pathname.startsWith(href + '/')) || (href === '/lector' && pathname.startsWith('/lector/'))
           return (
             <Link
               key={href}
               href={href}
-              className={`flex items-center gap-3 px-4 py-2 text-sm transition-colors ${
+              onClick={onClose}
+              className={`flex items-center gap-3 px-4 py-2.5 text-sm transition-colors ${
                 active
                   ? 'bg-neutral-800 text-white'
                   : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'

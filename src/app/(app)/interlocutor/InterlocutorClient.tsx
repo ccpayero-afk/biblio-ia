@@ -85,7 +85,7 @@ export default function InterlocutorClient() {
   }, [query, consultando, modo, historial])
 
   return (
-    <div className="flex h-full flex-col -m-6">
+    <div className="flex h-full flex-col -m-4 md:-m-6">
       {/* Mode selector */}
       <div className="border-b border-neutral-800 px-6 py-3">
         <div className="flex gap-2 overflow-x-auto pb-1">

@@ -9,7 +9,7 @@ import { crearCita } from '@/lib/citas'
 import SelectionPopover from './SelectionPopover'
 import CitaModal from './CitaModal'
 import PanelLateral from './PanelLateral'
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, PanelRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, PanelRight, X } from 'lucide-react'
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
@@ -24,32 +24,48 @@ interface Seleccion {
   rect: DOMRect
 }
 
+function isMobile() {
+  return typeof window !== 'undefined' && window.innerWidth < 768
+}
+
 export default function LectorClient({ documento, pdfUrl }: Props) {
   const [numPages, setNumPages] = useState(0)
   const [paginaActual, setPaginaActual] = useState(1)
-  const [zoom, setZoom] = useState(1.2)
-  const [panelAbierto, setPanelAbierto] = useState(true)
+  const [zoom, setZoom] = useState(1.0)
+  const [panelAbierto, setPanelAbierto] = useState(false)
   const [highlights, setHighlights] = useState<Highlight[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null)
   const [modalCita, setModalCita] = useState<Seleccion | null>(null)
   const [inputPagina, setInputPagina] = useState('1')
+  const [anchoContenedor, setAnchoContenedor] = useState(0)
   const contenedorRef = useRef<HTMLDivElement>(null)
 
-  // Cargar highlights y citas al montar
+  // Ajustar zoom según ancho disponible
+  useEffect(() => {
+    if (!contenedorRef.current) return
+    const obs = new ResizeObserver((entries) => {
+      const w = entries[0].contentRect.width
+      setAnchoContenedor(w)
+      // Auto-zoom: fit to container width (A4 PDF = ~595px at 1x)
+      const autoZoom = Math.min(Math.max(w / 650, 0.5), 2.0)
+      setZoom(parseFloat(autoZoom.toFixed(1)))
+    })
+    obs.observe(contenedorRef.current)
+    return () => obs.disconnect()
+  }, [])
+
   useEffect(() => {
     fetch(`/api/highlights/${documento.id}`)
       .then((r) => r.json())
       .then((data) => Array.isArray(data) && setHighlights(data))
       .catch(() => {})
-
     fetch('/api/citas')
       .then((r) => r.json())
       .then((data) => Array.isArray(data) && setCitas(data.filter((c: Cita) => c.documentoId === documento.id)))
       .catch(() => {})
   }, [documento.id])
 
-  // Detectar selección de texto
   const handleMouseUp = useCallback(() => {
     const sel = window.getSelection()
     if (!sel || sel.isCollapsed || !sel.toString().trim()) {
@@ -58,7 +74,6 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
     }
     const texto = sel.toString().trim()
     if (texto.length < 5) return
-
     const range = sel.getRangeAt(0)
     const rect = range.getBoundingClientRect()
     setSeleccion({ texto, pagina: paginaActual, rect })
@@ -119,18 +134,17 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
   }
 
   return (
-    <div className="flex h-full gap-0 overflow-hidden -m-6">
+    <div className="flex h-full gap-0 overflow-hidden -m-4 md:-m-6">
       {/* Visor principal */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Toolbar */}
-        <div className="flex h-12 items-center gap-3 border-b border-neutral-800 bg-neutral-950 px-4">
-          <h2 className="max-w-xs truncate text-sm text-neutral-300">
+        <div className="flex h-12 items-center gap-2 border-b border-neutral-800 bg-neutral-950 px-3">
+          <h2 className="flex-1 truncate text-xs text-neutral-400 md:text-sm md:text-neutral-300">
             {documento.nombre.replace(/\.pdf$/i, '')}
           </h2>
-          <div className="flex-1" />
 
           {/* Navegación */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={() => irAPagina(paginaActual - 1)}
               disabled={paginaActual <= 1}
@@ -144,9 +158,9 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
               onChange={(e) => setInputPagina(e.target.value)}
               onBlur={() => irAPagina(parseInt(inputPagina) || 1)}
               onKeyDown={(e) => e.key === 'Enter' && irAPagina(parseInt(inputPagina) || 1)}
-              className="w-12 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-center text-xs text-white"
+              className="w-10 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-center text-xs text-white"
             />
-            <span className="text-xs text-neutral-500">/ {numPages}</span>
+            <span className="text-xs text-neutral-500">/{numPages}</span>
             <button
               onClick={() => irAPagina(paginaActual + 1)}
               disabled={paginaActual >= numPages}
@@ -156,13 +170,13 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
             </button>
           </div>
 
-          {/* Zoom */}
-          <div className="flex items-center gap-1">
-            <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))} className="rounded p-1 text-neutral-400 hover:text-white">
+          {/* Zoom — hidden on very small screens */}
+          <div className="hidden items-center gap-0.5 sm:flex">
+            <button onClick={() => setZoom((z) => Math.max(0.5, parseFloat((z - 0.1).toFixed(1))))} className="rounded p-1 text-neutral-400 hover:text-white">
               <ZoomOut className="h-4 w-4" />
             </button>
-            <span className="w-12 text-center text-xs text-neutral-400">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom((z) => Math.min(3, z + 0.1))} className="rounded p-1 text-neutral-400 hover:text-white">
+            <span className="w-10 text-center text-xs text-neutral-400">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom((z) => Math.min(3, parseFloat((z + 0.1).toFixed(1))))} className="rounded p-1 text-neutral-400 hover:text-white">
               <ZoomIn className="h-4 w-4" />
             </button>
           </div>
@@ -178,7 +192,7 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
         {/* PDF */}
         <div
           ref={contenedorRef}
-          className="flex-1 overflow-y-auto bg-neutral-800 flex justify-center py-6"
+          className="flex-1 overflow-y-auto bg-neutral-800 flex justify-center py-4 md:py-6"
           onMouseUp={handleMouseUp}
         >
           <Document
@@ -190,6 +204,7 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
             <Page
               pageNumber={paginaActual}
               scale={zoom}
+              width={anchoContenedor > 0 ? Math.min(anchoContenedor - 32, 900) : undefined}
               renderTextLayer
               renderAnnotationLayer={false}
               className="shadow-2xl"
@@ -198,16 +213,33 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
         </div>
       </div>
 
-      {/* Panel lateral */}
+      {/* Panel lateral — overlay on mobile, static on desktop */}
       {panelAbierto && (
-        <PanelLateral
-          highlights={highlights.filter((h) => h.pagina === paginaActual)}
-          citas={citas}
-          paginaActual={paginaActual}
-        />
+        <>
+          {/* Mobile overlay background */}
+          <div
+            className="fixed inset-0 z-20 bg-black/50 md:hidden"
+            onClick={() => setPanelAbierto(false)}
+          />
+          {/* Panel */}
+          <div className="fixed inset-y-0 right-0 z-30 w-72 md:static md:z-auto md:w-auto">
+            <div className="relative h-full">
+              <button
+                onClick={() => setPanelAbierto(false)}
+                className="absolute right-2 top-2 z-10 rounded p-1 text-neutral-500 hover:text-white md:hidden"
+              >
+                <X className="h-4 w-4" />
+              </button>
+              <PanelLateral
+                highlights={highlights.filter((h) => h.pagina === paginaActual)}
+                citas={citas}
+                paginaActual={paginaActual}
+              />
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Popover de selección */}
       {seleccion && (
         <SelectionPopover
           rect={seleccion.rect}
@@ -218,7 +250,6 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
         />
       )}
 
-      {/* Modal de cita */}
       {modalCita && (
         <CitaModal
           seleccion={modalCita}
