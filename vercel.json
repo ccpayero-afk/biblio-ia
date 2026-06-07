@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "functions": {
+    "src/app/api/index/[documentoId]/route.ts": { "maxDuration": 60 },
+    "src/app/api/fichas/[documentoId]/route.ts": { "maxDuration": 60 },
+    "src/app/api/inteligencia/route.ts": { "maxDuration": 60 },
+    "src/app/api/proyectos/[id]/borrador/route.ts": { "maxDuration": 60 },
+    "src/app/api/grafo/route.ts": { "maxDuration": 60 },
+    "src/app/api/drive/pdf/[id]/route.ts": { "maxDuration": 30 }
+  }
+}
