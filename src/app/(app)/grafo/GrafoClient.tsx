@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, Component, ReactNode } from 'react'
 import dynamic from 'next/dynamic'
-import { RefreshCw, Loader2, GitFork } from 'lucide-react'
+import { RefreshCw, Loader2, GitFork, AlertCircle } from 'lucide-react'
 import { Grafo, NodoGrafo } from '@/types'
 
-const ForceGraph2D = dynamic(() => import('react-force-graph').then((m) => m.ForceGraph2D), {
-  ssr: false,
-  loading: () => <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-neutral-600" /></div>,
-})
+const ForceGraph2D = dynamic(
+  () => import('react-force-graph').then((m) => m.ForceGraph2D).catch(() => () => null),
+  { ssr: false, loading: () => <div className="flex items-center justify-center h-full"><Loader2 className="h-6 w-6 animate-spin text-neutral-600" /></div> }
+)
 
 const COLOR_NODO: Record<NodoGrafo['tipo'], string> = {
   documento: '#3b82f6',
@@ -16,20 +16,51 @@ const COLOR_NODO: Record<NodoGrafo['tipo'], string> = {
   concepto: '#10b981',
 }
 
+class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { error: false }
+  }
+  static getDerivedStateFromError() { return { error: true } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full py-20 text-center">
+          <AlertCircle className="h-10 w-10 text-red-700" />
+          <p className="mt-4 text-sm text-red-400">El grafo no pudo renderizarse.</p>
+          <p className="mt-1 text-xs text-neutral-600">Tu navegador puede no soportar WebGL/Canvas.</p>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 export default function GrafoClient() {
   const [grafo, setGrafo] = useState<Grafo | null>(null)
   const [cargando, setCargando] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
   const [nodoSel, setNodoSel] = useState<NodoGrafo | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensiones, setDimensiones] = useState({ width: 800, height: 600 })
 
   const cargar = useCallback(async (rebuild = false) => {
     setCargando(true)
+    setErrorMsg('')
     try {
       const res = await fetch(`/api/grafo${rebuild ? '?rebuild=1' : ''}`)
       const data = await res.json()
-      setGrafo(data)
-    } catch { /* skip */ }
+      if (data.error) {
+        setErrorMsg(data.error)
+        setGrafo(null)
+      } else if (data.nodos) {
+        setGrafo(data as Grafo)
+      } else {
+        setGrafo(null)
+      }
+    } catch (e) {
+      setErrorMsg(String(e))
+    }
     setCargando(false)
   }, [])
 
@@ -47,13 +78,23 @@ export default function GrafoClient() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-neutral-600" />
       </div>
     )
   }
 
-  if (!grafo || !grafo.nodos.length) {
+  if (errorMsg) {
+    return (
+      <div className="flex flex-col items-center py-20 text-center">
+        <AlertCircle className="h-10 w-10 text-red-700" />
+        <p className="mt-4 text-sm text-red-400">{errorMsg}</p>
+        <button onClick={() => cargar()} className="mt-4 text-xs text-neutral-500 hover:text-neutral-300">Reintentar</button>
+      </div>
+    )
+  }
+
+  if (!grafo || !grafo.nodos || grafo.nodos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <GitFork className="h-12 w-12 text-neutral-700" />
@@ -77,7 +118,7 @@ export default function GrafoClient() {
       label: n.label,
       tipo: n.tipo,
       val: n.peso,
-      color: COLOR_NODO[n.tipo],
+      color: COLOR_NODO[n.tipo] ?? '#888',
     })),
     links: grafo.aristas.map((a) => ({
       source: a.source,
@@ -88,7 +129,6 @@ export default function GrafoClient() {
 
   return (
     <div className="-m-6 flex h-full flex-col">
-      {/* Toolbar */}
       <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-3">
         <div className="flex items-center gap-4 text-xs text-neutral-500">
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" />Documentos</span>
@@ -103,44 +143,46 @@ export default function GrafoClient() {
         </button>
       </div>
 
-      {/* Graph + Panel */}
       <div className="flex flex-1 overflow-hidden">
         <div ref={containerRef} className="flex-1">
-          <ForceGraph2D
-            graphData={graphData}
-            width={dimensiones.width}
-            height={dimensiones.height}
-            backgroundColor="#0a0a0a"
-            nodeLabel="label"
-            nodeColor={(n: Record<string, unknown>) => (n.color as string) ?? '#888'}
-            nodeVal={(n: Record<string, unknown>) => (n.val as number) ?? 1}
-            linkColor={() => '#374151'}
-            linkWidth={(l: Record<string, unknown>) => Math.log((l.value as number) + 1) + 0.5}
-            onNodeClick={(n: Record<string, unknown>) => {
-              const nodo = grafo.nodos.find((nd) => nd.id === n.id)
-              setNodoSel(nodo ?? null)
-            }}
-            nodeCanvasObject={(node: Record<string, unknown>, ctx: CanvasRenderingContext2D, globalScale: number) => {
-              const label = node.label as string
-              const x = node.x as number
-              const y = node.y as number
-              const r = Math.sqrt((node.val as number) * 3) + 3
-              ctx.beginPath()
-              ctx.arc(x, y, r, 0, 2 * Math.PI)
-              ctx.fillStyle = node.color as string
-              ctx.fill()
-              if (globalScale >= 1.2) {
-                const fontSize = 10 / globalScale
-                ctx.font = `${fontSize}px sans-serif`
-                ctx.fillStyle = '#d1d5db'
-                ctx.textAlign = 'center'
-                ctx.fillText(label.slice(0, 20), x, y + r + fontSize)
-              }
-            }}
-          />
+          <ErrorBoundary>
+            <ForceGraph2D
+              graphData={graphData}
+              width={dimensiones.width}
+              height={dimensiones.height}
+              backgroundColor="#0a0a0a"
+              nodeLabel="label"
+              nodeColor={(n: Record<string, unknown>) => (n.color as string) ?? '#888'}
+              nodeVal={(n: Record<string, unknown>) => (n.val as number) ?? 1}
+              linkColor={() => '#374151'}
+              linkWidth={(l: Record<string, unknown>) => Math.log(((l.value as number) || 1) + 1) + 0.5}
+              onNodeClick={(n: Record<string, unknown>) => {
+                const nodo = grafo.nodos.find((nd) => nd.id === n.id)
+                setNodoSel(nodo ?? null)
+              }}
+              nodeCanvasObject={(node: Record<string, unknown>, ctx: CanvasRenderingContext2D, globalScale: number) => {
+                try {
+                  const label = (node.label as string) ?? ''
+                  const x = node.x as number
+                  const y = node.y as number
+                  const r = Math.sqrt(((node.val as number) || 1) * 3) + 3
+                  ctx.beginPath()
+                  ctx.arc(x, y, r, 0, 2 * Math.PI)
+                  ctx.fillStyle = (node.color as string) ?? '#888'
+                  ctx.fill()
+                  if (globalScale >= 1.2) {
+                    const fontSize = 10 / globalScale
+                    ctx.font = `${fontSize}px sans-serif`
+                    ctx.fillStyle = '#d1d5db'
+                    ctx.textAlign = 'center'
+                    ctx.fillText(label.slice(0, 20), x, y + r + fontSize)
+                  }
+                } catch { /* skip render error */ }
+              }}
+            />
+          </ErrorBoundary>
         </div>
 
-        {/* Node detail panel */}
         {nodoSel && (
           <div className="w-60 border-l border-neutral-800 bg-neutral-900 p-4">
             <button onClick={() => setNodoSel(null)} className="mb-3 text-xs text-neutral-600 hover:text-neutral-400">✕ Cerrar</button>
