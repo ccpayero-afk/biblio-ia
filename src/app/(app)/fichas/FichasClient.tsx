@@ -10,6 +10,10 @@ interface DocConFicha {
   cargando: boolean
 }
 
+function esFichaValida(f: unknown): f is FichaLectura {
+  return !!f && typeof f === 'object' && 'tesisCentral' in (f as object)
+}
+
 export default function FichasClient() {
   const [items, setItems] = useState<DocConFicha[]>([])
   const [cargando, setCargando] = useState(true)
@@ -24,16 +28,19 @@ export default function FichasClient() {
         setItems(lista)
         setCargando(false)
 
-        // Load fichas in parallel
+        // Cargar fichas existentes
         for (const item of lista) {
           fetch(`/api/fichas/${item.doc.id}`)
             .then((r) => r.json())
-            .then((ficha: FichaLectura | null) => {
+            .then((data: unknown) => {
+              const ficha = esFichaValida(data) ? data : null
               setItems((prev) =>
                 prev.map((i) => (i.doc.id === item.doc.id ? { ...i, ficha } : i))
               )
+              // Auto-expandir si tiene ficha
+              if (ficha) setExpandido((prev) => prev ?? item.doc.id)
             })
-            .catch(() => {/* skip */})
+            .catch(() => {})
         }
       })
       .catch(() => setCargando(false))
@@ -53,11 +60,12 @@ export default function FichasClient() {
           año: item.doc.año,
         }),
       })
-      const ficha = await res.json()
+      const data = await res.json()
+      const ficha = esFichaValida(data) ? data : null
       setItems((prev) =>
         prev.map((i) => (i.doc.id === item.doc.id ? { ...i, ficha, cargando: false } : i))
       )
-      setExpandido(item.doc.id)
+      if (ficha) setExpandido(item.doc.id)
     } catch {
       setItems((prev) =>
         prev.map((i) => (i.doc.id === item.doc.id ? { ...i, cargando: false } : i))
@@ -88,13 +96,17 @@ export default function FichasClient() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-white">Fichas de lectura</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Análisis estructurado generado por IA a partir de los documentos indexados.
+          Análisis estructurado generado por IA. Hacé clic en el nombre para expandir.
         </p>
       </div>
 
       {items.map((item) => (
         <div key={item.doc.id} className="rounded-xl border border-neutral-800 bg-neutral-900">
-          <div className="flex items-center gap-3 px-4 py-3">
+          {/* Header del card */}
+          <button
+            className="flex w-full items-center gap-3 px-4 py-3 text-left"
+            onClick={() => item.ficha && setExpandido(expandido === item.doc.id ? null : item.doc.id)}
+          >
             <FileText className="h-4 w-4 flex-shrink-0 text-neutral-500" />
             <div className="flex-1 min-w-0">
               <p className="truncate text-sm font-medium text-white">
@@ -104,34 +116,31 @@ export default function FichasClient() {
                 {item.doc.autor || 'Sin autor'} · {item.doc.año || 's.f.'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {item.ficha ? (
-                <span className="rounded-full bg-green-900/40 px-2 py-0.5 text-xs text-green-400">Ficha generada</span>
-              ) : (
+            <div className="flex flex-shrink-0 items-center gap-2">
+              {item.cargando && <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-500" />}
+              {!item.ficha && !item.cargando && (
                 <button
-                  onClick={() => generarFicha(item)}
-                  disabled={item.cargando}
-                  className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-neutral-600 disabled:opacity-50"
+                  onClick={(e) => { e.stopPropagation(); generarFicha(item) }}
+                  className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-neutral-600"
                 >
-                  {item.cargando ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3 w-3" />
-                  )}
-                  {item.cargando ? 'Generando…' : 'Generar ficha'}
+                  <Sparkles className="h-3 w-3" /> Generar
                 </button>
               )}
               {item.ficha && (
-                <button
-                  onClick={() => setExpandido(expandido === item.doc.id ? null : item.doc.id)}
-                  className="text-neutral-500 hover:text-neutral-300"
-                >
-                  {expandido === item.doc.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </button>
+                <>
+                  <span className="rounded-full bg-green-900/40 px-2 py-0.5 text-xs text-green-400">
+                    Ficha generada
+                  </span>
+                  {expandido === item.doc.id
+                    ? <ChevronUp className="h-4 w-4 text-neutral-500" />
+                    : <ChevronDown className="h-4 w-4 text-neutral-500" />
+                  }
+                </>
               )}
             </div>
-          </div>
+          </button>
 
+          {/* Contenido expandido */}
           {expandido === item.doc.id && item.ficha && (
             <div className="border-t border-neutral-800 px-4 py-4 space-y-4 text-sm">
               <Section titulo="Tesis central" texto={item.ficha.tesisCentral} />
