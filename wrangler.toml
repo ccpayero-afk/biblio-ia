@@ -1,0 +1,17 @@
+name = "biblio-ia"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat_v2"]
+pages_build_output_dir = ".vercel/output/static"
+
+[[kv_namespaces]]
+binding = "BIBLIO_KV"
+id = "REEMPLAZAR_CON_KV_NAMESPACE_ID"
+
+[vars]
+NEXT_PUBLIC_APP_NAME = "BiblioIA"
+
+# Deployment instructions:
+# 1. npm run build
+# 2. Set secrets in Cloudflare dashboard: AUTH_SECRET, AUTH_GOOGLE_ID, AUTH_GOOGLE_SECRET,
+#    ALLOWED_EMAILS, ENCRYPTION_SECRET, NEXTAUTH_URL
+# 3. wrangler pages deploy .next
