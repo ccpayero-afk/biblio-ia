@@ -1,6 +1,6 @@
 import { google } from 'googleapis'
 import { Readable } from 'stream'
-import { DriveStructure, Documento } from '@/types'
+import { DriveStructure, Documento, Carpeta } from '@/types'
 
 function getDriveClient(accessToken: string) {
   const auth = new google.auth.OAuth2()
@@ -44,7 +44,7 @@ export async function initUserDrive(accessToken: string): Promise<DriveStructure
   })
   const rootId = rootRes.data.files?.[0]?.id ?? await createFolder(drive, 'BibliografíaIA')
 
-  const [pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId] = await Promise.all([
+  const [pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId] = await Promise.all([
     getOrCreateFolder(drive, 'pdfs', rootId),
     getOrCreateFolder(drive, 'highlights', rootId),
     getOrCreateFolder(drive, 'citas', rootId),
@@ -52,9 +52,10 @@ export async function initUserDrive(accessToken: string): Promise<DriveStructure
     getOrCreateFolder(drive, 'conceptos', rootId),
     getOrCreateFolder(drive, 'proyectos', rootId),
     getOrCreateFolder(drive, 'index', rootId),
+    getOrCreateFolder(drive, 'carpetas', rootId),
   ])
 
-  return { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId }
+  return { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId }
 }
 
 export async function listPDFs(accessToken: string, pdfsId: string): Promise<Documento[]> {
@@ -80,6 +81,7 @@ export async function listPDFs(accessToken: string, pdfsId: string): Promise<Doc
       indexadoEn: props.indexadoEn,
       creadoEn: f.createdTime ?? new Date().toISOString(),
       fichaGenerada: props.fichaGenerada === 'true',
+      carpetaId: props.carpetaId || undefined,
     }
   })
 }
@@ -117,7 +119,7 @@ export async function getPDFDownloadUrl(accessToken: string, fileId: string): Pr
 export async function updateDocumentMetadata(
   accessToken: string,
   fileId: string,
-  metadata: Partial<Pick<Documento, 'autor' | 'año' | 'editorial' | 'abstract' | 'etiquetas' | 'estado' | 'fragmentos' | 'indexadoEn' | 'fichaGenerada'>>
+  metadata: Partial<Pick<Documento, 'autor' | 'año' | 'editorial' | 'abstract' | 'etiquetas' | 'estado' | 'fragmentos' | 'indexadoEn' | 'fichaGenerada' | 'carpetaId'>>
 ): Promise<void> {
   const drive = getDriveClient(accessToken)
   const properties: Record<string, string> = {}
@@ -130,8 +132,29 @@ export async function updateDocumentMetadata(
   if (metadata.fragmentos !== undefined) properties.fragmentos = String(metadata.fragmentos)
   if (metadata.indexadoEn !== undefined) properties.indexadoEn = metadata.indexadoEn
   if (metadata.fichaGenerada !== undefined) properties.fichaGenerada = String(metadata.fichaGenerada)
+  if (metadata.carpetaId !== undefined) properties.carpetaId = metadata.carpetaId ?? ''
 
   await drive.files.update({ fileId, requestBody: { properties } })
+}
+
+// ─── Carpetas ─────────────────────────────────────────────────────────────────
+
+const CARPETAS_FILE = 'carpetas.json'
+
+export async function readCarpetas(accessToken: string): Promise<Carpeta[]> {
+  const estructura = await initUserDrive(accessToken)
+  const fileId = await findFile(accessToken, CARPETAS_FILE, estructura.carpetasId!)
+  if (!fileId) return []
+  try {
+    return await readJSON<Carpeta[]>(accessToken, fileId)
+  } catch {
+    return []
+  }
+}
+
+export async function saveCarpetas(accessToken: string, carpetas: Carpeta[]): Promise<void> {
+  const estructura = await initUserDrive(accessToken)
+  await writeJSON(accessToken, estructura.carpetasId!, CARPETAS_FILE, carpetas)
 }
 
 export async function readJSON<T>(accessToken: string, fileId: string): Promise<T> {

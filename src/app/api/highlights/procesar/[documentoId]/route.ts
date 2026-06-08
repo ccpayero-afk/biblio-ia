@@ -154,12 +154,16 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura exacta:
       .filter((c) => c.nota_contexto?.trim())
       .map((c) => ({
         id: `nota_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        titulo: `[${titulo}, p.${c.pagina}]`,
         contenido: `[${titulo}, p.${c.pagina}] ${c.nota_contexto}`,
         documentoId: doc.id,
+        documentoOrigenId: doc.id,
         pagina: c.pagina,
+        paginaOrigen: c.pagina,
         fragmentoTexto: c.fragmento_original,
         etiquetas: ['highlights-pdf', 'ia'],
-        tipo: 'ia' as const,
+        tipo: 'efimera' as const,
+        vinculos: [],
         creadaEn: new Date().toISOString(),
         actualizadaEn: new Date().toISOString(),
       }))

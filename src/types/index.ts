@@ -19,6 +19,7 @@ export interface Documento {
   indexadoEn?: string
   creadoEn: string
   fichaGenerada: boolean
+  carpetaId?: string
 }
 
 export interface Fragmento {
@@ -56,21 +57,78 @@ export interface Cita {
   creadaEn: string
 }
 
+// ─── Zettelkasten ───────────────────────────────────────────────────────────
+
+export type TipoNota =
+  | 'efimera'      // captura rápida sin procesar — bandeja de entrada
+  | 'referencia'   // sobre un texto específico
+  | 'permanente'   // idea atómica propia
+  | 'estructura'   // índice de entrada a un cluster de notas
+  | 'proyecto'     // nota de trabajo para un artículo o tesis
+  // legado (se mapean a nuevos tipos en la UI)
+  | 'manual'
+  | 'ia'
+  | 'consulta'
+  | 'ficha'
+
+export interface VinculoZettel {
+  notaDestinoId: string
+  tipo: 'complementa' | 'contradice' | 'ejemplifica' | 'aplica_en' |
+        'es_consecuencia_de' | 'cuestiona' | 'define' | 'ver_tambien'
+  nota?: string
+  bidireccional: boolean
+  creadoEn: string
+}
+
+export interface VinculoSugerido {
+  notaId: string
+  notaTitulo: string
+  tipoVinculo: VinculoZettel['tipo']
+  razon: string
+  confianza: 'alta' | 'media' | 'baja'
+}
+
 export interface Nota {
   id: string
+  titulo: string
   contenido: string
+  tipo: TipoNota
+  vinculos: VinculoZettel[]
+  documentoOrigenId?: string
+  paginaOrigen?: number
+  citaOrigenId?: string
+  etiquetas: string[]
+  creadaEn: string
+  actualizadaEn: string
+  // legado — algunos de estos campos existían antes del Zettelkasten
   documentoId?: string
   pagina?: number
   fragmentoTexto?: string
-  etiquetas: string[]
-  tipo: 'manual' | 'ia' | 'consulta' | 'ficha'
+  fichaData?: FichaLectura
+  notasIndexadas?: string[]
+}
+
+// ─── Carpetas ────────────────────────────────────────────────────────────────
+
+export interface Carpeta {
+  id: string
+  nombre: string
+  descripcion?: string
+  color: 'purple' | 'teal' | 'coral' | 'amber' | 'blue' | 'green' | 'gray'
+  icono?: string
+  carpetaPadreId?: string
+  documentosIds: string[]
+  subcarpetasIds: string[]
   creadaEn: string
   actualizadaEn: string
+  orden: number
 }
+
+// ─── Grafo ───────────────────────────────────────────────────────────────────
 
 export interface NodoGrafo {
   id: string
-  tipo: 'documento' | 'concepto' | 'autor'
+  tipo: 'documento' | 'concepto' | 'autor' | 'nota'
   label: string
   peso: number
 }
@@ -78,7 +136,7 @@ export interface NodoGrafo {
 export interface AristaGrafo {
   source: string
   target: string
-  tipo: 'conceptual' | 'debate' | 'citacion' | 'manual'
+  tipo: 'conceptual' | 'debate' | 'citacion' | 'manual' | VinculoZettel['tipo']
   label?: string
   peso: number
 }
@@ -89,12 +147,15 @@ export interface Grafo {
   actualizadoEn: string
 }
 
+// ─── Proyectos ───────────────────────────────────────────────────────────────
+
 export interface SeccionProyecto {
   id: string
   titulo: string
   argumento: string
   borrador?: string
   citasAsignadas: string[]
+  notasAsignadas?: string[]
   orden: number
 }
 
@@ -133,6 +194,7 @@ export interface DriveStructure {
   conceptosId: string
   proyectosId: string
   indexId: string
+  carpetasId?: string
   configFileId?: string
 }
 

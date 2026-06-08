@@ -1,9 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Documento } from '@/types'
-import { FileText, Pencil, Zap } from 'lucide-react'
+import { Carpeta, Documento } from '@/types'
+import { FileText, Pencil, Zap, FolderInput, Folder } from 'lucide-react'
 import Link from 'next/link'
+
+const COLORES_CARPETA: Record<Carpeta['color'], string> = {
+  purple: 'text-purple-400', teal: 'text-teal-400', coral: 'text-red-400',
+  amber: 'text-amber-400', blue: 'text-blue-400', green: 'text-green-400', gray: 'text-neutral-400',
+}
 
 const ESTADO_CONFIG = {
   sin_indexar: { label: 'Sin indexar', color: 'text-neutral-500 bg-neutral-800' },
@@ -14,12 +19,14 @@ const ESTADO_CONFIG = {
 
 interface Props {
   documento: Documento
+  carpeta?: Carpeta
   onEditar: () => void
+  onMover?: () => void
   onIndexadoOk: (documentoId: string, fragmentos: number) => void
   onRegistrarIndexar?: (fn: () => void) => void
 }
 
-export default function DocumentoCard({ documento, onEditar, onIndexadoOk, onRegistrarIndexar }: Props) {
+export default function DocumentoCard({ documento, carpeta, onEditar, onMover, onIndexadoOk, onRegistrarIndexar }: Props) {
   const [estado, setEstado] = useState(documento.estado)
   const [progreso, setProgreso] = useState<{ msg: string; paso: number; total: number } | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -81,19 +88,16 @@ export default function DocumentoCard({ documento, onEditar, onIndexadoOk, onReg
         <FileText className="mt-0.5 h-5 w-5 flex-shrink-0 text-neutral-500" />
         <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           {(estado === 'sin_indexar' || estado === 'error') && (
-            <button
-              onClick={iniciarIndexacion}
-              className="rounded p-1 text-neutral-600 hover:text-blue-400"
-              title="Indexar documento"
-            >
+            <button onClick={iniciarIndexacion} className="rounded p-1 text-neutral-600 hover:text-blue-400" title="Indexar">
               <Zap className="h-3.5 w-3.5" />
             </button>
           )}
-          <button
-            onClick={onEditar}
-            className="rounded p-1 text-neutral-600 hover:text-neutral-300"
-            title="Editar metadatos"
-          >
+          {onMover && (
+            <button onClick={onMover} className="rounded p-1 text-neutral-600 hover:text-neutral-300" title="Mover a carpeta">
+              <FolderInput className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button onClick={onEditar} className="rounded p-1 text-neutral-600 hover:text-neutral-300" title="Editar metadatos">
             <Pencil className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -109,6 +113,11 @@ export default function DocumentoCard({ documento, onEditar, onIndexadoOk, onReg
         {documento.autor && (
           <p className="mt-1 text-xs text-neutral-500">
             {documento.autor}{documento.año ? ` (${documento.año})` : ''}
+          </p>
+        )}
+        {carpeta && (
+          <p className={`mt-1 flex items-center gap-1 text-xs ${COLORES_CARPETA[carpeta.color]}`}>
+            <Folder className="h-3 w-3" />{carpeta.nombre}
           </p>
         )}
       </div>

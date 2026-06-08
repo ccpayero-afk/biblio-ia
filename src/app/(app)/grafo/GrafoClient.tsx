@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback, Component, ReactNode } from 'react'
 import dynamic from 'next/dynamic'
-import { RefreshCw, Loader2, GitFork, AlertCircle } from 'lucide-react'
-import { Grafo, NodoGrafo } from '@/types'
+import { RefreshCw, Loader2, GitFork, AlertCircle, Network, BookOpen } from 'lucide-react'
+import { Grafo, NodoGrafo, Nota, VinculoZettel } from '@/types'
 
 const ForceGraph2D = dynamic(
   () => import('react-force-graph').then((m) => m.ForceGraph2D).catch(() => () => null),
@@ -14,6 +14,18 @@ const COLOR_NODO: Record<NodoGrafo['tipo'], string> = {
   documento: '#3b82f6',
   autor: '#f59e0b',
   concepto: '#10b981',
+  nota: '#a78bfa',
+}
+
+const COLOR_VINCULO: Record<VinculoZettel['tipo'], string> = {
+  complementa: '#22c55e',
+  contradice: '#ef4444',
+  ejemplifica: '#3b82f6',
+  aplica_en: '#14b8a6',
+  es_consecuencia_de: '#8b5cf6',
+  cuestiona: '#f97316',
+  define: '#e5e7eb',
+  ver_tambien: '#6b7280',
 }
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
@@ -37,7 +49,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: boolean 
 }
 
 export default function GrafoClient() {
+  const [modo, setModo] = useState<'bibliografico' | 'zettelkasten'>('bibliografico')
   const [grafo, setGrafo] = useState<Grafo | null>(null)
+  const [notas, setNotas] = useState<Nota[]>([])
   const [cargando, setCargando] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
   const [nodoSel, setNodoSel] = useState<NodoGrafo | null>(null)
@@ -48,16 +62,16 @@ export default function GrafoClient() {
     setCargando(true)
     setErrorMsg('')
     try {
-      const res = await fetch(`/api/grafo${rebuild ? '?rebuild=1' : ''}`)
-      const data = await res.json()
-      if (data.error) {
-        setErrorMsg(data.error)
-        setGrafo(null)
-      } else if (data.nodos) {
-        setGrafo(data as Grafo)
-      } else {
-        setGrafo(null)
-      }
+      const [resGrafo, resNotas] = await Promise.all([
+        fetch(`/api/grafo${rebuild ? '?rebuild=1' : ''}`),
+        fetch('/api/notas'),
+      ])
+      const dataGrafo = await resGrafo.json()
+      const dataNotas = await resNotas.json()
+      if (dataGrafo.error) { setErrorMsg(dataGrafo.error); setGrafo(null) }
+      else if (dataGrafo.nodos) setGrafo(dataGrafo as Grafo)
+      else setGrafo(null)
+      if (Array.isArray(dataNotas)) setNotas(dataNotas)
     } catch (e) {
       setErrorMsg(String(e))
     }
@@ -94,13 +108,22 @@ export default function GrafoClient() {
     )
   }
 
-  if (!grafo || !grafo.nodos || grafo.nodos.length === 0) {
+  // Datos para modo Zettelkasten (debe estar antes del check de datos vacíos)
+  const notasPermanentes = notas.filter((n) => n.tipo === 'permanente' || n.tipo === 'estructura')
+
+  const sinDatos = modo === 'bibliografico'
+    ? (!grafo || !grafo.nodos || grafo.nodos.length === 0)
+    : notasPermanentes.length === 0
+
+  if (sinDatos) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <GitFork className="h-12 w-12 text-neutral-700" />
         <h2 className="mt-4 text-lg font-semibold text-white">Grafo vacío</h2>
         <p className="mt-2 text-sm text-neutral-500">
-          Indexá documentos y generá fichas para ver el grafo de relaciones.
+          {modo === 'bibliografico'
+            ? 'Indexá documentos y generá fichas para ver el grafo de relaciones.'
+            : 'Creá notas permanentes con vínculos para ver el grafo Zettelkasten.'}
         </p>
         <button
           onClick={() => cargar(true)}
@@ -111,30 +134,78 @@ export default function GrafoClient() {
       </div>
     )
   }
+  const graphDataZettel = {
+    nodes: notasPermanentes.map((n) => ({
+      id: n.id,
+      label: n.titulo,
+      tipo: 'nota' as const,
+      val: Math.max(1, (n.vinculos ?? []).length),
+      color: (n.vinculos ?? []).length === 0 ? '#4b5563' : COLOR_NODO.nota,
+    })),
+    links: notasPermanentes.flatMap((n) =>
+      (n.vinculos ?? [])
+        .filter((v) => notasPermanentes.find((m) => m.id === v.notaDestinoId))
+        .map((v) => ({
+          source: n.id,
+          target: v.notaDestinoId,
+          value: 1,
+          color: COLOR_VINCULO[v.tipo] ?? '#6b7280',
+        }))
+    ),
+  }
 
-  const graphData = {
-    nodes: grafo.nodos.map((n) => ({
+  const graphData = modo === 'zettelkasten' ? graphDataZettel : {
+    nodes: grafo!.nodos.map((n) => ({
       id: n.id,
       label: n.label,
       tipo: n.tipo,
       val: n.peso,
       color: COLOR_NODO[n.tipo] ?? '#888',
     })),
-    links: grafo.aristas.map((a) => ({
+    links: grafo!.aristas.map((a) => ({
       source: a.source,
       target: a.target,
       value: a.peso,
+      color: undefined as string | undefined,
     })),
   }
 
   return (
     <div className="-m-4 md:-m-6 flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-3">
-        <div className="flex items-center gap-4 text-xs text-neutral-500">
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" />Documentos</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />Autores</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Conceptos</span>
+        {/* Toggle de modo */}
+        <div className="flex rounded-lg border border-neutral-700 p-0.5">
+          <button
+            onClick={() => setModo('bibliografico')}
+            className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs transition-colors ${modo === 'bibliografico' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+          >
+            <BookOpen className="h-3.5 w-3.5" /> Bibliográfico
+          </button>
+          <button
+            onClick={() => setModo('zettelkasten')}
+            className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs transition-colors ${modo === 'zettelkasten' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+          >
+            <Network className="h-3.5 w-3.5" /> Zettelkasten
+          </button>
         </div>
+
+        {/* Leyenda */}
+        {modo === 'bibliografico' ? (
+          <div className="flex items-center gap-4 text-xs text-neutral-500">
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-blue-500" />Documentos</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" />Autores</span>
+            <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />Conceptos</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 text-xs text-neutral-500">
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-500" />complementa</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500" />contradice</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-500" />ejemplifica</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-orange-500" />cuestiona</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-neutral-600" />huérfana</span>
+          </div>
+        )}
+
         <button
           onClick={() => cargar(true)}
           className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-neutral-600"
@@ -154,10 +225,10 @@ export default function GrafoClient() {
               nodeLabel="label"
               nodeColor={(n: Record<string, unknown>) => (n.color as string) ?? '#888'}
               nodeVal={(n: Record<string, unknown>) => (n.val as number) ?? 1}
-              linkColor={() => '#374151'}
+              linkColor={(l: Record<string, unknown>) => (l.color as string) ?? '#374151'}
               linkWidth={(l: Record<string, unknown>) => Math.log(((l.value as number) || 1) + 1) + 0.5}
               onNodeClick={(n: Record<string, unknown>) => {
-                const nodo = grafo.nodos.find((nd) => nd.id === n.id)
+                const nodo = grafo?.nodos.find((nd) => nd.id === n.id)
                 setNodoSel(nodo ?? null)
               }}
               nodeCanvasObject={(node: Record<string, unknown>, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -184,18 +255,39 @@ export default function GrafoClient() {
         </div>
 
         {nodoSel && (
-          <div className="w-60 border-l border-neutral-800 bg-neutral-900 p-4">
+          <div className="w-64 border-l border-neutral-800 bg-neutral-900 p-4 overflow-y-auto">
             <button onClick={() => setNodoSel(null)} className="mb-3 text-xs text-neutral-600 hover:text-neutral-400">✕ Cerrar</button>
-            <span className={`rounded-full px-2 py-0.5 text-xs ${
-              nodoSel.tipo === 'documento' ? 'bg-blue-900/40 text-blue-400' :
-              nodoSel.tipo === 'autor' ? 'bg-amber-900/40 text-amber-400' :
-              'bg-emerald-900/40 text-emerald-400'
-            }`}>{nodoSel.tipo}</span>
-            <p className="mt-2 text-sm font-medium text-white">{nodoSel.label}</p>
-            <p className="mt-1 text-xs text-neutral-500">Peso: {nodoSel.peso}</p>
-            <p className="mt-1 text-xs text-neutral-500">
-              Conexiones: {grafo.aristas.filter((a) => a.source === nodoSel.id || a.target === nodoSel.id).length}
-            </p>
+            {modo === 'zettelkasten' ? (() => {
+              const nota = notas.find((n) => n.id === nodoSel.id)
+              return nota ? (
+                <>
+                  <p className="font-mono text-xs text-neutral-600 mb-1">{nota.id}</p>
+                  <p className="text-sm font-medium text-white">{nota.titulo}</p>
+                  <p className="mt-2 text-xs text-neutral-400 line-clamp-4 whitespace-pre-wrap">{nota.contenido}</p>
+                  {nota.etiquetas.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {nota.etiquetas.map((e) => (
+                        <span key={e} className="rounded-full bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-500">#{e}</span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-3 text-xs text-neutral-500">{(nota.vinculos ?? []).length} vínculo{(nota.vinculos ?? []).length !== 1 ? 's' : ''}</p>
+                </>
+              ) : null
+            })() : (
+              <>
+                <span className={`rounded-full px-2 py-0.5 text-xs ${
+                  nodoSel.tipo === 'documento' ? 'bg-blue-900/40 text-blue-400' :
+                  nodoSel.tipo === 'autor' ? 'bg-amber-900/40 text-amber-400' :
+                  'bg-emerald-900/40 text-emerald-400'
+                }`}>{nodoSel.tipo}</span>
+                <p className="mt-2 text-sm font-medium text-white">{nodoSel.label}</p>
+                <p className="mt-1 text-xs text-neutral-500">Peso: {nodoSel.peso}</p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Conexiones: {grafo!.aristas.filter((a) => a.source === nodoSel.id || a.target === nodoSel.id).length}
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
