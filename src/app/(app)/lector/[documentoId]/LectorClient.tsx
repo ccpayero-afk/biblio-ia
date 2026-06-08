@@ -9,7 +9,7 @@ import { crearCita } from '@/lib/citas'
 import SelectionPopover from './SelectionPopover'
 import CitaModal from './CitaModal'
 import PanelLateral from './PanelLateral'
-import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, PanelRight, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, PanelRight, X, Sparkles, Check, Loader2 } from 'lucide-react'
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
@@ -39,6 +39,8 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
   const [modalCita, setModalCita] = useState<Seleccion | null>(null)
   const [inputPagina, setInputPagina] = useState('1')
   const [anchoContenedor, setAnchoContenedor] = useState(0)
+  const [procesandoHL, setProcesandoHL] = useState(false)
+  const [hlResultado, setHlResultado] = useState<{ citasCreadas: number; notasCreadas: number; fichaCreada: boolean; anotaciones: number; mensaje?: string } | null>(null)
   const contenedorRef = useRef<HTMLDivElement>(null)
 
   // Ajustar zoom según ancho disponible
@@ -78,6 +80,22 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
     const rect = range.getBoundingClientRect()
     setSeleccion({ texto, pagina: paginaActual, rect })
   }, [paginaActual])
+
+  async function procesarHighlights() {
+    setProcesandoHL(true)
+    try {
+      const res = await fetch(`/api/highlights/procesar/${documento.id}`, { method: 'POST' })
+      const data = await res.json()
+      setHlResultado(data)
+      if (data.anotaciones > 0) {
+        // Recargar highlights del panel
+        const hlRes = await fetch(`/api/highlights/${documento.id}`)
+        const hlData = await hlRes.json()
+        if (Array.isArray(hlData)) setHighlights(hlData)
+      }
+    } catch { /* noop */ }
+    setProcesandoHL(false)
+  }
 
   function cerrarSeleccion() {
     setSeleccion(null)
@@ -180,6 +198,33 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
               <ZoomIn className="h-4 w-4" />
             </button>
           </div>
+
+          {/* Procesar highlights PDF */}
+          {hlResultado === null ? (
+            <button
+              onClick={procesarHighlights}
+              disabled={procesandoHL}
+              title="Procesar highlights del PDF original"
+              className="hidden items-center gap-1.5 rounded-lg border border-neutral-700 px-2 py-1 text-xs text-neutral-400 hover:border-neutral-500 hover:text-white disabled:opacity-40 sm:flex"
+            >
+              {procesandoHL ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {procesandoHL ? 'Procesando…' : 'Highlights PDF'}
+            </button>
+          ) : (
+            <span
+              title={hlResultado.mensaje ?? `${hlResultado.citasCreadas} citas · ${hlResultado.notasCreadas} notas`}
+              className={`hidden items-center gap-1 rounded-lg border px-2 py-1 text-xs sm:flex ${
+                hlResultado.anotaciones === 0
+                  ? 'border-neutral-700 text-neutral-500'
+                  : 'border-green-900 text-green-400'
+              }`}
+            >
+              {hlResultado.anotaciones === 0
+                ? 'Sin highlights'
+                : <><Check className="h-3 w-3" /> {hlResultado.citasCreadas}c · {hlResultado.notasCreadas}n</>
+              }
+            </span>
+          )}
 
           <button
             onClick={() => setPanelAbierto((p) => !p)}

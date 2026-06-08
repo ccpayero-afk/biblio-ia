@@ -4,7 +4,7 @@ import { initUserDrive, writeJSON, findFile, readJSON, updateDocumentMetadata } 
 import { Fragmento } from '@/types'
 
 // Descarga el PDF desde Drive como Buffer
-async function downloadPDFBuffer(accessToken: string, fileId: string): Promise<Buffer> {
+export async function downloadPDFBuffer(accessToken: string, fileId: string): Promise<Buffer> {
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },

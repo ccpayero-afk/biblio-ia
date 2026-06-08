@@ -5,11 +5,12 @@ import { usePathname } from 'next/navigation'
 import { X } from 'lucide-react'
 import {
   BookOpen, FileText, MessageSquare, StickyNote, Quote,
-  GitFork, FolderOpen, Brain, Users, Upload, Settings, Library,
+  GitFork, FolderOpen, Brain, Users, Upload, Settings, Library, Highlighter,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { href: '/biblioteca', label: 'Biblioteca', icon: Library },
+  { href: '/biblioteca/procesar-highlights', label: 'Highlights PDF', icon: Highlighter },
   { href: '/lector', label: 'Lector', icon: BookOpen },
   { href: '/consultar', label: 'Consultar', icon: MessageSquare },
   { href: '/fichas', label: 'Fichas', icon: FileText },

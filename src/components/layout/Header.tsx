@@ -4,6 +4,7 @@ import { signOut } from 'next-auth/react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Menu } from 'lucide-react'
+import BusquedaUniversal from '@/components/BusquedaUniversal'
 
 interface HeaderProps {
   user: { name?: string | null; email?: string | null; image?: string | null }
@@ -32,7 +33,9 @@ export default function Header({ user, apiKeyConfigurada, onMenuClick }: HeaderP
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="hidden md:block" />
+        <div className="hidden md:flex md:flex-1 md:px-4">
+          <BusquedaUniversal />
+        </div>
 
         <div className="flex items-center gap-3">
           <div className="hidden text-right sm:block">
