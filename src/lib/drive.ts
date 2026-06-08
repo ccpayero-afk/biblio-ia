@@ -1,4 +1,5 @@
 import { google } from 'googleapis'
+import { Readable } from 'stream'
 import { DriveStructure, Documento } from '@/types'
 
 function getDriveClient(accessToken: string) {
@@ -85,7 +86,7 @@ export async function listPDFs(accessToken: string, pdfsId: string): Promise<Doc
 
 export async function uploadPDF(accessToken: string, pdfsId: string, file: File): Promise<string> {
   const drive = getDriveClient(accessToken)
-  const buffer = await file.arrayBuffer()
+  const buffer = Buffer.from(await file.arrayBuffer())
 
   const res = await drive.files.create({
     requestBody: {
@@ -101,7 +102,7 @@ export async function uploadPDF(accessToken: string, pdfsId: string, file: File)
     },
     media: {
       mimeType: 'application/pdf',
-      body: Buffer.from(buffer) as unknown as string,
+      body: Readable.from(buffer),
     },
     fields: 'id',
   })
