@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Documento } from '@/types'
 import { FileText, Pencil, Zap } from 'lucide-react'
 import Link from 'next/link'
@@ -16,14 +16,18 @@ interface Props {
   documento: Documento
   onEditar: () => void
   onIndexadoOk: (documentoId: string, fragmentos: number) => void
+  onRegistrarIndexar?: (fn: () => void) => void
 }
 
-export default function DocumentoCard({ documento, onEditar, onIndexadoOk }: Props) {
+export default function DocumentoCard({ documento, onEditar, onIndexadoOk, onRegistrarIndexar }: Props) {
   const [estado, setEstado] = useState(documento.estado)
   const [progreso, setProgreso] = useState<{ msg: string; paso: number; total: number } | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const estadoConfig = ESTADO_CONFIG[estado]
+
+  // Expone la función iniciarIndexacion al padre para "Indexar todos"
+  useEffect(() => { onRegistrarIndexar?.(iniciarIndexacion) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function iniciarIndexacion() {
     setEstado('indexando')

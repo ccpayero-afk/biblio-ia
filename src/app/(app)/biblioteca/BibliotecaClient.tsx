@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Documento } from '@/types'
-import { Upload, RefreshCw, Zap } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 
@@ -12,15 +12,25 @@ export default function BibliotecaClient() {
   const [subiendo, setSubiendo] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [editando, setEditando] = useState<Documento | null>(null)
+  const [errorCarga, setErrorCarga] = useState<string | null>(null)
+  const [errorSubida, setErrorSubida] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const indexarRefs = useRef<Record<string, () => void>>({})
 
   const cargarDocumentos = useCallback(async () => {
     setCargando(true)
+    setErrorCarga(null)
     try {
       const res = await fetch('/api/drive/pdfs')
-      setDocumentos(await res.json())
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        setDocumentos(data)
+      } else {
+        setErrorCarga(data?.error ?? 'Error al cargar documentos')
+        setDocumentos([])
+      }
     } catch (e) {
-      console.error(e)
+      setErrorCarga(e instanceof Error ? e.message : 'Error de red')
     } finally {
       setCargando(false)
     }
@@ -29,14 +39,28 @@ export default function BibliotecaClient() {
   useEffect(() => { cargarDocumentos() }, [cargarDocumentos])
 
   async function subirArchivos(files: FileList | File[]) {
-    const pdfs = Array.from(files).filter((f) => f.type === 'application/pdf')
-    if (!pdfs.length) return
+    // Aceptar PDFs por MIME type O por extensión (en Windows el MIME puede venir vacío)
+    const pdfs = Array.from(files).filter(
+      (f) => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+    )
+    if (!pdfs.length) {
+      setErrorSubida('No se detectaron archivos PDF. Seleccioná archivos con extensión .pdf')
+      return
+    }
     setSubiendo(true)
+    setErrorSubida(null)
     const fd = new FormData()
     pdfs.forEach((f) => fd.append('files', f))
     try {
-      await fetch('/api/drive/pdfs', { method: 'POST', body: fd })
-      await cargarDocumentos()
+      const res = await fetch('/api/drive/pdfs', { method: 'POST', body: fd })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        setErrorSubida(err?.error ?? `Error al subir (${res.status})`)
+      } else {
+        await cargarDocumentos()
+      }
+    } catch (e) {
+      setErrorSubida(e instanceof Error ? e.message : 'Error de red al subir')
     } finally {
       setSubiendo(false)
     }
@@ -46,6 +70,10 @@ export default function BibliotecaClient() {
     setDocumentos((prev) =>
       prev.map((d) => d.id === documentoId ? { ...d, estado: 'indexado', fragmentos } : d)
     )
+  }
+
+  function registrarIndexar(id: string, fn: () => void) {
+    indexarRefs.current[id] = fn
   }
 
   async function guardarMetadatos(id: string, datos: Partial<Documento>) {
@@ -89,10 +117,7 @@ export default function BibliotecaClient() {
               onClick={() => {
                 documentos
                   .filter((d) => d.estado === 'sin_indexar')
-                  .forEach((d) => {
-                    const card = document.getElementById(`indexar-${d.id}`)
-                    card?.click()
-                  })
+                  .forEach((d) => indexarRefs.current[d.id]?.())
               }}
               className="flex items-center gap-2 rounded-lg border border-blue-700 bg-blue-950/40 px-3 py-2 text-sm text-blue-400 hover:bg-blue-950"
             >
@@ -118,6 +143,21 @@ export default function BibliotecaClient() {
           />
         </div>
       </div>
+
+      {/* Mensajes de error */}
+      {errorCarga && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-900/50 bg-red-950/20 px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>Error al cargar documentos: {errorCarga}</span>
+        </div>
+      )}
+      {errorSubida && (
+        <div className="flex items-center gap-2 rounded-lg border border-red-900/50 bg-red-950/20 px-4 py-3 text-sm text-red-400">
+          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <span>{errorSubida}</span>
+          <button onClick={() => setErrorSubida(null)} className="ml-auto text-xs underline">Cerrar</button>
+        </div>
+      )}
 
       {dragging && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 backdrop-blur-sm">
@@ -157,6 +197,7 @@ export default function BibliotecaClient() {
               documento={doc}
               onEditar={() => setEditando(doc)}
               onIndexadoOk={onDocumentIndexado}
+              onRegistrarIndexar={(fn) => registrarIndexar(doc.id, fn)}
             />
           ))}
         </div>
