@@ -3,32 +3,6 @@ import { GEMINI_MODEL_EMBEDDING, getGeminiClient } from './gemini'
 import { initUserDrive, writeJSON, findFile, readJSON, updateDocumentMetadata } from './drive'
 import { Fragmento } from '@/types'
 
-// pdfjs-dist (usado internamente por pdf-parse) requiere DOMMatrix.
-// Node.js 18 (Vercel) no la tiene — la 19+ sí. Stub mínimo para text extraction.
-if (typeof globalThis.DOMMatrix === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(globalThis as any).DOMMatrix = class DOMMatrix {
-    m11=1;m12=0;m13=0;m14=0;m21=0;m22=1;m23=0;m24=0
-    m31=0;m32=0;m33=1;m34=0;m41=0;m42=0;m43=0;m44=1
-    a=1;b=0;c=0;d=1;e=0;f=0;is2D=true;isIdentity=true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    multiply(_m?: any) { return this }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    translate(_tx?: number, _ty?: number, _tz?: number) { return this }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    scale(_sx?: number, _sy?: number) { return this }
-    rotate() { return this }
-    inverse() { return this }
-    invertSelf() { return this }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    transformPoint(p?: any) { return { x: p?.x ?? 0, y: p?.y ?? 0, z: p?.z ?? 0, w: p?.w ?? 1 } }
-    toFloat32Array() { return new Float32Array(16) }
-    toFloat64Array() { return new Float64Array(16) }
-    toString() { return 'matrix(1, 0, 0, 1, 0, 0)' }
-    toJSON() { return {} }
-  }
-}
-
 // Descarga el PDF desde Drive como Buffer
 export async function downloadPDFBuffer(accessToken: string, fileId: string): Promise<Buffer> {
   const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`
@@ -39,16 +13,15 @@ export async function downloadPDFBuffer(accessToken: string, fileId: string): Pr
   return Buffer.from(await res.arrayBuffer())
 }
 
-// Extrae texto por página usando pdf-parse v2
+// Extrae texto por página usando unpdf (muPDF.js WASM — sin workers ni binarios nativos)
 async function extractPageTexts(buffer: Buffer): Promise<{ texto: string; pagina: number }[]> {
-  const { PDFParse } = await import('pdf-parse')
-  const parser = new PDFParse({ data: new Uint8Array(buffer) })
-  const result = await parser.getText()
-  await parser.destroy()
+  const { extractText } = await import('unpdf')
+  const { text } = await extractText(new Uint8Array(buffer), { mergePages: false })
+  const pages = Array.isArray(text) ? text : [text]
 
-  return result.pages
-    .filter((p) => p.text.trim().length > 20)
-    .map((p) => ({ texto: p.text.trim(), pagina: p.num }))
+  return pages
+    .map((t, i) => ({ texto: t.trim(), pagina: i + 1 }))
+    .filter((p) => p.texto.length > 20)
 }
 
 // Divide texto en fragmentos de ~400 palabras con overlap de 50
