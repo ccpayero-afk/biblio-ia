@@ -71,7 +71,7 @@ export async function listPDFs(accessToken: string, pdfsId: string): Promise<Doc
       id: f.id!,
       nombre: f.name ?? 'Sin nombre',
       autor: props.autor ?? '',
-      año: props.año ?? '',
+      año: props.anio ?? '',
       editorial: props.editorial,
       abstract: props.abstract,
       etiquetas: props.etiquetas ? JSON.parse(props.etiquetas) : [],
@@ -94,7 +94,7 @@ export async function uploadPDF(accessToken: string, pdfsId: string, file: File)
       parents: [pdfsId],
       properties: {
         autor: '',
-        año: '',
+        anio: '',
         estado: 'sin_indexar',
         fragmentos: '0',
         fichaGenerada: 'false',
@@ -122,7 +122,7 @@ export async function updateDocumentMetadata(
   const drive = getDriveClient(accessToken)
   const properties: Record<string, string> = {}
   if (metadata.autor !== undefined) properties.autor = metadata.autor
-  if (metadata.año !== undefined) properties.año = metadata.año
+  if (metadata.año !== undefined) properties.anio = metadata.año
   if (metadata.editorial !== undefined) properties.editorial = metadata.editorial
   if (metadata.abstract !== undefined) properties.abstract = metadata.abstract
   if (metadata.etiquetas !== undefined) properties.etiquetas = JSON.stringify(metadata.etiquetas)
