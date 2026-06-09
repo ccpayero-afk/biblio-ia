@@ -91,6 +91,31 @@ export async function saveApiKey(accessToken: string, apiKey: string): Promise<v
   }
 }
 
+// Parsea errores de Gemini y devuelve un mensaje amigable, o null si no es un error de rate limit.
+export function geminiRateLimitMessage(e: unknown): string | null {
+  const msg = String(e)
+  if (!msg.includes('429') && !msg.includes('Too Many Requests')) return null
+
+  // Extraer retryDelay del JSON de la respuesta: "retryDelay":"57s"
+  const jsonMatch = msg.match(/"retryDelay"\s*:\s*"(\d+)s"/)
+  // Fallback: buscar "retry in Xs" en el texto plano
+  const textMatch = msg.match(/retry in (\d+(?:\.\d+)?)s/i)
+
+  const rawSeg = jsonMatch?.[1] ?? textMatch?.[1] ?? null
+  const segundos = rawSeg ? Math.round(parseFloat(rawSeg)) : null
+
+  let espera: string
+  if (!segundos || segundos > 3600) {
+    espera = 'Esperá unos minutos y reintentá.'
+  } else if (segundos >= 60) {
+    espera = `Reintentá en ${Math.ceil(segundos / 60)} minuto${Math.ceil(segundos / 60) > 1 ? 's' : ''}.`
+  } else {
+    espera = `Reintentá en ${segundos} segundos.`
+  }
+
+  return `Gemini está limitando las solicitudes (rate limit). ${espera} Si el problema persiste, revisá tu cuota en Google AI Studio.`
+}
+
 export async function hasApiKey(accessToken: string): Promise<boolean> {
   try {
     const estructura = await initUserDrive(accessToken)
