@@ -40,7 +40,7 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
   const [inputPagina, setInputPagina] = useState('1')
   const [anchoContenedor, setAnchoContenedor] = useState(0)
   const [procesandoHL, setProcesandoHL] = useState(false)
-  const [hlResultado, setHlResultado] = useState<{ citasCreadas: number; notasCreadas: number; fichaCreada: boolean; anotaciones: number; mensaje?: string } | null>(null)
+  const [hlResultado, setHlResultado] = useState<{ citasCreadas: number; notasCreadas: number; fichaCreada: boolean; anotaciones: number; mensaje?: string; error?: string } | null>(null)
   const contenedorRef = useRef<HTMLDivElement>(null)
 
   // Ajustar zoom según ancho disponible
@@ -209,6 +209,14 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
             >
               {procesandoHL ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               {procesandoHL ? 'Procesando…' : 'Highlights PDF'}
+            </button>
+          ) : hlResultado.error ? (
+            <button
+              onClick={() => setHlResultado(null)}
+              title={hlResultado.error}
+              className="hidden max-w-[200px] items-center gap-1 truncate rounded-lg border border-red-900 px-2 py-1 text-xs text-red-400 hover:border-red-700 sm:flex"
+            >
+              Error (clic para reintentar)
             </button>
           ) : (
             <span

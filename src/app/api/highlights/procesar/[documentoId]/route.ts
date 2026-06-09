@@ -222,6 +222,12 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura exacta:
       fichaCreada,
     })
   } catch (e) {
-    return NextResponse.json({ error: String(e) }, { status: 500 })
+    const msg = String(e)
+    if (msg.includes('429') || msg.includes('quota') || msg.includes('Too Many Requests')) {
+      return NextResponse.json({
+        error: 'Cuota de Gemini agotada. Si usás el plan gratuito, el límite diario se renueva a la medianoche. Podés configurar tu propia API key en Configuración.',
+      }, { status: 429 })
+    }
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
