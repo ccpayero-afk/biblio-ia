@@ -44,9 +44,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
     return NextResponse.json(ficha)
   } catch (e) {
     const msg = String(e)
-    if (msg.includes('429') || msg.includes('quota') || msg.includes('Too Many Requests')) {
+    if (msg.includes('429') || msg.includes('Too Many Requests')) {
+      const retryMatch = msg.match(/retry[^"]*?(\d+)[s"]/)
+      const segundos = retryMatch ? retryMatch[1] : null
+      const espera = segundos ? ` Reintentá en ${segundos} segundos.` : ' Esperá unos segundos y reintentá.'
       return NextResponse.json({
-        error: 'Cuota de Gemini agotada. Si usás el plan gratuito, el límite diario se renueva a la medianoche. Podés configurar tu propia API key en Configuración.',
+        error: `Gemini está limitando las solicitudes (rate limit).${espera} Si el problema persiste, revisá tu cuota en Google AI Studio.`,
       }, { status: 429 })
     }
     return NextResponse.json({ error: msg }, { status: 500 })

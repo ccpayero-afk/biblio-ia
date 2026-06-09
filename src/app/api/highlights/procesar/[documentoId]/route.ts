@@ -39,8 +39,8 @@ export async function POST(
       })
     }
 
-    // Limitar a 50 anotaciones para el prompt de Gemini
-    const sample = anotaciones.slice(0, 50)
+    // Limitar a 25 anotaciones para no superar límites de tokens por minuto
+    const sample = anotaciones.slice(0, 25)
     const listaHighlights = sample
       .map((a, i) => `[${i + 1}] (p.${a.pagina}) "${a.texto}"`)
       .join('\n')
@@ -223,9 +223,12 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura exacta:
     })
   } catch (e) {
     const msg = String(e)
-    if (msg.includes('429') || msg.includes('quota') || msg.includes('Too Many Requests')) {
+    if (msg.includes('429') || msg.includes('Too Many Requests')) {
+      const retryMatch = msg.match(/retry[^"]*?(\d+)[s"]/)
+      const segundos = retryMatch ? retryMatch[1] : null
+      const espera = segundos ? ` Reintentá en ${segundos} segundos.` : ' Esperá unos segundos y reintentá.'
       return NextResponse.json({
-        error: 'Cuota de Gemini agotada. Si usás el plan gratuito, el límite diario se renueva a la medianoche. Podés configurar tu propia API key en Configuración.',
+        error: `Gemini está limitando las solicitudes (rate limit).${espera} Si el problema persiste, revisá tu cuota en Google AI Studio.`,
       }, { status: 429 })
     }
     return NextResponse.json({ error: msg }, { status: 500 })
