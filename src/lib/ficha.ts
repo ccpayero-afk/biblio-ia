@@ -45,14 +45,25 @@ Respondé ÚNICAMENTE con un objeto JSON puro (sin markdown, sin \`\`\`json) con
   const result = await model.generateContent(prompt)
   let text = result.response.text().trim()
 
-  // Handle possible markdown wrapper
-  if (text.includes('```')) {
-    const start = text.indexOf('{')
-    const end = text.lastIndexOf('}')
-    if (start !== -1 && end !== -1) text = text.slice(start, end + 1)
-  }
+  // Extract the JSON object regardless of markdown wrappers
+  const start = text.indexOf('{')
+  const end = text.lastIndexOf('}')
+  if (start !== -1 && end !== -1) text = text.slice(start, end + 1)
 
-  const parsed = JSON.parse(text)
+  let parsed: {
+    tesisCentral?: string
+    argumentoPrincipal?: string
+    conceptosClave?: { concepto: string; definicion: string }[]
+    posicionDebate?: string
+    citasDestacadas?: { texto: string; pagina: number }[]
+    limitaciones?: string
+    relevancia?: string
+  }
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error('Gemini no devolvió JSON válido. Intentá de nuevo o verificá que el documento tiene texto indexado.')
+  }
 
   return {
     documentoId,

@@ -8,6 +8,7 @@ interface DocConFicha {
   doc: Documento
   ficha: FichaLectura | null
   cargando: boolean
+  error?: string | null
 }
 
 function esFichaValida(f: unknown): f is FichaLectura {
@@ -48,7 +49,7 @@ export default function FichasClient() {
 
   async function generarFicha(item: DocConFicha) {
     setItems((prev) =>
-      prev.map((i) => (i.doc.id === item.doc.id ? { ...i, cargando: true } : i))
+      prev.map((i) => (i.doc.id === item.doc.id ? { ...i, cargando: true, error: null } : i))
     )
     try {
       const res = await fetch(`/api/fichas/${item.doc.id}`, {
@@ -61,14 +62,20 @@ export default function FichasClient() {
         }),
       })
       const data = await res.json()
+      if (!res.ok || data.error) {
+        setItems((prev) =>
+          prev.map((i) => (i.doc.id === item.doc.id ? { ...i, cargando: false, error: data.error || 'Error al generar la ficha' } : i))
+        )
+        return
+      }
       const ficha = esFichaValida(data) ? data : null
       setItems((prev) =>
-        prev.map((i) => (i.doc.id === item.doc.id ? { ...i, ficha, cargando: false } : i))
+        prev.map((i) => (i.doc.id === item.doc.id ? { ...i, ficha, cargando: false, error: null } : i))
       )
       if (ficha) setExpandido(item.doc.id)
-    } catch {
+    } catch (e) {
       setItems((prev) =>
-        prev.map((i) => (i.doc.id === item.doc.id ? { ...i, cargando: false } : i))
+        prev.map((i) => (i.doc.id === item.doc.id ? { ...i, cargando: false, error: String(e) } : i))
       )
     }
   }
@@ -118,6 +125,11 @@ export default function FichasClient() {
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
               {item.cargando && <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-500" />}
+              {item.error && !item.cargando && (
+                <span className="max-w-[200px] truncate rounded-full bg-red-900/40 px-2 py-0.5 text-xs text-red-400" title={item.error}>
+                  Error: {item.error}
+                </span>
+              )}
               {!item.ficha && !item.cargando && (
                 <button
                   onClick={(e) => { e.stopPropagation(); generarFicha(item) }}

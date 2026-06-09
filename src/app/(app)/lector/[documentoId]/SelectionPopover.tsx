@@ -22,8 +22,11 @@ export default function SelectionPopover({ rect, onHighlight, onAnotar, onCitar,
     return () => document.removeEventListener('mousedown', handleClick)
   }, [onCerrar])
 
-  const top = rect.top + window.scrollY - 48
-  const left = rect.left + rect.width / 2
+  const top = Math.max(8, rect.top - 52)
+  const left = Math.max(90, Math.min(
+    (typeof window !== 'undefined' ? window.innerWidth : 800) - 90,
+    rect.left + rect.width / 2
+  ))
 
   return (
     <div
