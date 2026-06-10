@@ -237,3 +237,41 @@ export async function extractAnnotations(pdfBuffer: ArrayBuffer): Promise<Annota
 
   return annotations
 }
+
+// Returns the page number for every highlight/underline annotation found,
+// regardless of whether the text content is available. Used as a fallback
+// to detect that highlights exist even when we can't extract their text.
+export async function extractHighlightPageNumbers(pdfBuffer: ArrayBuffer): Promise<number[]> {
+  let pdfDoc: PDFDocument
+  try {
+    pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true })
+  } catch {
+    return []
+  }
+
+  const pages = pdfDoc.getPages()
+  const pageNums: number[] = []
+
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i]
+    const annotsRaw = page.node.get(PDFName.of('Annots'))
+    if (!annotsRaw) continue
+    const annotsArray = resolveArray(pdfDoc, annotsRaw)
+    if (!annotsArray) continue
+
+    for (let j = 0; j < annotsArray.size(); j++) {
+      try {
+        const annot = resolveDict(pdfDoc, annotsArray.get(j))
+        if (!annot) continue
+        const subtypeRaw = annot.get(PDFName.of('Subtype'))
+        if (!subtypeRaw) continue
+        const subtypeStr = subtypeRaw.toString().replace('/', '')
+        if (TIPOS_SOPORTADOS.has(subtypeStr)) {
+          pageNums.push(i + 1)
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  return pageNums
+}

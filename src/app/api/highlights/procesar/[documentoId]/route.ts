@@ -3,7 +3,7 @@ import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, listPDFs, readJSON, writeJSON, findFile } from '@/lib/drive'
 import { getGeminiClient, GEMINI_MODEL_GENERATION, geminiRateLimitMessage } from '@/lib/gemini'
 import { downloadPDFBuffer } from '@/lib/indexer'
-import { extractAnnotations } from '@/lib/pdf-annotations'
+import { extractAnnotations, extractHighlightPageNumbers } from '@/lib/pdf-annotations'
 import { crearCita } from '@/lib/citas'
 import { saveFicha } from '@/lib/ficha'
 import { Cita, Nota, FichaLectura } from '@/types'
@@ -26,37 +26,92 @@ export async function POST(
 
     // Descargar PDF y extraer anotaciones
     const buffer = await downloadPDFBuffer(accessToken, documentoId)
-    const anotaciones = await extractAnnotations(buffer.buffer as ArrayBuffer)
+    let anotaciones = await extractAnnotations(buffer.buffer as ArrayBuffer)
 
+    // Fallback: si no se pudo extraer texto (pdfjs no disponible en el entorno),
+    // usar el texto completo de las páginas con highlights como contexto para Gemini
     if (anotaciones.length === 0) {
-      return NextResponse.json({
-        ok: true,
-        anotaciones: 0,
-        mensaje: 'No se encontraron highlights con texto en este PDF. Asegurate de que los highlights fueron hechos con Adobe, Zotero o PDF Expert (macOS Preview no exporta el texto de los highlights).',
-        citasCreadas: 0,
-        notasCreadas: 0,
-        fichaCreada: false,
-      })
+      const paginasConHL = await extractHighlightPageNumbers(buffer.buffer as ArrayBuffer)
+
+      if (paginasConHL.length === 0) {
+        return NextResponse.json({
+          ok: true,
+          anotaciones: 0,
+          mensaje: 'Este PDF no tiene anotaciones de highlight. Abrí el PDF en Foxit, Adobe o cualquier lector y resaltá texto antes de procesar.',
+          citasCreadas: 0,
+          notasCreadas: 0,
+          fichaCreada: false,
+        })
+      }
+
+      // Extraer texto por página usando unpdf (confiable en Vercel)
+      const { extractText } = await import('unpdf')
+      const { text: textoPorPagina } = await extractText(
+        new Uint8Array(buffer),
+        { mergePages: false }
+      )
+      const paginas = Array.isArray(textoPorPagina) ? textoPorPagina : [textoPorPagina]
+
+      // Agrupar highlights por página y tomar el texto de cada página
+      const paginasUnicas = [...new Set(paginasConHL)].sort((a, b) => a - b)
+      anotaciones = paginasUnicas
+        .map(pagina => {
+          const texto = paginas[pagina - 1]?.trim() ?? ''
+          const countHL = paginasConHL.filter(p => p === pagina).length
+          return {
+            texto: texto.slice(0, 800),
+            pagina,
+            color: 'amarillo' as const,
+            rect: [] as number[],
+            tipo: 'Highlight' as const,
+            _esContextoPagina: true,
+            _cantidadHighlights: countHL,
+          }
+        })
+        .filter(a => a.texto.length > 30)
+
+      if (anotaciones.length === 0) {
+        return NextResponse.json({
+          ok: true,
+          anotaciones: 0,
+          mensaje: 'Se detectaron highlights pero no se pudo extraer el texto del PDF (puede ser un PDF escaneado sin capa de texto).',
+          citasCreadas: 0,
+          notasCreadas: 0,
+          fichaCreada: false,
+        })
+      }
     }
 
-    // Limitar a 25 anotaciones para no superar límites de tokens por minuto
+    // Limitar a 25 entradas para no superar límites de tokens por minuto
     const sample = anotaciones.slice(0, 25)
+    const esContextoPagina = (sample[0] as { _esContextoPagina?: boolean })?._esContextoPagina ?? false
     const listaHighlights = sample
-      .map((a, i) => `[${i + 1}] (p.${a.pagina}) "${a.texto}"`)
+      .map((a, i) => {
+        const cantHL = (a as { _cantidadHighlights?: number })._cantidadHighlights
+        const label = esContextoPagina
+          ? `[${i + 1}] (p.${a.pagina}, ${cantHL ?? '?'} highlights) "${a.texto}"`
+          : `[${i + 1}] (p.${a.pagina}) "${a.texto}"`
+        return label
+      })
       .join('\n')
 
     const titulo = doc.nombre.replace(/\.pdf$/i, '')
+    const contextoInstruccion = esContextoPagina
+      ? `Te doy el texto completo de páginas que contienen highlights (el lector resaltó texto en esas páginas, pero el formato del PDF no almacenó el texto exacto resaltado).
+Analizá el contenido de esas páginas para identificar los fragmentos más relevantes para investigación.`
+      : `Te doy fragmentos resaltados de un texto académico con sus páginas.`
+
     const prompt = `Sos un asistente de investigación académica especializado en ciencias sociales latinoamericanas.
-Te doy fragmentos resaltados de un texto académico con sus páginas.
+${contextoInstruccion}
 
 Tu tarea:
 
-1. CITAS: Para cada fragmento, decidir si es una cita directa relevante para investigación (sí/no).
-   Si sí: formatearla como cita académica lista para usar en un artículo.
+1. CITAS: Para cada ${esContextoPagina ? 'página' : 'fragmento'}, identificar 1-2 citas directas relevantes para investigación.
+   Formatearlas como citas académicas listas para usar en un artículo.
 
-2. NOTA DE CONTEXTO: Para cada fragmento, escribir 1-2 oraciones sobre por qué es teóricamente relevante.
+2. NOTA DE CONTEXTO: Para cada cita identificada, escribir 1-2 oraciones sobre por qué es teóricamente relevante.
 
-3. FICHA SINTÉTICA: A partir del conjunto de highlights, inferir:
+3. FICHA SINTÉTICA: A partir del conjunto de ${esContextoPagina ? 'páginas con highlights' : 'highlights'}, inferir:
    - tesis_central del texto
    - conceptos_clave (array de strings)
    - tensiones_detectadas (string)
@@ -64,7 +119,7 @@ Tu tarea:
 
 Documento: "${titulo}" — ${doc.autor || 'Autor desconocido'} (${doc.año || 's.f.'})
 
-Fragmentos resaltados:
+${esContextoPagina ? 'Páginas con highlights:' : 'Fragmentos resaltados:'}
 ${listaHighlights}
 
 Respondé ÚNICAMENTE con JSON válido con esta estructura exacta:
