@@ -1,6 +1,9 @@
 import { PDFDocument, PDFDict, PDFName, PDFArray, PDFNumber, PDFString, PDFHexString, PDFRef } from 'pdf-lib'
 import { join } from 'path'
 
+// Needed to call Node.js require.resolve when pdfjs-dist is a serverExternalPackage
+declare const require: { resolve: (id: string) => string }
+
 export interface AnnotationExtraida {
   texto: string
   pagina: number
@@ -82,7 +85,13 @@ async function buildPageTextMap(buffer: ArrayBuffer): Promise<Map<number, PdfjsT
     const pdfjsLib = await import('pdfjs-dist')
 
     if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      const workerPath = join(process.cwd(), 'node_modules', 'pdfjs-dist', 'build', 'pdf.worker.mjs')
+      let workerPath: string
+      try {
+        // require.resolve works when pdfjs-dist is in serverExternalPackages (not bundled)
+        workerPath = require.resolve('pdfjs-dist/build/pdf.worker.mjs')
+      } catch {
+        workerPath = join(process.cwd(), 'node_modules', 'pdfjs-dist', 'build', 'pdf.worker.mjs')
+      }
       pdfjsLib.GlobalWorkerOptions.workerSrc = `file://${workerPath}`
     }
 
@@ -186,10 +195,11 @@ export async function extractAnnotations(pdfBuffer: ArrayBuffer): Promise<Annota
         if (!TIPOS_SOPORTADOS.has(subtypeStr)) continue
         const tipo = subtypeStr as AnnotationExtraida['tipo']
 
-        // Try all possible text fields in order of reliability
+        // /Contents = texto del highlight (Adobe, Zotero, PDF Expert, Foxit con notas)
+        // /RC = RichContent XML (algunos viewers)
+        // /T = AUTOR de la anotación (ej: "Cristian") — NO usar como texto
         let texto = decodeString(annot.get(PDFName.of('Contents'))).trim()
         if (!texto) texto = decodeRichContent(annot.get(PDFName.of('RC')))
-        if (!texto) texto = decodeString(annot.get(PDFName.of('T'))).trim()
 
         // Last resort: use QuadPoints + pdfjs text extraction
         if (!texto) {
