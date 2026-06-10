@@ -408,29 +408,11 @@ export default function GrafoClient() {
               nodeLabel="label"
               nodeColor={(n: Record<string, unknown>) => (n.color as string) ?? '#888'}
               nodeVal={(n: Record<string, unknown>) => (n.val as number) ?? 1}
+              nodeRelSize={5}
               linkColor={(l: Record<string, unknown>) => (l.color as string) ?? '#374151'}
               linkWidth={(l: Record<string, unknown>) => Math.log(((l.value as number) || 1) + 1) + 0.5}
               onNodeClick={(n: Record<string, unknown>) => {
                 setNodoSel({ id: n.id as string, tipo: n.tipo as string })
-              }}
-              nodeCanvasObject={(node: Record<string, unknown>, ctx: CanvasRenderingContext2D, globalScale: number) => {
-                try {
-                  const label = (node.label as string) ?? ''
-                  const x = node.x as number
-                  const y = node.y as number
-                  const r = Math.sqrt(((node.val as number) || 1) * 3) + 3
-                  ctx.beginPath()
-                  ctx.arc(x, y, r, 0, 2 * Math.PI)
-                  ctx.fillStyle = (node.color as string) ?? '#888'
-                  ctx.fill()
-                  if (globalScale >= 1.2) {
-                    const fontSize = 10 / globalScale
-                    ctx.font = `${fontSize}px sans-serif`
-                    ctx.fillStyle = '#d1d5db'
-                    ctx.textAlign = 'center'
-                    ctx.fillText(label.slice(0, 24), x, y + r + fontSize)
-                  }
-                } catch { /* skip */ }
               }}
             />
           </ErrorBoundary>
