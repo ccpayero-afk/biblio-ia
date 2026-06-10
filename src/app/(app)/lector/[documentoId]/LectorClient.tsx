@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/TextLayer.css'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
@@ -41,6 +41,7 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
   const [anchoContenedor, setAnchoContenedor] = useState(0)
   const [procesandoHL, setProcesandoHL] = useState(false)
   const [hlResultado, setHlResultado] = useState<{ citasCreadas: number; notasCreadas: number; fichaCreada: boolean; anotaciones: number; mensaje?: string; error?: string } | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const contenedorRef = useRef<HTMLDivElement>(null)
 
   // Ajustar zoom según ancho disponible
@@ -68,18 +69,55 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
       .catch(() => {})
   }, [documento.id])
 
-  const handleMouseUp = useCallback(() => {
-    const sel = window.getSelection()
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-      setSeleccion(null)
-      return
+  // Document-level mouseup — bypasses any stopPropagation in react-pdf's text layer
+  useEffect(() => {
+    function handleMouseUp(e: MouseEvent) {
+      const target = e.target as Node
+      // Ignore if mouseup landed on the selection popover itself
+      if (!contenedorRef.current?.contains(target)) return
+      const sel = window.getSelection()
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+        setSeleccion(null)
+        return
+      }
+      const texto = sel.toString().trim()
+      if (texto.length < 5) return
+      const range = sel.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      setSeleccion({ texto, pagina: paginaActual, rect })
     }
-    const texto = sel.toString().trim()
-    if (texto.length < 5) return
-    const range = sel.getRangeAt(0)
-    const rect = range.getBoundingClientRect()
-    setSeleccion({ texto, pagina: paginaActual, rect })
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => document.removeEventListener('mouseup', handleMouseUp)
   }, [paginaActual])
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2500)
+  }
+
+  const COLOR_BG: Record<string, string> = {
+    amarillo: '#fef08a',
+    azul: '#93c5fd',
+    rojo: '#fca5a5',
+  }
+
+  const customTextRenderer = useMemo(() => {
+    const pageHighlights = highlights.filter(h => h.pagina === paginaActual)
+    if (!pageHighlights.length) return undefined
+    return ({ str }: { str: string; itemIndex: number; pageIndex: number; pageNumber: number }) => {
+      const trimmed = str.trim()
+      if (!trimmed) return str
+      for (const h of pageHighlights) {
+        if (h.texto.toLowerCase().includes(trimmed.toLowerCase()) ||
+            (trimmed.length > 5 && trimmed.toLowerCase().split(/\s+/).every(w => h.texto.toLowerCase().includes(w)))) {
+          const bg = COLOR_BG[h.color] ?? '#fef08a'
+          return `<mark style="background:${bg};border-radius:2px;padding:0 1px;">${str}</mark>`
+        }
+      }
+      return str
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlights.length, paginaActual])
 
   async function procesarHighlights() {
     setProcesandoHL(true)
@@ -116,6 +154,7 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
     }
     setHighlights((prev) => [...prev, h])
     cerrarSeleccion()
+    showToast(nota ? 'Anotación guardada ✓' : 'Texto resaltado ✓')
     await fetch(`/api/highlights/${documento.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -246,7 +285,6 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
         <div
           ref={contenedorRef}
           className="flex-1 overflow-y-auto bg-neutral-800 flex justify-center py-4 md:py-6"
-          onMouseUp={handleMouseUp}
         >
           <Document
             file={pdfUrl}
@@ -260,6 +298,7 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
               width={anchoContenedor > 0 ? Math.min(anchoContenedor - 32, 900) : undefined}
               renderTextLayer
               renderAnnotationLayer={false}
+              customTextRenderer={customTextRenderer}
               className="shadow-2xl"
             />
           </Document>
@@ -293,11 +332,18 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
         </>
       )}
 
+      {/* Toast feedback */}
+      {toast && (
+        <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-neutral-800 px-4 py-2 text-sm text-white shadow-xl border border-neutral-700">
+          {toast}
+        </div>
+      )}
+
       {seleccion && (
         <SelectionPopover
           rect={seleccion.rect}
           onHighlight={() => guardarHighlight('amarillo')}
-          onAnotar={() => guardarHighlight('azul', 'nota')}
+          onAnotar={(nota) => guardarHighlight('azul', nota)}
           onCitar={() => { setModalCita(seleccion); cerrarSeleccion() }}
           onCerrar={cerrarSeleccion}
         />
