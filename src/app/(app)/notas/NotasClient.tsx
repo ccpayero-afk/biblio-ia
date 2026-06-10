@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Nota, TipoNota, VinculoZettel, VinculoSugerido } from '@/types'
 import {
   Plus, Search, X, Link2, Loader2, ChevronRight,
-  AlertTriangle, Sparkles, Check, ExternalLink,
+  AlertTriangle, Sparkles, Check, ExternalLink, RefreshCw,
 } from 'lucide-react'
 import { generarIdZettel } from '@/lib/zettel-id'
 
@@ -448,6 +448,11 @@ export default function NotasClient() {
   const [filtroEtiqueta, setFiltroEtiqueta] = useState('')
   const [notaSel, setNotaSel] = useState<Nota | null>(null)
   const [editando, setEditando] = useState<Partial<Nota> | null>(null)
+  const [mostrarConvLote, setMostrarConvLote] = useState(false)
+  const [tipoConvLote, setTipoConvLote] = useState<TipoNota>('permanente')
+  const [convirtiendo, setConvirtiendo] = useState(false)
+  const [progresoConv, setProgresoConv] = useState<{ actual: number; total: number } | null>(null)
+  const convRef = useRef<HTMLDivElement>(null)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -489,6 +494,24 @@ export default function NotasClient() {
     await cargar()
   }
 
+  async function convertirLote(notasAConvertir: Nota[], tipo: TipoNota) {
+    if (notasAConvertir.length === 0) return
+    setConvirtiendo(true)
+    setMostrarConvLote(false)
+    setProgresoConv({ actual: 0, total: notasAConvertir.length })
+    for (let i = 0; i < notasAConvertir.length; i++) {
+      setProgresoConv({ actual: i + 1, total: notasAConvertir.length })
+      await fetch(`/api/notas/${notasAConvertir[i].id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo }),
+      })
+    }
+    setProgresoConv(null)
+    setConvirtiendo(false)
+    await cargar()
+  }
+
   const etiquetasUnicas = [...new Set(notas.flatMap((n) => n.etiquetas))].sort()
   const conteosPorTipo = notas.reduce<Record<string, number>>((acc, n) => {
     acc[n.tipo] = (acc[n.tipo] ?? 0) + 1
@@ -523,14 +546,19 @@ export default function NotasClient() {
           <span className="text-xs text-neutral-600">{notas.length}</span>
         </button>
         {TIPOS_ZETTEL.map((t) => (
-          <button
-            key={t.tipo}
-            onClick={() => setFiltroTipo(filtroTipo === t.tipo ? '' : t.tipo)}
-            className={`mb-0.5 flex items-center justify-between rounded px-2 py-1.5 text-sm ${filtroTipo === t.tipo ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
-          >
-            <span>{t.label}</span>
-            <span className="text-xs text-neutral-600">{conteosPorTipo[t.tipo] ?? 0}</span>
-          </button>
+          <div key={t.tipo} className="group relative">
+            <button
+              onClick={() => setFiltroTipo(filtroTipo === t.tipo ? '' : t.tipo)}
+              className={`mb-0.5 flex w-full items-center justify-between rounded px-2 py-1.5 text-sm ${filtroTipo === t.tipo ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+            >
+              <span>{t.label}</span>
+              <span className="text-xs text-neutral-600">{conteosPorTipo[t.tipo] ?? 0}</span>
+            </button>
+            <div className="pointer-events-none absolute left-full top-0 z-50 ml-2 hidden w-52 rounded-lg border border-neutral-700 bg-neutral-900 p-2.5 shadow-xl group-hover:block">
+              <p className={`mb-1 text-xs font-semibold ${t.color.split(' ')[0]}`}>{t.label}</p>
+              <p className="text-xs leading-relaxed text-neutral-400">{t.desc}</p>
+            </div>
+          </div>
         ))}
 
         {sinVinculos > 0 && (
@@ -567,6 +595,55 @@ export default function NotasClient() {
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900 py-1.5 pl-7 pr-3 text-xs text-neutral-300 placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
             />
           </div>
+          {/* Botón convertir lote */}
+          <div className="relative" ref={convRef}>
+            <button
+              onClick={() => setMostrarConvLote((v) => !v)}
+              disabled={convirtiendo || notasFiltradas.length === 0}
+              title="Convertir notas visibles en lote"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-neutral-600 hover:text-white disabled:opacity-40"
+            >
+              {convirtiendo
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <RefreshCw className="h-3.5 w-3.5" />}
+            </button>
+            {mostrarConvLote && (
+              <div className="absolute right-0 top-9 z-50 w-64 rounded-xl border border-neutral-700 bg-neutral-900 p-3 shadow-2xl">
+                <p className="mb-2 text-xs font-semibold text-neutral-300">
+                  Convertir {notasFiltradas.length} nota{notasFiltradas.length !== 1 ? 's' : ''} visibles a:
+                </p>
+                <div className="mb-3 space-y-1">
+                  {TIPOS_ZETTEL.map((t) => (
+                    <button
+                      key={t.tipo}
+                      onClick={() => setTipoConvLote(t.tipo)}
+                      className={`flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors ${tipoConvLote === t.tipo ? `${t.color} border` : 'text-neutral-400 hover:bg-neutral-800'}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium">{t.label}</p>
+                        <p className="text-xs text-neutral-500 leading-relaxed">{t.desc}</p>
+                      </div>
+                      {tipoConvLote === t.tipo && <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => convertirLote(notasFiltradas, tipoConvLote)}
+                    className="flex-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+                  >
+                    Convertir
+                  </button>
+                  <button
+                    onClick={() => setMostrarConvLote(false)}
+                    className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400 hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setEditando({})}
             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-500"
@@ -574,6 +651,13 @@ export default function NotasClient() {
             <Plus className="h-4 w-4 text-white" />
           </button>
         </div>
+
+        {/* Progreso de conversión en lote */}
+        {progresoConv && (
+          <div className="border-b border-neutral-800 bg-blue-950/20 px-4 py-2 text-xs text-blue-400">
+            Convirtiendo {progresoConv.actual}/{progresoConv.total}…
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           {cargando && (
