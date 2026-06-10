@@ -60,13 +60,26 @@ export async function initUserDrive(accessToken: string): Promise<DriveStructure
 
 export async function listPDFs(accessToken: string, pdfsId: string): Promise<Documento[]> {
   const drive = getDriveClient(accessToken)
-  const res = await drive.files.list({
-    q: `'${pdfsId}' in parents and mimeType='application/pdf' and trashed=false`,
-    fields: 'files(id, name, createdTime, size, description, properties)',
-    orderBy: 'createdTime desc',
-  })
 
-  return (res.data.files ?? []).map((f) => {
+  // Google Drive returns max 1000 per page — paginate to get all files
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allFiles: any[] = []
+  let pageToken: string | undefined = undefined
+
+  do {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res: any = await drive.files.list({
+      q: `'${pdfsId}' in parents and mimeType='application/pdf' and trashed=false`,
+      fields: 'nextPageToken, files(id, name, createdTime, size, description, properties)',
+      orderBy: 'createdTime desc',
+      pageSize: 1000,
+      pageToken,
+    })
+    allFiles.push(...(res.data.files ?? []))
+    pageToken = res.data.nextPageToken ?? undefined
+  } while (pageToken)
+
+  return allFiles.map((f) => {
     const props = f.properties ?? {}
     return {
       id: f.id!,
