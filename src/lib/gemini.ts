@@ -35,9 +35,8 @@ export async function decryptApiKey(encryptedB64: string): Promise<string> {
 }
 
 export async function validateGeminiKey(apiKey: string): Promise<{ valid: boolean; error?: string }> {
-  // Validación de formato básica
-  if (!apiKey.startsWith('AIza') || apiKey.length < 30) {
-    return { valid: false, error: 'La key debe empezar con "AIza" y tener al menos 30 caracteres' }
+  if (apiKey.length < 10) {
+    return { valid: false, error: 'La key es demasiado corta' }
   }
 
   try {
@@ -48,12 +47,17 @@ export async function validateGeminiKey(apiKey: string): Promise<{ valid: boolea
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
 
-    // 429 = quota excedida → la key es válida, solo está limitada
-    if (msg.includes('429') || msg.includes('quota') || msg.includes('Too Many Requests')) {
+    // 429 = rate limit → la key es válida, solo está limitada
+    if (msg.includes('429') || msg.includes('Too Many Requests')) {
       return { valid: true }
     }
 
-    // 400/401/403 = key inválida o sin acceso
+    // 401/403 = key inválida o sin acceso
+    if (msg.includes('401') || msg.includes('403') || msg.includes('API_KEY_INVALID') || msg.includes('invalid')) {
+      return { valid: false, error: 'La API key no es válida o no tiene acceso a Gemini. Verificá que la copiaste correctamente desde Google AI Studio.' }
+    }
+
+    // Otro error (red, timeout, etc.) — no rechazar la key por eso
     console.error('[Gemini validation error]', msg)
     return { valid: false, error: msg }
   }

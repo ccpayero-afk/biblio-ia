@@ -21,12 +21,17 @@ export async function POST(req: NextRequest) {
     const accessToken = getAccessToken(session)
 
     const body = await req.json()
-    const apiKey = body?.apiKey
-    if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 10) {
+    const rawKey = body?.apiKey
+    if (!rawKey || typeof rawKey !== 'string') {
       return NextResponse.json({ error: 'API key inválida' }, { status: 400 })
     }
+    // Eliminar espacios, saltos de línea y caracteres invisibles (BOM, ZWSP, etc.)
+    const apiKey = rawKey.replace(/[\s​-‍﻿ ]/g, '')
+    if (apiKey.length < 10) {
+      return NextResponse.json({ error: 'API key demasiado corta' }, { status: 400 })
+    }
 
-    const resultado = await validateGeminiKey(apiKey.trim())
+    const resultado = await validateGeminiKey(apiKey)
     if (!resultado.valid) {
       return NextResponse.json(
         { error: `API key rechazada: ${resultado.error ?? 'error desconocido'}` },
@@ -34,7 +39,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    await saveApiKey(accessToken, apiKey.trim())
+    await saveApiKey(accessToken, apiKey)
     return NextResponse.json({ ok: true })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
