@@ -16,8 +16,9 @@ export async function GET(req: NextRequest) {
         const estructura = await initUserDrive(accessToken)
         const fileId = await findFile(accessToken, 'grafo.json', estructura.conceptosId)
         if (fileId) {
-          const grafo = await readJSON(accessToken, fileId)
-          return NextResponse.json(grafo)
+          const grafo = await readJSON<{ nodos?: unknown[] }>(accessToken, fileId)
+          // Skip empty cache — always rebuild if no nodes
+          if (grafo?.nodos && grafo.nodos.length > 0) return NextResponse.json(grafo)
         }
       } catch { /* build fresh */ }
     }

@@ -100,8 +100,10 @@ export async function buildGrafo(accessToken: string): Promise<Grafo> {
 
   const grafo: Grafo = { nodos, aristas, actualizadoEn: new Date().toISOString() }
 
-  // Cache the graph
-  await writeJSON(accessToken, estructura.conceptosId, 'grafo.json', grafo)
+  // Only cache if there's actual content
+  if (nodos.length > 0) {
+    await writeJSON(accessToken, estructura.conceptosId, 'grafo.json', grafo)
+  }
 
   return grafo
 }

@@ -247,23 +247,41 @@ export default function GrafoClient() {
 
   if (sinDatos) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
+      <div className="flex flex-col items-center justify-center py-20 text-center max-w-sm mx-auto">
         <GitFork className="h-12 w-12 text-neutral-700" />
         <h2 className="mt-4 text-lg font-semibold text-white">Grafo vacío</h2>
-        <p className="mt-2 text-sm text-neutral-500">
-          {modo === 'bibliografico'
-            ? 'Indexá documentos y generá fichas para ver el grafo.'
-            : tiposActivos.size === 0
-            ? 'Todos los filtros están desactivados.'
-            : 'No hay notas ni citas todavía.'}
-        </p>
-        {modo === 'bibliografico' && (
-          <button
-            onClick={() => cargar(true)}
-            className="mt-4 flex items-center gap-2 rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300"
-          >
-            <RefreshCw className="h-4 w-4" /> Construir grafo
-          </button>
+        {modo === 'bibliografico' ? (
+          <>
+            <p className="mt-2 text-sm text-neutral-500">
+              Necesitás tener documentos indexados en Biblioteca. Luego hacé clic en &quot;Construir grafo&quot;.
+            </p>
+            <button
+              onClick={() => cargar(true)}
+              className="mt-4 flex items-center gap-2 rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-neutral-600"
+            >
+              <RefreshCw className="h-4 w-4" /> Construir grafo
+            </button>
+          </>
+        ) : tiposActivos.size === 0 ? (
+          <>
+            <p className="mt-2 text-sm text-neutral-500">Todos los filtros están desactivados.</p>
+            <button onClick={() => toggleTodos(true)} className="mt-3 text-xs text-blue-400 hover:text-blue-300">
+              Activar todos
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-sm text-neutral-500">
+              {notas.length === 0 && citas.length === 0
+                ? 'No hay notas ni citas. Procesá highlights en Biblioteca o creá notas en la sección Notas.'
+                : `Se cargaron ${notas.length} nota${notas.length !== 1 ? 's' : ''} y ${citas.length} cita${citas.length !== 1 ? 's' : ''}, pero ninguna coincide con los filtros activos.`}
+            </p>
+            {notas.length > 0 && (
+              <button onClick={() => toggleTodos(true)} className="mt-3 text-xs text-blue-400 hover:text-blue-300">
+                Mostrar todos los tipos
+              </button>
+            )}
+          </>
         )}
       </div>
     )

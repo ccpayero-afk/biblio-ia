@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Nota, TipoNota, VinculoZettel, VinculoSugerido } from '@/types'
 import {
   Plus, Search, X, Link2, Loader2, ChevronRight,
-  AlertTriangle, Sparkles, Check, ExternalLink, RefreshCw,
+  AlertTriangle, Sparkles, Check, ExternalLink, RefreshCw, Zap,
 } from 'lucide-react'
 import { generarIdZettel } from '@/lib/zettel-id'
 
@@ -452,6 +452,8 @@ export default function NotasClient() {
   const [tipoConvLote, setTipoConvLote] = useState<TipoNota>('permanente')
   const [convirtiendo, setConvirtiendo] = useState(false)
   const [progresoConv, setProgresoConv] = useState<{ actual: number; total: number } | null>(null)
+  const [vinculandoIA, setVinculandoIA] = useState(false)
+  const [progresoVinc, setProgresoVinc] = useState<{ actual: number; total: number; nuevos: number } | null>(null)
   const convRef = useRef<HTMLDivElement>(null)
 
   const cargar = useCallback(async () => {
@@ -510,6 +512,59 @@ export default function NotasClient() {
     setProgresoConv(null)
     setConvirtiendo(false)
     await cargar()
+  }
+
+  async function vincularTodoConIA(soloSinVinculos: boolean) {
+    const candidatas = soloSinVinculos
+      ? notas.filter((n) => (n.vinculos ?? []).length === 0)
+      : notas
+    if (candidatas.length === 0 || vinculandoIA) return
+    setVinculandoIA(true)
+    setProgresoVinc({ actual: 0, total: candidatas.length, nuevos: 0 })
+    let totalNuevos = 0
+    for (let i = 0; i < candidatas.length; i++) {
+      const nota = candidatas[i]
+      setProgresoVinc({ actual: i + 1, total: candidatas.length, nuevos: totalNuevos })
+      try {
+        const res = await fetch('/api/notas/ia/sugerir-vinculos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nota }),
+        })
+        if (res.status === 429) {
+          await new Promise((r) => setTimeout(r, 60000))
+          i--
+          continue
+        }
+        const sugerencias: VinculoSugerido[] = await res.json()
+        if (!Array.isArray(sugerencias)) continue
+        const altas = sugerencias.filter((s) => s.confianza === 'alta')
+        if (altas.length > 0) {
+          const yaExisten = new Set((nota.vinculos ?? []).map((v) => v.notaDestinoId))
+          const nuevosVinculos: VinculoZettel[] = altas
+            .filter((s) => !yaExisten.has(s.notaId))
+            .map((s) => ({
+              notaDestinoId: s.notaId,
+              tipo: s.tipoVinculo,
+              nota: s.razon,
+              bidireccional: true,
+              creadoEn: new Date().toISOString(),
+            }))
+          if (nuevosVinculos.length > 0) {
+            await fetch(`/api/notas/${nota.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ vinculos: [...(nota.vinculos ?? []), ...nuevosVinculos] }),
+            })
+            totalNuevos += nuevosVinculos.length
+          }
+        }
+      } catch { /* silencioso */ }
+      if (i < candidatas.length - 1) await new Promise((r) => setTimeout(r, 1500))
+    }
+    setProgresoVinc(null)
+    setVinculandoIA(false)
+    if (totalNuevos > 0) await cargar()
   }
 
   const etiquetasUnicas = [...new Set(notas.flatMap((n) => n.etiquetas))].sort()
@@ -644,6 +699,34 @@ export default function NotasClient() {
               </div>
             )}
           </div>
+          {/* Botón vincular todo con IA */}
+          <div className="group relative">
+            <button
+              onClick={() => vincularTodoConIA(true)}
+              disabled={vinculandoIA || notas.length === 0}
+              title="Vincular con IA (solo notas sin vínculos)"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-purple-700 hover:text-purple-400 disabled:opacity-40"
+            >
+              {vinculandoIA
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Zap className="h-3.5 w-3.5" />}
+            </button>
+            {!vinculandoIA && (
+              <div className="pointer-events-none absolute right-0 top-9 z-50 hidden w-52 rounded-lg border border-neutral-700 bg-neutral-900 p-2.5 shadow-xl group-hover:block">
+                <p className="mb-1 text-xs font-semibold text-purple-400">Vincular con IA</p>
+                <p className="text-xs text-neutral-500 leading-relaxed">
+                  Sugiere y aplica vínculos automáticos entre notas sin vínculos usando Gemini.
+                  Solo aplica sugerencias de alta confianza.
+                </p>
+                <button
+                  className="pointer-events-auto mt-2 block w-full rounded bg-neutral-800 py-1 text-center text-xs text-neutral-300 hover:bg-neutral-700"
+                  onClick={(e) => { e.stopPropagation(); vincularTodoConIA(false) }}
+                >
+                  Procesar todas las notas
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setEditando({})}
             className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-500"
@@ -656,6 +739,12 @@ export default function NotasClient() {
         {progresoConv && (
           <div className="border-b border-neutral-800 bg-blue-950/20 px-4 py-2 text-xs text-blue-400">
             Convirtiendo {progresoConv.actual}/{progresoConv.total}…
+          </div>
+        )}
+        {/* Progreso de vinculación IA */}
+        {progresoVinc && (
+          <div className="border-b border-neutral-800 bg-purple-950/20 px-4 py-2 text-xs text-purple-400">
+            Vinculando {progresoVinc.actual}/{progresoVinc.total}… · {progresoVinc.nuevos} nuevos vínculos
           </div>
         )}
 
