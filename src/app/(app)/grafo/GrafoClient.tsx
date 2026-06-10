@@ -87,107 +87,178 @@ function ForceGraphSVG({
   links,
   width,
   height,
+  selectedId,
   onNodeClick,
 }: {
   nodes: GNode[]
   links: GLink[]
   width: number
   height: number
+  selectedId: string | null
   onNodeClick: (id: string, tipo: string) => void
 }) {
   const svgRef = useRef<SVGSVGElement>(null)
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
   const simRef = useRef<d3.Simulation<GNode, GLink> | null>(null)
   const [, setTick] = useState(0)
+  const [zoom, setZoom] = useState(1)
+  const [hovered, setHovered] = useState<string | null>(null)
 
   const nodesRef = useRef<GNode[]>([])
   const linksRef = useRef<GLink[]>([])
 
-  // Sync nodes/links into refs (to keep simulation data stable across re-renders)
   useEffect(() => {
-    // Preserve existing positions when nodes change
-    const oldPositions = new Map(nodesRef.current.map(n => [n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy }]))
+    const oldPos = new Map(nodesRef.current.map(n => [n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy }]))
     nodesRef.current = nodes.map(n => {
-      const old = oldPositions.get(n.id)
-      return { ...n, x: old?.x ?? width / 2, y: old?.y ?? height / 2, vx: old?.vx ?? 0, vy: old?.vy ?? 0 }
+      const old = oldPos.get(n.id)
+      return { ...n, x: old?.x ?? width / 2 + (Math.random() - 0.5) * 100, y: old?.y ?? height / 2 + (Math.random() - 0.5) * 100, vx: old?.vx ?? 0, vy: old?.vy ?? 0 }
     })
     linksRef.current = links.map(l => ({ ...l }))
-
     simRef.current?.stop()
-
     const sim = d3.forceSimulation<GNode>(nodesRef.current)
-      .force('link', d3.forceLink<GNode, GLink>(linksRef.current).id(d => d.id).distance(80).strength(0.5))
-      .force('charge', d3.forceManyBody<GNode>().strength(-200))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide<GNode>(d => Math.sqrt(d.val) * 6 + 8))
+      .force('link', d3.forceLink<GNode, GLink>(linksRef.current).id(d => d.id).distance(100).strength(0.4))
+      .force('charge', d3.forceManyBody<GNode>().strength(-300))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.05))
+      .force('collision', d3.forceCollide<GNode>(d => Math.sqrt(d.val) * 7 + 18))
       .on('tick', () => setTick(t => t + 1))
-
     simRef.current = sim
     return () => { sim.stop() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length, links.length, width, height])
 
-  // Zoom & pan
   useEffect(() => {
     if (!svgRef.current) return
     const svg = d3.select(svgRef.current)
     const g = svg.select<SVGGElement>('g.graph-root')
-    const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.1, 8])
+    const z = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.05, 10])
       .on('zoom', (event) => {
         g.attr('transform', event.transform.toString())
+        setZoom(event.transform.k)
       })
-    svg.call(zoom)
+    svg.call(z)
+    zoomRef.current = z
     return () => { svg.on('.zoom', null) }
   }, [])
 
+  function zoomBy(factor: number) {
+    if (!svgRef.current || !zoomRef.current) return
+    d3.select(svgRef.current).transition().duration(300).call(zoomRef.current.scaleBy, factor)
+  }
+
+  function resetZoom() {
+    if (!svgRef.current || !zoomRef.current) return
+    d3.select(svgRef.current).transition().duration(400).call(zoomRef.current.transform, d3.zoomIdentity.translate(width / 2, height / 2).scale(0.8))
+  }
+
   const nMap = useMemo(() => new Map(nodesRef.current.map(n => [n.id, n])), [nodesRef.current.length])
+  const showLabels = zoom >= 0.6
 
   return (
-    <svg
-      ref={svgRef}
-      width={width}
-      height={height}
-      className="cursor-grab active:cursor-grabbing select-none"
-      style={{ background: '#0a0a0a' }}
-    >
-      <g className="graph-root">
-        {/* Links */}
-        <g>
-          {linksRef.current.map((l, i) => {
-            const s = typeof l.source === 'object' ? l.source : nMap.get(l.source as string)
-            const t = typeof l.target === 'object' ? l.target : nMap.get(l.target as string)
-            if (!s || !t || s.x == null || t.x == null) return null
-            return (
-              <line
-                key={i}
-                x1={s.x} y1={s.y} x2={t.x} y2={t.y}
-                stroke={l.color}
-                strokeWidth={Math.log((l.value || 1) + 1) + 0.5}
-                strokeOpacity={0.5}
-              />
-            )
-          })}
+    <div className="relative" style={{ width, height }}>
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        className="cursor-grab active:cursor-grabbing select-none"
+        style={{ background: '#0a0a0a' }}
+      >
+        <defs>
+          {/* Glow filter for selected node */}
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+            <feMerge><feMergeNode in="coloredBlur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+        <g className="graph-root">
+          {/* Links */}
+          <g>
+            {linksRef.current.map((l, i) => {
+              const s = typeof l.source === 'object' ? l.source as GNode : nMap.get(l.source as string)
+              const t = typeof l.target === 'object' ? l.target as GNode : nMap.get(l.target as string)
+              if (!s || !t || s.x == null || t.x == null) return null
+              const isActive = selectedId && (s.id === selectedId || t.id === selectedId)
+              return (
+                <line
+                  key={i}
+                  x1={s.x} y1={s.y} x2={t.x} y2={t.y}
+                  stroke={l.color}
+                  strokeWidth={isActive ? 2 : Math.log((l.value || 1) + 1) + 0.5}
+                  strokeOpacity={selectedId ? (isActive ? 0.9 : 0.1) : 0.4}
+                />
+              )
+            })}
+          </g>
+          {/* Nodes */}
+          <g>
+            {nodesRef.current.map((n) => {
+              if (n.x == null || n.y == null) return null
+              const r = Math.sqrt(n.val) * 6 + 5
+              const isSelected = n.id === selectedId
+              const isHovered = n.id === hovered
+              const dimmed = selectedId && !isSelected
+              const label = n.label.length > 22 ? n.label.slice(0, 20) + '…' : n.label
+              return (
+                <g
+                  key={n.id}
+                  transform={`translate(${n.x},${n.y})`}
+                  onClick={() => onNodeClick(n.id, n.tipo)}
+                  onMouseEnter={() => setHovered(n.id)}
+                  onMouseLeave={() => setHovered(null)}
+                  className="cursor-pointer"
+                  style={{ filter: isSelected ? 'url(#glow)' : undefined }}
+                >
+                  {/* Outer ring for selected */}
+                  {isSelected && (
+                    <circle r={r + 5} fill="none" stroke={n.color} strokeWidth={2} strokeOpacity={0.6} />
+                  )}
+                  {/* Main circle */}
+                  <circle
+                    r={r}
+                    fill={n.color}
+                    fillOpacity={dimmed ? 0.2 : isHovered ? 1 : 0.85}
+                    stroke={isSelected || isHovered ? n.color : '#111'}
+                    strokeWidth={isSelected ? 2 : 1}
+                  />
+                  {/* Label — always visible, dimmed when not selected */}
+                  {showLabels && (
+                    <text
+                      y={r + 13}
+                      textAnchor="middle"
+                      fontSize={10 / Math.max(1, zoom * 0.5 + 0.5)}
+                      fill={isSelected ? '#fff' : isHovered ? '#e5e7eb' : '#9ca3af'}
+                      fillOpacity={dimmed ? 0.3 : 1}
+                      style={{ pointerEvents: 'none', userSelect: 'none' }}
+                    >
+                      {label}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
+          </g>
         </g>
-        {/* Nodes */}
-        <g>
-          {nodesRef.current.map((n) => {
-            if (n.x == null || n.y == null) return null
-            const r = Math.sqrt(n.val) * 5 + 4
-            return (
-              <g
-                key={n.id}
-                transform={`translate(${n.x},${n.y})`}
-                onClick={() => onNodeClick(n.id, n.tipo)}
-                className="cursor-pointer"
-              >
-                <circle r={r} fill={n.color} fillOpacity={0.9} stroke="#1a1a1a" strokeWidth={1} />
-                <title>{n.label}</title>
-              </g>
-            )
-          })}
-        </g>
-      </g>
-    </svg>
+      </svg>
+
+      {/* Tooltip on hover */}
+      {hovered && (() => {
+        const n = nodesRef.current.find(x => x.id === hovered)
+        if (!n) return null
+        return (
+          <div className="pointer-events-none absolute left-4 top-4 max-w-xs rounded-lg border border-neutral-700 bg-neutral-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
+            <p className="text-xs font-medium" style={{ color: n.color }}>{n.tipo}</p>
+            <p className="mt-0.5 text-sm text-white leading-snug">{n.label}</p>
+          </div>
+        )
+      })()}
+
+      {/* Zoom controls */}
+      <div className="absolute bottom-4 right-4 flex flex-col gap-1">
+        <button onClick={() => zoomBy(1.5)} className="flex h-8 w-8 items-center justify-center rounded border border-neutral-700 bg-neutral-900/80 text-neutral-300 hover:text-white text-sm font-bold">+</button>
+        <button onClick={resetZoom} className="flex h-8 w-8 items-center justify-center rounded border border-neutral-700 bg-neutral-900/80 text-xs text-neutral-400 hover:text-white">⌂</button>
+        <button onClick={() => zoomBy(0.67)} className="flex h-8 w-8 items-center justify-center rounded border border-neutral-700 bg-neutral-900/80 text-neutral-300 hover:text-white text-sm font-bold">−</button>
+      </div>
+    </div>
   )
 }
 
@@ -445,6 +516,7 @@ export default function GrafoClient() {
               links={graphData.links}
               width={dimensiones.width - (modo === 'zettelkasten' ? 176 : 0) - (nodoSel ? 256 : 0)}
               height={dimensiones.height}
+              selectedId={nodoSel?.id ?? null}
               onNodeClick={(id, tipo) => setNodoSel(prev => prev?.id === id ? null : { id, tipo })}
             />
           </ErrorBoundary>
