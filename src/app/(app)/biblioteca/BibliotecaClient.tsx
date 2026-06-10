@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, FolderInput } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
@@ -26,6 +26,103 @@ const OPCIONES_COLOR: { valor: Carpeta['color']; label: string; clase: string }[
   { valor: 'coral', label: 'Coral', clase: 'bg-red-400' },
   { valor: 'gray', label: 'Gris', clase: 'bg-neutral-500' },
 ]
+
+// ─── Helpers árbol ────────────────────────────────────────────────────────────
+
+function getSubtreeIds(carpetaId: string, carpetas: Carpeta[]): string[] {
+  const hijos = carpetas.filter((c) => c.carpetaPadreId === carpetaId)
+  return [carpetaId, ...hijos.flatMap((h) => getSubtreeIds(h.id, carpetas))]
+}
+
+function getRuta(carpetaId: string, carpetas: Carpeta[]): Carpeta[] {
+  const c = carpetas.find((x) => x.id === carpetaId)
+  if (!c) return []
+  if (c.carpetaPadreId) return [...getRuta(c.carpetaPadreId, carpetas), c]
+  return [c]
+}
+
+// ─── Árbol de carpetas (componente recursivo) ─────────────────────────────────
+
+interface CarpetaItemProps {
+  carpeta: Carpeta
+  depth: number
+  carpetas: Carpeta[]
+  documentos: Documento[]
+  carpetaActiva: string | null
+  menuCarpeta: string | null
+  onSelect: (id: string) => void
+  onMenuToggle: (id: string | null) => void
+  onNuevaSubcarpeta: (padreId: string) => void
+  onEditar: (c: Carpeta) => void
+  onEliminar: (id: string) => void
+}
+
+function CarpetaItem({
+  carpeta, depth, carpetas, documentos, carpetaActiva, menuCarpeta,
+  onSelect, onMenuToggle, onNuevaSubcarpeta, onEditar, onEliminar,
+}: CarpetaItemProps) {
+  const [expandido, setExpandido] = useState(true)
+  const hijos = carpetas.filter((c) => c.carpetaPadreId === carpeta.id)
+  const estaActiva = carpetaActiva === carpeta.id
+  const ids = getSubtreeIds(carpeta.id, carpetas)
+  const count = documentos.filter((d) => d.carpetaId && ids.includes(d.carpetaId)).length
+
+  return (
+    <div>
+      <div className="group relative" style={{ paddingLeft: depth * 12 }}>
+        <div className="flex items-center">
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpandido((v) => !v) }}
+            className="flex h-6 w-4 flex-shrink-0 items-center justify-center"
+          >
+            {hijos.length > 0 && (
+              expandido
+                ? <ChevronDown className="h-3 w-3 text-neutral-600" />
+                : <ChevronRight className="h-3 w-3 text-neutral-600" />
+            )}
+          </button>
+          <button
+            onClick={() => onSelect(carpeta.id)}
+            className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-sm ${estaActiva ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}`}
+          >
+            <Folder className={`h-3.5 w-3.5 flex-shrink-0 ${COLORES_CARPETA[carpeta.color]}`} />
+            <span className="flex-1 truncate text-left">{carpeta.nombre}</span>
+            {count > 0 && <span className="flex-shrink-0 text-xs text-neutral-600">{count}</span>}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onMenuToggle(menuCarpeta === carpeta.id ? null : carpeta.id) }}
+            className="flex-shrink-0 rounded p-0.5 text-neutral-700 opacity-0 hover:text-neutral-300 group-hover:opacity-100"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {menuCarpeta === carpeta.id && (
+          <div className="absolute right-0 top-full z-20 mt-0.5 w-44 rounded-lg border border-neutral-700 bg-neutral-900 py-1 shadow-lg">
+            <button onClick={() => { onNuevaSubcarpeta(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800">+ Subcarpeta</button>
+            <button onClick={() => { onEditar(carpeta); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800">Editar</button>
+            <button onClick={() => { onEliminar(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-neutral-800">Eliminar</button>
+          </div>
+        )}
+      </div>
+      {expandido && hijos.map((h) => (
+        <CarpetaItem
+          key={h.id}
+          carpeta={h}
+          depth={depth + 1}
+          carpetas={carpetas}
+          documentos={documentos}
+          carpetaActiva={carpetaActiva}
+          menuCarpeta={menuCarpeta}
+          onSelect={onSelect}
+          onMenuToggle={onMenuToggle}
+          onNuevaSubcarpeta={onNuevaSubcarpeta}
+          onEditar={onEditar}
+          onEliminar={onEliminar}
+        />
+      ))}
+    </div>
+  )
+}
 
 // ─── Modal de nueva/editar carpeta ───────────────────────────────────────────
 
@@ -146,7 +243,7 @@ export default function BibliotecaClient() {
   const [editando, setEditando] = useState<Documento | null>(null)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [errorSubida, setErrorSubida] = useState<string | null>(null)
-  const [modalCarpeta, setModalCarpeta] = useState<{ carpeta?: Carpeta } | null>(null)
+  const [modalCarpeta, setModalCarpeta] = useState<{ carpeta?: Carpeta; padreId?: string } | null>(null)
   const [modalImportarCarpeta, setModalImportarCarpeta] = useState(false)
   const [menuCarpeta, setMenuCarpeta] = useState<string | null>(null)
   const [moviendo, setMoviendo] = useState<Documento | null>(null)
@@ -236,10 +333,19 @@ export default function BibliotecaClient() {
     const res = await fetch('/api/carpetas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(datos),
+      body: JSON.stringify({ ...datos, carpetaPadreId: modalCarpeta?.padreId }),
     })
     const nueva = await res.json()
-    if (!nueva.error) setCarpetas((prev) => [...prev, nueva])
+    if (!nueva.error) {
+      setCarpetas((prev) => {
+        const actualizada = nueva.carpetaPadreId
+          ? prev.map((c) => c.id === nueva.carpetaPadreId
+              ? { ...c, subcarpetasIds: [...c.subcarpetasIds, nueva.id] }
+              : c)
+          : prev
+        return [...actualizada, nueva]
+      })
+    }
     setModalCarpeta(null)
   }
 
@@ -276,15 +382,15 @@ export default function BibliotecaClient() {
     setMoviendo(null)
   }
 
-  // Documentos filtrados por carpeta activa
-  const documentosFiltrados = carpetaActiva === 'sin-carpeta'
-    ? documentos.filter((d) => !d.carpetaId)
-    : carpetaActiva
-    ? documentos.filter((d) => d.carpetaId === carpetaActiva)
-    : documentos
+  // Documentos filtrados por carpeta activa (incluye subcarpetas)
+  const documentosFiltrados = (() => {
+    if (carpetaActiva === 'sin-carpeta') return documentos.filter((d) => !d.carpetaId)
+    if (!carpetaActiva) return documentos
+    const ids = new Set(getSubtreeIds(carpetaActiva, carpetas))
+    return documentos.filter((d) => d.carpetaId && ids.has(d.carpetaId))
+  })()
 
   const sinIndexar = documentosFiltrados.filter((d) => d.estado === 'sin_indexar').length
-  const conteoPorCarpeta = (id: string) => documentos.filter((d) => d.carpetaId === id).length
   const sinCarpeta = documentos.filter((d) => !d.carpetaId).length
 
   return (
@@ -333,42 +439,22 @@ export default function BibliotecaClient() {
           </button>
         )}
 
-        {/* Carpetas del usuario */}
-        {carpetas.map((c) => (
-          <div key={c.id} className="group relative">
-            <button
-              onClick={() => setCarpetaActiva(carpetaActiva === c.id ? null : c.id)}
-              className={`flex w-full items-center justify-between rounded-lg px-2 py-2 text-sm ${carpetaActiva === c.id ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}`}
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <Folder className={`h-4 w-4 flex-shrink-0 ${COLORES_CARPETA[c.color]}`} />
-                <span className="truncate">{c.nombre}</span>
-              </div>
-              <span className="text-xs text-neutral-600">{conteoPorCarpeta(c.id)}</span>
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setMenuCarpeta(menuCarpeta === c.id ? null : c.id) }}
-              className="absolute right-6 top-1/2 -translate-y-1/2 rounded p-0.5 text-neutral-700 opacity-0 hover:text-neutral-300 group-hover:opacity-100"
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </button>
-            {menuCarpeta === c.id && (
-              <div className="absolute left-full top-0 z-10 ml-1 w-40 rounded-lg border border-neutral-700 bg-neutral-900 py-1 shadow-lg">
-                <button
-                  onClick={() => { setModalCarpeta({ carpeta: c }); setMenuCarpeta(null) }}
-                  className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => eliminarCarpeta(c.id)}
-                  className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-neutral-800"
-                >
-                  Eliminar
-                </button>
-              </div>
-            )}
-          </div>
+        {/* Árbol de carpetas */}
+        {carpetas.filter((c) => !c.carpetaPadreId).map((c) => (
+          <CarpetaItem
+            key={c.id}
+            carpeta={c}
+            depth={0}
+            carpetas={carpetas}
+            documentos={documentos}
+            carpetaActiva={carpetaActiva}
+            menuCarpeta={menuCarpeta}
+            onSelect={(id) => setCarpetaActiva(carpetaActiva === id ? null : id)}
+            onMenuToggle={setMenuCarpeta}
+            onNuevaSubcarpeta={(padreId) => setModalCarpeta({ padreId })}
+            onEditar={(c) => setModalCarpeta({ carpeta: c })}
+            onEliminar={eliminarCarpeta}
+          />
         ))}
 
         <button
@@ -384,12 +470,20 @@ export default function BibliotecaClient() {
         {/* Barra superior */}
         <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-3">
           <div>
-            <h1 className="text-lg font-semibold text-white">
-              {carpetaActiva && carpetaActiva !== 'sin-carpeta'
-                ? carpetas.find((c) => c.id === carpetaActiva)?.nombre ?? 'Biblioteca'
-                : carpetaActiva === 'sin-carpeta'
-                ? 'Sin carpeta'
-                : 'Biblioteca'}
+            <h1 className="flex items-center gap-1 text-lg font-semibold text-white">
+              {carpetaActiva && carpetaActiva !== 'sin-carpeta' ? (
+                getRuta(carpetaActiva, carpetas).map((c, i, arr) => (
+                  <span key={c.id} className="flex items-center gap-1">
+                    {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-neutral-600" />}
+                    <button
+                      onClick={() => setCarpetaActiva(c.id)}
+                      className={i === arr.length - 1 ? 'text-white' : 'text-neutral-400 hover:text-white'}
+                    >
+                      {c.nombre}
+                    </button>
+                  </span>
+                ))
+              ) : carpetaActiva === 'sin-carpeta' ? 'Sin carpeta' : 'Biblioteca'}
             </h1>
             <p className="text-xs text-neutral-500">
               {documentosFiltrados.length} documento{documentosFiltrados.length !== 1 ? 's' : ''}
