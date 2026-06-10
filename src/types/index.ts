@@ -183,6 +183,9 @@ export interface FichaLectura {
   limitaciones: string
   relevancia: string
   generadaEn: string
+  metodologia?: string
+  referenciasCitadas?: string[]
+  palabrasClave?: string[]
 }
 
 export interface DriveStructure {

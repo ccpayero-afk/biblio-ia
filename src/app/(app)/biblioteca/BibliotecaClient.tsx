@@ -148,6 +148,8 @@ export default function BibliotecaClient() {
   const [modalCarpeta, setModalCarpeta] = useState<{ carpeta?: Carpeta } | null>(null)
   const [menuCarpeta, setMenuCarpeta] = useState<string | null>(null)
   const [moviendo, setMoviendo] = useState<Documento | null>(null)
+  const [indexandoLote, setIndexandoLote] = useState(false)
+  const [progresoLote, setProgresoLote] = useState<{ actual: number; total: number } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const indexarRefs = useRef<Record<string, () => void>>({})
 
@@ -199,6 +201,23 @@ export default function BibliotecaClient() {
 
   function onDocumentIndexado(id: string, fragmentos: number) {
     setDocumentos((prev) => prev.map((d) => d.id === id ? { ...d, estado: 'indexado', fragmentos } : d))
+  }
+
+  async function indexarTodosSecuencial(pendientes: Documento[]) {
+    if (pendientes.length === 0 || indexandoLote) return
+    setIndexandoLote(true)
+    setProgresoLote({ actual: 0, total: pendientes.length })
+    for (let i = 0; i < pendientes.length; i++) {
+      setProgresoLote({ actual: i, total: pendientes.length })
+      const fn = indexarRefs.current[pendientes[i].id]
+      if (fn) await (fn as () => Promise<void>)()
+      // Pausa entre documentos para no saturar la API de embeddings
+      if (i < pendientes.length - 1) {
+        await new Promise((r) => setTimeout(r, 3000))
+      }
+    }
+    setProgresoLote(null)
+    setIndexandoLote(false)
   }
 
   async function guardarMetadatos(id: string, datos: Partial<Documento>) {
@@ -381,11 +400,17 @@ export default function BibliotecaClient() {
             </button>
             {sinIndexar > 0 && (
               <button
-                onClick={() => documentosFiltrados.filter((d) => d.estado === 'sin_indexar').forEach((d) => indexarRefs.current[d.id]?.())}
-                className="flex items-center gap-1.5 rounded-lg border border-blue-700 bg-blue-950/40 px-3 py-2 text-sm text-blue-400 hover:bg-blue-950"
+                onClick={() => {
+                  const pendientes = documentosFiltrados.filter((d) => d.estado === 'sin_indexar' || d.estado === 'error')
+                  indexarTodosSecuencial(pendientes)
+                }}
+                disabled={indexandoLote}
+                className="flex items-center gap-1.5 rounded-lg border border-blue-700 bg-blue-950/40 px-3 py-2 text-sm text-blue-400 hover:bg-blue-950 disabled:opacity-60"
               >
-                <Zap className="h-4 w-4" />
-                Indexar todos ({sinIndexar})
+                <Zap className={`h-4 w-4 ${indexandoLote ? 'animate-pulse' : ''}`} />
+                {indexandoLote && progresoLote
+                  ? `Indexando ${progresoLote.actual + 1}/${progresoLote.total}…`
+                  : `Indexar todos (${sinIndexar})`}
               </button>
             )}
             <button

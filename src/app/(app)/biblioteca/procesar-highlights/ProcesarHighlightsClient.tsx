@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation'
 import { Documento } from '@/types'
 import {
   FileText, Sparkles, Check, X, Loader2, AlertCircle,
-  ChevronLeft, CheckSquare, Square,
+  ChevronLeft, CheckSquare, Square, Clock,
 } from 'lucide-react'
 
 interface ResultadoDoc {
   anotaciones: number
   citasCreadas: number
+  conceptosCreados?: number
+  ideasCreadas?: number
   notasCreadas: number
   fichaCreada: boolean
   mensaje?: string
@@ -18,8 +20,17 @@ interface ResultadoDoc {
 }
 
 interface EstadoDoc {
-  estado: 'pendiente' | 'procesando' | 'completado' | 'error' | 'sin_anotaciones'
+  estado: 'pendiente' | 'procesando' | 'esperando' | 'completado' | 'error' | 'sin_anotaciones'
   resultado?: ResultadoDoc
+  retryEn?: number   // segundos restantes de espera
+}
+
+// Extrae segundos de un mensaje de error 429 de Gemini
+function extraerSegundosRetry(msg: string): number {
+  const m = msg.match(/Reintentá en (\d+) segundo/) ?? msg.match(/Reintentá en (\d+) minuto/)
+  if (!m) return 45
+  const n = parseInt(m[1])
+  return msg.includes('minuto') ? n * 60 : n
 }
 
 export default function ProcesarHighlightsClient({ documentos }: { documentos: Documento[] }) {
@@ -52,23 +63,53 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
     const ids = [...seleccionados]
     for (const id of ids) {
       setEstados((prev) => ({ ...prev, [id]: { estado: 'procesando' } }))
-      try {
-        const res = await fetch(`/api/highlights/procesar/${id}`, { method: 'POST' })
-        const data: ResultadoDoc = await res.json()
 
-        if (data.error) {
-          setEstados((prev) => ({ ...prev, [id]: { estado: 'error', resultado: data } }))
-        } else if (data.anotaciones === 0) {
-          setEstados((prev) => ({ ...prev, [id]: { estado: 'sin_anotaciones', resultado: data } }))
-        } else {
-          setEstados((prev) => ({ ...prev, [id]: { estado: 'completado', resultado: data } }))
+      let intentos = 0
+      let procesado = false
+
+      while (!procesado && intentos < 4) {
+        try {
+          const res = await fetch(`/api/highlights/procesar/${id}`, { method: 'POST' })
+          const data: ResultadoDoc = await res.json()
+
+          if (res.status === 429 || (data.error && data.error.includes('rate limit'))) {
+            const espera = extraerSegundosRetry(data.error ?? '')
+            intentos++
+            // Cuenta regresiva visible
+            for (let t = espera; t > 0; t--) {
+              setEstados((prev) => ({ ...prev, [id]: { estado: 'esperando', retryEn: t } }))
+              await new Promise((r) => setTimeout(r, 1000))
+            }
+            setEstados((prev) => ({ ...prev, [id]: { estado: 'procesando' } }))
+            continue
+          }
+
+          if (data.error) {
+            setEstados((prev) => ({ ...prev, [id]: { estado: 'error', resultado: data } }))
+          } else if (data.anotaciones === 0) {
+            setEstados((prev) => ({ ...prev, [id]: { estado: 'sin_anotaciones', resultado: data } }))
+          } else {
+            setEstados((prev) => ({ ...prev, [id]: { estado: 'completado', resultado: data } }))
+          }
+          procesado = true
+        } catch (e) {
+          setEstados((prev) => ({
+            ...prev,
+            [id]: { estado: 'error', resultado: { anotaciones: 0, citasCreadas: 0, notasCreadas: 0, fichaCreada: false, error: String(e) } },
+          }))
+          procesado = true
         }
-      } catch (e) {
+      }
+
+      if (!procesado) {
         setEstados((prev) => ({
           ...prev,
-          [id]: { estado: 'error', resultado: { anotaciones: 0, citasCreadas: 0, notasCreadas: 0, fichaCreada: false, error: String(e) } },
+          [id]: { estado: 'error', resultado: { anotaciones: 0, citasCreadas: 0, notasCreadas: 0, fichaCreada: false, error: 'Rate limit: se agotaron los reintentos. Esperá unos minutos y volvé a procesar.' } },
         }))
       }
+
+      // Pausa entre documentos para no saturar Gemini
+      await new Promise((r) => setTimeout(r, 2000))
     }
 
     setProcesando(false)
@@ -76,6 +117,8 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
 
   const completados = Object.values(estados).filter((e) => e.estado === 'completado').length
   const totalCitas = Object.values(estados).reduce((s, e) => s + (e.resultado?.citasCreadas ?? 0), 0)
+  const totalConceptos = Object.values(estados).reduce((s, e) => s + (e.resultado?.conceptosCreados ?? 0), 0)
+  const totalIdeas = Object.values(estados).reduce((s, e) => s + (e.resultado?.ideasCreadas ?? 0), 0)
   const totalNotas = Object.values(estados).reduce((s, e) => s + (e.resultado?.notasCreadas ?? 0), 0)
 
   if (documentos.length === 0) {
@@ -100,9 +143,9 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
       </button>
 
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-white">Procesar Highlights Existentes</h1>
+        <h1 className="text-xl font-semibold text-white">Procesar Highlights</h1>
         <p className="mt-1 text-sm text-neutral-500">
-          Extrae los highlights de tus PDFs anotados en Adobe, Zotero o PDF Expert y genera citas, notas y fichas automáticamente.
+          Extrae highlights de tus PDFs y genera citas directas, conceptos teóricos, ideas clave y fichas automáticamente.
         </p>
       </div>
 
@@ -112,6 +155,7 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
         <p className="text-xs text-amber-400">
           <strong>Compatible con:</strong> Adobe Acrobat, Zotero, PDF Expert, Foxit.
           Los highlights de <strong>macOS Preview</strong> no incluyen el texto resaltado y no serán detectados.
+          Si hay rate limit de Gemini, la app espera automáticamente y reintenta.
         </p>
       </div>
 
@@ -140,12 +184,15 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
         </button>
       </div>
 
-      {/* Resumen de progreso si hay completados */}
+      {/* Resumen de progreso */}
       {completados > 0 && (
         <div className="mb-4 rounded-lg border border-green-900/50 bg-green-950/20 px-4 py-3 text-sm">
           <p className="text-green-400">
             ✓ {completados} documento{completados > 1 ? 's' : ''} procesado{completados > 1 ? 's' : ''}
-            {' · '}{totalCitas} citas · {totalNotas} notas
+            {totalCitas > 0 && <span className="text-green-300"> · {totalCitas} citas</span>}
+            {totalConceptos > 0 && <span className="text-purple-400"> · {totalConceptos} conceptos</span>}
+            {totalIdeas > 0 && <span className="text-blue-400"> · {totalIdeas} ideas</span>}
+            {totalNotas !== totalConceptos + totalIdeas && totalNotas > 0 && <span className="text-neutral-400"> · {totalNotas} notas total</span>}
           </p>
         </div>
       )}
@@ -189,35 +236,37 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
 
                 {/* Estado */}
                 <div className="flex-shrink-0">
-                  {!estadoDoc && (
-                    <span className="text-xs text-neutral-600">Pendiente</span>
+                  {!estadoDoc && <span className="text-xs text-neutral-600">Pendiente</span>}
+                  {estadoDoc?.estado === 'procesando' && <Loader2 className="h-4 w-4 animate-spin text-blue-400" />}
+                  {estadoDoc?.estado === 'esperando' && (
+                    <span className="flex items-center gap-1 text-xs text-amber-400">
+                      <Clock className="h-3.5 w-3.5" />
+                      {estadoDoc.retryEn}s
+                    </span>
                   )}
-                  {estadoDoc?.estado === 'procesando' && (
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
-                  )}
-                  {estadoDoc?.estado === 'completado' && (
-                    <Check className="h-4 w-4 text-green-400" />
-                  )}
-                  {estadoDoc?.estado === 'sin_anotaciones' && (
-                    <span className="text-xs text-neutral-500">Sin highlights</span>
-                  )}
-                  {estadoDoc?.estado === 'error' && (
-                    <X className="h-4 w-4 text-red-400" />
-                  )}
+                  {estadoDoc?.estado === 'completado' && <Check className="h-4 w-4 text-green-400" />}
+                  {estadoDoc?.estado === 'sin_anotaciones' && <span className="text-xs text-neutral-500">Sin highlights</span>}
+                  {estadoDoc?.estado === 'error' && <X className="h-4 w-4 text-red-400" />}
                 </div>
               </div>
 
               {/* Resultado detallado */}
-              {estadoDoc?.resultado && estadoDoc.estado !== 'procesando' && (
+              {estadoDoc?.resultado && estadoDoc.estado !== 'procesando' && estadoDoc.estado !== 'esperando' && (
                 <div className="border-t border-neutral-800 px-4 py-2">
                   {estadoDoc.estado === 'completado' && (
                     <p className="text-xs text-neutral-400">
                       {estadoDoc.resultado.anotaciones} highlights →{' '}
-                      <span className="text-green-400">{estadoDoc.resultado.citasCreadas} citas</span>
-                      {' · '}
-                      <span className="text-blue-400">{estadoDoc.resultado.notasCreadas} notas</span>
+                      {(estadoDoc.resultado.citasCreadas ?? 0) > 0 && (
+                        <span className="text-green-400">{estadoDoc.resultado.citasCreadas} citas</span>
+                      )}
+                      {(estadoDoc.resultado.conceptosCreados ?? 0) > 0 && (
+                        <span className="text-purple-400"> · {estadoDoc.resultado.conceptosCreados} conceptos</span>
+                      )}
+                      {(estadoDoc.resultado.ideasCreadas ?? 0) > 0 && (
+                        <span className="text-blue-400"> · {estadoDoc.resultado.ideasCreadas} ideas</span>
+                      )}
                       {estadoDoc.resultado.fichaCreada && (
-                        <span className="text-purple-400"> · ficha generada</span>
+                        <span className="text-amber-400"> · ficha</span>
                       )}
                     </p>
                   )}
@@ -227,6 +276,15 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
                   {estadoDoc.estado === 'error' && (
                     <p className="text-xs text-red-400">{estadoDoc.resultado.error}</p>
                   )}
+                </div>
+              )}
+
+              {/* Mensaje de espera con countdown */}
+              {estadoDoc?.estado === 'esperando' && (
+                <div className="border-t border-neutral-800 px-4 py-2">
+                  <p className="text-xs text-amber-400">
+                    Rate limit de Gemini — reintentando en {estadoDoc.retryEn}s…
+                  </p>
                 </div>
               )}
             </div>
