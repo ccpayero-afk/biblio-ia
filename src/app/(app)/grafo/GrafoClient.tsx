@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback, Component, ReactNode } from 'react'
+import { useEffect, useState, useCallback, Component, ReactNode } from 'react'
 import dynamic from 'next/dynamic'
 import { RefreshCw, Loader2, GitFork, AlertCircle, Network, BookOpen } from 'lucide-react'
 import { Cita, Grafo, NodoGrafo, Nota, VinculoZettel } from '@/types'
@@ -78,8 +78,22 @@ export default function GrafoClient() {
   const [tiposActivos, setTiposActivos] = useState<Set<string>>(
     new Set(TIPOS_FILTRO.map((t) => t.key))
   )
-  const containerRef = useRef<HTMLDivElement>(null)
   const [dimensiones, setDimensiones] = useState({ width: 800, height: 600 })
+
+  // Mide en cliente con window — evita el colapso de h-full en overflow-y-auto
+  useEffect(() => {
+    function medirVentana() {
+      // descuenta aprox: AppShell header ~56px + toolbar del grafo ~48px + sidebar ~192px (lg)
+      const esMobile = window.innerWidth < 1024
+      setDimensiones({
+        width:  Math.max(300, window.innerWidth  - (esMobile ? 0 : 192)),
+        height: Math.max(300, window.innerHeight - 56 - 48),
+      })
+    }
+    medirVentana()
+    window.addEventListener('resize', medirVentana)
+    return () => window.removeEventListener('resize', medirVentana)
+  }, [])
 
   const cargar = useCallback(async (rebuild = false) => {
     setCargando(true)
@@ -103,16 +117,6 @@ export default function GrafoClient() {
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
-
-  useEffect(() => {
-    if (!containerRef.current) return
-    const obs = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect
-      setDimensiones({ width, height })
-    })
-    obs.observe(containerRef.current)
-    return () => obs.disconnect()
-  }, [])
 
   function toggleTipo(key: string) {
     setTiposActivos((prev) => {
@@ -398,7 +402,7 @@ export default function GrafoClient() {
         )}
 
         {/* Grafo */}
-        <div ref={containerRef} className="flex-1">
+        <div className="flex-1 overflow-hidden">
           <ErrorBoundary>
             <ForceGraph2D
               graphData={graphData}
