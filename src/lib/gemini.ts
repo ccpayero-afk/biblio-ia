@@ -2,7 +2,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { initUserDrive, readJSON, writeJSON, findFile } from './drive'
 import { ConfigUsuario } from '@/types'
 
-export const GEMINI_MODEL_GENERATION = 'gemini-2.0-flash'
+export const GEMINI_MODEL_GENERATION = 'gemini-2.5-flash'
 export const GEMINI_MODEL_EMBEDDING = 'gemini-embedding-2'
 
 // Cifrado AES-256-GCM usando Web Crypto API (compatible con Edge y Node)
@@ -49,6 +49,11 @@ export async function validateGeminiKey(apiKey: string): Promise<{ valid: boolea
 
     // 429 = rate limit → la key es válida, solo está limitada
     if (msg.includes('429') || msg.includes('Too Many Requests')) {
+      return { valid: true }
+    }
+
+    // 404 = modelo no encontrado (problema de config, no de la key)
+    if (msg.includes('404') || msg.includes('no longer available') || msg.includes('not found')) {
       return { valid: true }
     }
 
