@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, FolderInput } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
+import ImportarCarpetaModal from './ImportarCarpetaModal'
 
 const COLORES_CARPETA: Record<Carpeta['color'], string> = {
   purple: 'text-purple-400',
@@ -146,6 +147,7 @@ export default function BibliotecaClient() {
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [errorSubida, setErrorSubida] = useState<string | null>(null)
   const [modalCarpeta, setModalCarpeta] = useState<{ carpeta?: Carpeta } | null>(null)
+  const [modalImportarCarpeta, setModalImportarCarpeta] = useState(false)
   const [menuCarpeta, setMenuCarpeta] = useState<string | null>(null)
   const [moviendo, setMoviendo] = useState<Documento | null>(null)
   const [indexandoLote, setIndexandoLote] = useState(false)
@@ -414,6 +416,14 @@ export default function BibliotecaClient() {
               </button>
             )}
             <button
+              onClick={() => setModalImportarCarpeta(true)}
+              title="Importar carpeta completa"
+              className="flex items-center gap-2 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 hover:text-white"
+            >
+              <FolderInput className="h-4 w-4" />
+              <span className="hidden sm:inline">Importar carpeta</span>
+            </button>
+            <button
               onClick={() => fileInputRef.current?.click()}
               disabled={subiendo}
               className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
@@ -523,6 +533,13 @@ export default function BibliotecaClient() {
           documento={editando}
           onGuardar={(datos) => guardarMetadatos(editando.id, datos)}
           onCerrar={() => setEditando(null)}
+        />
+      )}
+
+      {modalImportarCarpeta && (
+        <ImportarCarpetaModal
+          onCerrar={() => setModalImportarCarpeta(false)}
+          onTerminado={() => { cargar() }}
         />
       )}
 
