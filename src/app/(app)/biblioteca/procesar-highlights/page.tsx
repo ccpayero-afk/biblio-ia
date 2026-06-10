@@ -8,7 +8,6 @@ export default async function ProcesarHighlightsPage() {
   const accessToken = getAccessToken(session)
   const estructura = await initUserDrive(accessToken)
   const documentos = await listPDFs(accessToken, estructura.pdfsId)
-  const indexados = documentos.filter((d) => d.estado === 'indexado')
 
-  return <ProcesarHighlightsClient documentos={indexados} />
+  return <ProcesarHighlightsClient documentos={documentos} />
 }

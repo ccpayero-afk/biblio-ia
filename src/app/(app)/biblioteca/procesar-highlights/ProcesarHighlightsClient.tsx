@@ -129,8 +129,8 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
         </button>
         <div className="flex flex-col items-center py-20 text-center">
           <FileText className="h-12 w-12 text-neutral-700" />
-          <p className="mt-4 text-lg font-semibold text-white">Sin documentos indexados</p>
-          <p className="mt-2 text-sm text-neutral-500">Indexá documentos en la Biblioteca primero.</p>
+          <p className="mt-4 text-lg font-semibold text-white">Sin documentos</p>
+          <p className="mt-2 text-sm text-neutral-500">Subí PDFs en la Biblioteca para empezar.</p>
         </div>
       </div>
     )
