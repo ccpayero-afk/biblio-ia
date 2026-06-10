@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/TextLayer.css'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
@@ -24,8 +24,10 @@ interface Seleccion {
   rect: DOMRect
 }
 
-function isMobile() {
-  return typeof window !== 'undefined' && window.innerWidth < 768
+const COLOR_BG: Record<string, string> = {
+  amarillo: '#fef08a',
+  azul: '#93c5fd',
+  rojo: '#fca5a5',
 }
 
 export default function LectorClient({ documento, pdfUrl }: Props) {
@@ -43,14 +45,14 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
   const [hlResultado, setHlResultado] = useState<{ citasCreadas: number; notasCreadas: number; fichaCreada: boolean; anotaciones: number; mensaje?: string; error?: string } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const contenedorRef = useRef<HTMLDivElement>(null)
+  const highlightsRef = useRef(highlights)
+  highlightsRef.current = highlights
 
-  // Ajustar zoom según ancho disponible
   useEffect(() => {
     if (!contenedorRef.current) return
     const obs = new ResizeObserver((entries) => {
       const w = entries[0].contentRect.width
       setAnchoContenedor(w)
-      // Auto-zoom: fit to container width (A4 PDF = ~595px at 1x)
       const autoZoom = Math.min(Math.max(w / 650, 0.5), 2.0)
       setZoom(parseFloat(autoZoom.toFixed(1)))
     })
@@ -72,9 +74,7 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
   // Document-level mouseup — bypasses any stopPropagation in react-pdf's text layer
   useEffect(() => {
     function handleMouseUp(e: MouseEvent) {
-      const target = e.target as Node
-      // Ignore if mouseup landed on the selection popover itself
-      if (!contenedorRef.current?.contains(target)) return
+      if (!contenedorRef.current?.contains(e.target as Node)) return
       const sel = window.getSelection()
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
         setSeleccion(null)
@@ -90,49 +90,36 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
     return () => document.removeEventListener('mouseup', handleMouseUp)
   }, [paginaActual])
 
+  // Apply highlight colors to the text layer DOM after page renders
+  const applyHighlightsToDOM = useCallback(() => {
+    if (!contenedorRef.current) return
+    const textLayer = contenedorRef.current.querySelector('.react-pdf__Page__textContent')
+    if (!textLayer) return
+    const pageHighlights = highlightsRef.current.filter(h => h.pagina === paginaActual)
+    const spans = textLayer.querySelectorAll('span')
+    for (const span of spans) {
+      const text = (span.textContent ?? '').trim()
+      ;(span as HTMLElement).style.backgroundColor = ''
+      if (!text || text.length < 2) continue
+      for (const h of pageHighlights) {
+        if (h.texto.toLowerCase().includes(text.toLowerCase())) {
+          ;(span as HTMLElement).style.backgroundColor = COLOR_BG[h.color] ?? '#fef08a'
+          ;(span as HTMLElement).style.borderRadius = '2px'
+          ;(span as HTMLElement).style.padding = '0 1px'
+          break
+        }
+      }
+    }
+  }, [paginaActual])
+
+  // Re-apply highlights when state changes (e.g. new highlight added)
+  useEffect(() => {
+    applyHighlightsToDOM()
+  }, [highlights, paginaActual, applyHighlightsToDOM])
+
   function showToast(msg: string) {
     setToast(msg)
     setTimeout(() => setToast(null), 2500)
-  }
-
-  const COLOR_BG: Record<string, string> = {
-    amarillo: '#fef08a',
-    azul: '#93c5fd',
-    rojo: '#fca5a5',
-  }
-
-  const customTextRenderer = useMemo(() => {
-    const pageHighlights = highlights.filter(h => h.pagina === paginaActual)
-    if (!pageHighlights.length) return undefined
-    return ({ str }: { str: string; itemIndex: number; pageIndex: number; pageNumber: number }) => {
-      const trimmed = str.trim()
-      if (!trimmed) return str
-      for (const h of pageHighlights) {
-        if (h.texto.toLowerCase().includes(trimmed.toLowerCase()) ||
-            (trimmed.length > 5 && trimmed.toLowerCase().split(/\s+/).every(w => h.texto.toLowerCase().includes(w)))) {
-          const bg = COLOR_BG[h.color] ?? '#fef08a'
-          return `<mark style="background:${bg};border-radius:2px;padding:0 1px;">${str}</mark>`
-        }
-      }
-      return str
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [highlights.length, paginaActual])
-
-  async function procesarHighlights() {
-    setProcesandoHL(true)
-    try {
-      const res = await fetch(`/api/highlights/procesar/${documento.id}`, { method: 'POST' })
-      const data = await res.json()
-      setHlResultado(data)
-      if (data.anotaciones > 0) {
-        // Recargar highlights del panel
-        const hlRes = await fetch(`/api/highlights/${documento.id}`)
-        const hlData = await hlRes.json()
-        if (Array.isArray(hlData)) setHighlights(hlData)
-      }
-    } catch { /* noop */ }
-    setProcesandoHL(false)
   }
 
   function cerrarSeleccion() {
@@ -140,26 +127,57 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
     window.getSelection()?.removeAllRanges()
   }
 
-  async function guardarHighlight(color: Highlight['color'], nota?: string) {
-    if (!seleccion) return
+  async function guardarHighlight(sel: Seleccion, color: Highlight['color']) {
     const h: Highlight = {
       id: `h_${Date.now()}`,
       documentoId: documento.id,
-      texto: seleccion.texto,
-      pagina: seleccion.pagina,
+      texto: sel.texto,
+      pagina: sel.pagina,
       posicion: { x: 0, y: 0, width: 0, height: 0 },
       color,
-      nota,
       creadoEn: new Date().toISOString(),
     }
     setHighlights((prev) => [...prev, h])
-    cerrarSeleccion()
-    showToast(nota ? 'Anotación guardada ✓' : 'Texto resaltado ✓')
     await fetch(`/api/highlights/${documento.id}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(h),
     })
+  }
+
+  async function onResaltar() {
+    if (!seleccion) return
+    const sel = seleccion
+    cerrarSeleccion()
+    showToast('Texto resaltado ✓')
+    await guardarHighlight(sel, 'amarillo')
+  }
+
+  async function onAnotar(nota: string) {
+    if (!seleccion) return
+    const sel = seleccion
+    cerrarSeleccion()
+    showToast('Guardando nota…')
+
+    // Crea una Nota Zettelkasten (efimera) vinculada al documento
+    const contenido = `${nota}\n\n> "${sel.texto}"\n— p. ${sel.pagina}, *${documento.nombre.replace(/\.pdf$/i, '')}*`
+    await fetch('/api/notas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        titulo: nota.split('\n')[0].slice(0, 80) || sel.texto.slice(0, 60),
+        contenido,
+        tipo: 'efimera',
+        documentoOrigenId: documento.id,
+        paginaOrigen: sel.pagina,
+        fragmentoTexto: sel.texto,
+        etiquetas: [],
+      }),
+    })
+
+    // También guarda un highlight azul para marcar el texto en el lector
+    await guardarHighlight(sel, 'azul')
+    showToast('Nota creada ✓')
   }
 
   async function guardarCita(datos: { notaPropia?: string; etiquetas: string[]; proyectoId?: string }) {
@@ -174,8 +192,9 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
       ...datos,
     })
     setCitas((prev) => [...prev, cita])
-    await guardarHighlight('rojo')
+    const sel = modalCita
     setModalCita(null)
+    await guardarHighlight(sel, 'rojo')
     await fetch('/api/citas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -190,6 +209,21 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
     contenedorRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  async function procesarHighlights() {
+    setProcesandoHL(true)
+    try {
+      const res = await fetch(`/api/highlights/procesar/${documento.id}`, { method: 'POST' })
+      const data = await res.json()
+      setHlResultado(data)
+      if (data.anotaciones > 0) {
+        const hlRes = await fetch(`/api/highlights/${documento.id}`)
+        const hlData = await hlRes.json()
+        if (Array.isArray(hlData)) setHighlights(hlData)
+      }
+    } catch { /* noop */ }
+    setProcesandoHL(false)
+  }
+
   return (
     <div className="flex h-full gap-0 overflow-hidden -m-4 md:-m-6">
       {/* Visor principal */}
@@ -200,13 +234,8 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
             {documento.nombre.replace(/\.pdf$/i, '')}
           </h2>
 
-          {/* Navegación */}
           <div className="flex items-center gap-0.5">
-            <button
-              onClick={() => irAPagina(paginaActual - 1)}
-              disabled={paginaActual <= 1}
-              className="rounded p-1 text-neutral-400 hover:text-white disabled:opacity-30"
-            >
+            <button onClick={() => irAPagina(paginaActual - 1)} disabled={paginaActual <= 1} className="rounded p-1 text-neutral-400 hover:text-white disabled:opacity-30">
               <ChevronLeft className="h-4 w-4" />
             </button>
             <input
@@ -218,16 +247,11 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
               className="w-10 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-center text-xs text-white"
             />
             <span className="text-xs text-neutral-500">/{numPages}</span>
-            <button
-              onClick={() => irAPagina(paginaActual + 1)}
-              disabled={paginaActual >= numPages}
-              className="rounded p-1 text-neutral-400 hover:text-white disabled:opacity-30"
-            >
+            <button onClick={() => irAPagina(paginaActual + 1)} disabled={paginaActual >= numPages} className="rounded p-1 text-neutral-400 hover:text-white disabled:opacity-30">
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
 
-          {/* Zoom — hidden on very small screens */}
           <div className="hidden items-center gap-0.5 sm:flex">
             <button onClick={() => setZoom((z) => Math.max(0.5, parseFloat((z - 0.1).toFixed(1))))} className="rounded p-1 text-neutral-400 hover:text-white">
               <ZoomOut className="h-4 w-4" />
@@ -238,7 +262,6 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
             </button>
           </div>
 
-          {/* Procesar highlights PDF */}
           {hlResultado === null ? (
             <button
               onClick={procesarHighlights}
@@ -250,26 +273,15 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
               {procesandoHL ? 'Procesando…' : 'Highlights PDF'}
             </button>
           ) : hlResultado.error ? (
-            <button
-              onClick={() => setHlResultado(null)}
-              title={hlResultado.error}
-              className="hidden max-w-[200px] items-center gap-1 truncate rounded-lg border border-red-900 px-2 py-1 text-xs text-red-400 hover:border-red-700 sm:flex"
-            >
+            <button onClick={() => setHlResultado(null)} title={hlResultado.error} className="hidden max-w-[200px] items-center gap-1 truncate rounded-lg border border-red-900 px-2 py-1 text-xs text-red-400 hover:border-red-700 sm:flex">
               Error (clic para reintentar)
             </button>
           ) : (
             <span
               title={hlResultado.mensaje ?? `${hlResultado.citasCreadas} citas · ${hlResultado.notasCreadas} notas`}
-              className={`hidden items-center gap-1 rounded-lg border px-2 py-1 text-xs sm:flex ${
-                hlResultado.anotaciones === 0
-                  ? 'border-neutral-700 text-neutral-500'
-                  : 'border-green-900 text-green-400'
-              }`}
+              className={`hidden items-center gap-1 rounded-lg border px-2 py-1 text-xs sm:flex ${hlResultado.anotaciones === 0 ? 'border-neutral-700 text-neutral-500' : 'border-green-900 text-green-400'}`}
             >
-              {hlResultado.anotaciones === 0
-                ? 'Sin highlights'
-                : <><Check className="h-3 w-3" /> {hlResultado.citasCreadas}c · {hlResultado.notasCreadas}n</>
-              }
+              {hlResultado.anotaciones === 0 ? 'Sin highlights' : <><Check className="h-3 w-3" /> {hlResultado.citasCreadas}c · {hlResultado.notasCreadas}n</>}
             </span>
           )}
 
@@ -282,10 +294,7 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
         </div>
 
         {/* PDF */}
-        <div
-          ref={contenedorRef}
-          className="flex-1 overflow-y-auto bg-neutral-800 flex justify-center py-4 md:py-6"
-        >
+        <div ref={contenedorRef} className="flex-1 overflow-y-auto bg-neutral-800 flex justify-center py-4 md:py-6">
           <Document
             file={pdfUrl}
             onLoadSuccess={({ numPages }) => setNumPages(numPages)}
@@ -298,28 +307,19 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
               width={anchoContenedor > 0 ? Math.min(anchoContenedor - 32, 900) : undefined}
               renderTextLayer
               renderAnnotationLayer={false}
-              customTextRenderer={customTextRenderer}
               className="shadow-2xl"
+              onRenderSuccess={applyHighlightsToDOM}
             />
           </Document>
         </div>
       </div>
 
-      {/* Panel lateral — overlay on mobile, static on desktop */}
       {panelAbierto && (
         <>
-          {/* Mobile overlay background */}
-          <div
-            className="fixed inset-0 z-20 bg-black/50 md:hidden"
-            onClick={() => setPanelAbierto(false)}
-          />
-          {/* Panel */}
+          <div className="fixed inset-0 z-20 bg-black/50 md:hidden" onClick={() => setPanelAbierto(false)} />
           <div className="fixed inset-y-0 right-0 z-30 w-72 md:static md:z-auto md:w-auto">
             <div className="relative h-full">
-              <button
-                onClick={() => setPanelAbierto(false)}
-                className="absolute right-2 top-2 z-10 rounded p-1 text-neutral-500 hover:text-white md:hidden"
-              >
+              <button onClick={() => setPanelAbierto(false)} className="absolute right-2 top-2 z-10 rounded p-1 text-neutral-500 hover:text-white md:hidden">
                 <X className="h-4 w-4" />
               </button>
               <PanelLateral
@@ -332,7 +332,6 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
         </>
       )}
 
-      {/* Toast feedback */}
       {toast && (
         <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-neutral-800 px-4 py-2 text-sm text-white shadow-xl border border-neutral-700">
           {toast}
@@ -342,8 +341,8 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
       {seleccion && (
         <SelectionPopover
           rect={seleccion.rect}
-          onHighlight={() => guardarHighlight('amarillo')}
-          onAnotar={(nota) => guardarHighlight('azul', nota)}
+          onHighlight={onResaltar}
+          onAnotar={onAnotar}
           onCitar={() => { setModalCita(seleccion); cerrarSeleccion() }}
           onCerrar={cerrarSeleccion}
         />
