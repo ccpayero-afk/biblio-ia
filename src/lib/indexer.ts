@@ -1,12 +1,11 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { GEMINI_MODEL_EMBEDDING, GEMINI_MODEL_GENERATION, getGeminiClient } from './gemini'
+import { GEMINI_MODEL_EMBEDDING, getGeminiClient } from './gemini'
 import { initUserDrive, writeJSON, findFile, readJSON, updateDocumentMetadata } from './drive'
 import { Fragmento } from '@/types'
 
 const MIN_PAGE_CHARS = 30    // below this, page is considered empty/scanned
 const OCR_THRESHOLD = 0.3   // if >30% of pages have no text → treat as scanned
-const MAX_OCR_PAGES = 80    // cap to avoid streaming timeout
-const OCR_BATCH = 3         // pages in parallel per Gemini batch
+const MAX_OCR_PAGES = 25    // Tesseract is slow (~3-5s/pág), limitar por sesión
 
 // Descarga el PDF desde Drive como Buffer
 export async function downloadPDFBuffer(accessToken: string, fileId: string): Promise<Buffer> {
@@ -43,20 +42,17 @@ async function extractAllPageTexts(buffer: Buffer): Promise<{
   return { conTexto, sinTexto, total: pages.length }
 }
 
-// OCR de una página: render a PNG → Gemini Vision → texto
-async function ocrPage(buffer: Buffer, pageNumber: number, genAI: GoogleGenerativeAI): Promise<string> {
+// OCR de una página: render a PNG → Tesseract.js → texto
+async function ocrPage(
+  buffer: Buffer,
+  pageNumber: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  worker: any  // Tesseract.Worker — tipado dinámico para evitar errores de build
+): Promise<string> {
   const { renderPageAsImage } = await import('unpdf')
   const imageBuffer = await renderPageAsImage(new Uint8Array(buffer), pageNumber, { scale: 1.5 })
-  const base64 = Buffer.from(imageBuffer).toString('base64')
-
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-  const result = await model.generateContent([
-    { inlineData: { mimeType: 'image/png', data: base64 } },
-    {
-      text: 'Transcribí todo el texto visible en esta página de libro escaneado. Devolvé únicamente el texto transcrito, sin comentarios, encabezados ni explicaciones adicionales.',
-    },
-  ])
-  return result.response.text().trim()
+  const { data } = await worker.recognize(Buffer.from(imageBuffer))
+  return (data.text as string).trim()
 }
 
 // Divide texto en fragmentos de ~400 palabras con overlap de 50
@@ -140,44 +136,35 @@ export async function indexDocument(
     const totalOCR = paginasAOCR.length
 
     onProgress(
-      `PDF escaneado detectado (${sinTexto.length}/${total} págs sin texto). Iniciando OCR…`,
+      `PDF escaneado (${sinTexto.length}/${total} págs sin texto). Cargando OCR…`,
       2, TOTAL
     )
 
-    // Obtenemos el cliente Gemini antes del bucle
-    const genAI = await getGeminiClient(accessToken)
+    const { createWorker } = await import('tesseract.js')
+    // spa+eng cubre libros académicos en español e inglés
+    const worker = await createWorker(['spa', 'eng'], 1, {
+      cachePath: '/tmp/tesseract',
+    })
+
     const chunksPorOCR: { texto: string; pagina: number }[] = []
 
-    for (let i = 0; i < paginasAOCR.length; i += OCR_BATCH) {
-      const lote = paginasAOCR.slice(i, i + OCR_BATCH)
-      const progActual = Math.min(i + OCR_BATCH, totalOCR)
-      onProgress(`OCR ${progActual}/${totalOCR} páginas…`, 2, TOTAL)
-
-      const resultados = await Promise.all(
-        lote.map(async (pagina) => {
-          try {
-            const texto = await ocrPage(buffer, pagina, genAI)
-            return texto.length > 20 ? { texto, pagina } : null
-          } catch {
-            return null  // skip pages that fail OCR silently
-          }
-        })
-      )
-
-      for (const r of resultados) {
-        if (r) chunksPorOCR.push(...chunkText(r.texto, r.pagina))
+    try {
+      for (let i = 0; i < paginasAOCR.length; i++) {
+        onProgress(`OCR ${i + 1}/${totalOCR} páginas…`, 2, TOTAL)
+        try {
+          const texto = await ocrPage(buffer, paginasAOCR[i], worker)
+          if (texto.length > 20) chunksPorOCR.push(...chunkText(texto, paginasAOCR[i]))
+        } catch { /* página fallida — continuar */ }
       }
-
-      if (i + OCR_BATCH < paginasAOCR.length) {
-        await new Promise((r) => setTimeout(r, 300))
-      }
+    } finally {
+      await worker.terminate()
     }
 
     rawChunks = [...rawChunks, ...chunksPorOCR]
 
     if (paginasAOCR.length < sinTexto.length) {
       onProgress(
-        `OCR completado (${paginasAOCR.length} págs procesadas, ${sinTexto.length - paginasAOCR.length} omitidas por límite)`,
+        `OCR completado (${paginasAOCR.length}/${sinTexto.length} págs). Re-indexá para continuar.`,
         2, TOTAL
       )
     }
