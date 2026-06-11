@@ -11,12 +11,12 @@ import { generarIdZettel } from '@/lib/zettel-id'
 
 // ─── Configuración de tipos ──────────────────────────────────────────────────
 
-const TIPOS_ZETTEL: { tipo: TipoNota; label: string; desc: string; color: string }[] = [
-  { tipo: 'efimera', label: 'Efímera', desc: 'Captura rápida, sin procesar todavía', color: 'text-orange-400 bg-orange-950/40 border-orange-800/50' },
-  { tipo: 'referencia', label: 'Referencia', desc: 'Sobre un texto específico de la biblioteca', color: 'text-blue-400 bg-blue-950/40 border-blue-800/50' },
-  { tipo: 'permanente', label: 'Permanente', desc: 'Una idea propia, desvinculada del origen', color: 'text-green-400 bg-green-950/40 border-green-800/50' },
-  { tipo: 'estructura', label: 'Estructura', desc: 'Índice de entrada a un tema o cluster', color: 'text-purple-400 bg-purple-950/40 border-purple-800/50' },
-  { tipo: 'proyecto', label: 'Proyecto', desc: 'Trabajo para un artículo o tesis específica', color: 'text-teal-400 bg-teal-950/40 border-teal-800/50' },
+const TIPOS_ZETTEL: { tipo: TipoNota; label: string; desc: string; color: string; barColor: string; dotColor: string }[] = [
+  { tipo: 'efimera',    label: 'Efímera',    desc: 'Captura rápida, sin procesar todavía',          color: 'text-orange-400 bg-orange-950/40 border-orange-800/50', barColor: 'bg-orange-500', dotColor: 'bg-orange-500' },
+  { tipo: 'referencia', label: 'Referencia', desc: 'Sobre un texto específico de la biblioteca',     color: 'text-blue-400 bg-blue-950/40 border-blue-800/50',       barColor: 'bg-blue-500',   dotColor: 'bg-blue-500'   },
+  { tipo: 'permanente', label: 'Permanente', desc: 'Una idea propia, desvinculada del origen',       color: 'text-green-400 bg-green-950/40 border-green-800/50',    barColor: 'bg-green-500',  dotColor: 'bg-green-500'  },
+  { tipo: 'estructura', label: 'Estructura', desc: 'Índice de entrada a un tema o cluster',          color: 'text-purple-400 bg-purple-950/40 border-purple-800/50', barColor: 'bg-purple-500', dotColor: 'bg-purple-500' },
+  { tipo: 'proyecto',   label: 'Proyecto',   desc: 'Trabajo para un artículo o tesis específica',   color: 'text-teal-400 bg-teal-950/40 border-teal-800/50',       barColor: 'bg-teal-500',   dotColor: 'bg-teal-500'   },
 ]
 
 const TIPOS_VINCULO: { tipo: VinculoZettel['tipo']; label: string }[] = [
@@ -126,7 +126,17 @@ function Editor({
       <div className="flex h-full max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl border border-neutral-800 bg-neutral-950 shadow-2xl">
         <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="font-mono text-xs text-neutral-500">{nota.id ?? '(nuevo)'}</span>
+            {nota.id ? (
+              <button
+                onClick={() => navigator.clipboard.writeText(`[[${nota.id}]]`)}
+                title="Copiar [[ID]]"
+                className="font-mono text-xs text-neutral-600 hover:text-neutral-400"
+              >
+                {nota.id}
+              </button>
+            ) : (
+              <span className="text-xs text-neutral-600">Nueva nota</span>
+            )}
             {tipoBadge(tipo)}
           </div>
           <button onClick={onCerrar} className="rounded p-1 text-neutral-600 hover:text-white">
@@ -770,33 +780,39 @@ export default function NotasClient() {
               </button>
             </div>
           )}
-          {notasFiltradas.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => setNotaSel(n)}
-              className={`block w-full border-b border-neutral-800/50 px-4 py-3 text-left transition-colors hover:bg-neutral-900 ${notaSel?.id === n.id ? 'bg-neutral-900' : ''}`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="line-clamp-2 flex-1 text-sm font-medium text-neutral-200">{n.titulo}</span>
-                {tipoBadge(n.tipo)}
-              </div>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="font-mono text-xs text-neutral-600">{n.id}</span>
-                {(n.vinculos ?? []).length > 0 && (
-                  <span className="flex items-center gap-0.5 text-xs text-neutral-600">
-                    <Link2 className="h-3 w-3" /> {(n.vinculos ?? []).length}
+          {notasFiltradas.map((n) => {
+            const cfg = TIPOS_ZETTEL.find((t) => t.tipo === n.tipo)
+            const isSelected = notaSel?.id === n.id
+            return (
+              <button
+                key={n.id}
+                onClick={() => setNotaSel(n)}
+                className={`relative block w-full border-b border-neutral-800/50 pl-4 pr-3 py-3 text-left transition-colors hover:bg-neutral-900/80 ${isSelected ? 'bg-neutral-900' : ''}`}
+              >
+                {/* Barra de color izquierda */}
+                <div className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-full ${cfg?.barColor ?? 'bg-neutral-600'}`} />
+
+                {/* Título */}
+                <p className="line-clamp-2 text-sm font-medium leading-snug text-neutral-100">{n.titulo}</p>
+
+                {/* Meta row */}
+                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                  <span className={`text-xs font-medium ${cfg?.color.split(' ')[0] ?? 'text-neutral-500'}`}>
+                    {cfg?.label ?? n.tipo}
                   </span>
-                )}
-              </div>
-              {n.etiquetas.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {n.etiquetas.slice(0, 3).map((e) => (
-                    <span key={e} className="rounded-full bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-500">#{e}</span>
+                  {(n.vinculos ?? []).length > 0 && (
+                    <span className="flex items-center gap-0.5 text-xs text-neutral-600">
+                      <Link2 className="h-2.5 w-2.5" />
+                      {(n.vinculos ?? []).length}
+                    </span>
+                  )}
+                  {n.etiquetas.filter((e) => e !== 'auto-ficha' && e !== 'concepto-clave').slice(0, 2).map((e) => (
+                    <span key={e} className="rounded-full bg-neutral-800 px-1.5 py-px text-xs text-neutral-500">#{e}</span>
                   ))}
                 </div>
-              )}
-            </button>
-          ))}
+              </button>
+            )
+          })}
         </div>
       </div>
 

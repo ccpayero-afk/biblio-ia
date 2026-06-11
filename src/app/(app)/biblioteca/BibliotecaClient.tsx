@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch, ScanText, Wand2 } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch, ScanText, Wand2, Settings2 } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
@@ -268,6 +268,8 @@ export default function BibliotecaClient() {
   const [ocrLoteActivo, setOcrLoteActivo] = useState(false)
   const [progresoOcrLote, setProgresoOcrLote] = useState<{ actual: number; total: number } | null>(null)
   const [showPipeline, setShowPipeline] = useState(false)
+  const [menuHerramientas, setMenuHerramientas] = useState(false)
+  const herramientasRef = useRef<HTMLDivElement>(null)
   const [vista, setVista] = useState<'lista' | 'grilla'>('lista')
   const [sidebarAbierto, setSidebarAbierto] = useState(true)
   const [todosColapsados, setTodosColapsados] = useState(false)
@@ -314,6 +316,16 @@ export default function BibliotecaClient() {
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
+
+  useEffect(() => {
+    function handle(e: MouseEvent) {
+      if (herramientasRef.current && !herramientasRef.current.contains(e.target as Node)) {
+        setMenuHerramientas(false)
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [])
 
   async function subirArchivos(files: FileList | File[]) {
     const pdfs = Array.from(files).filter(
@@ -697,117 +709,148 @@ export default function BibliotecaClient() {
             </p>
             </div>
           </div>
-          <div className="flex flex-shrink-0 flex-wrap justify-end gap-2">
-            <button onClick={cargar} disabled={cargando} className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-600 disabled:opacity-50">
+          <div className="flex flex-shrink-0 items-center gap-1.5">
+            {/* Reload */}
+            <button
+              onClick={cargar}
+              disabled={cargando}
+              title="Recargar"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-neutral-600 hover:text-white disabled:opacity-50"
+            >
               <RefreshCw className={`h-4 w-4 ${cargando ? 'animate-spin' : ''}`} />
             </button>
+
             {/* Toggle vista */}
-            <div className="flex rounded-lg border border-neutral-700 overflow-hidden">
-              <button
-                onClick={() => setVista('lista')}
-                className={`px-2.5 py-2 ${vista === 'lista' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-                title="Vista detalle"
-              >
+            <div className="flex overflow-hidden rounded-lg border border-neutral-700">
+              <button onClick={() => setVista('lista')} title="Vista lista" className={`flex h-9 w-9 items-center justify-center ${vista === 'lista' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
                 <LayoutList className="h-4 w-4" />
               </button>
-              <button
-                onClick={() => setVista('grilla')}
-                className={`px-2.5 py-2 ${vista === 'grilla' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-                title="Vista grilla"
-              >
+              <button onClick={() => setVista('grilla')} title="Vista grilla" className={`flex h-9 w-9 items-center justify-center ${vista === 'grilla' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
                 <LayoutGrid className="h-4 w-4" />
               </button>
             </div>
+
+            {/* Seleccionar */}
             {!modoSeleccion && (
               <button
                 onClick={() => setModoSeleccion(true)}
-                className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-600"
-                title="Seleccionar para eliminar"
+                title="Seleccionar documentos"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-neutral-600 hover:text-white"
               >
                 <CheckSquare2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Seleccionar</span>
               </button>
             )}
-            {sinIndexar > 0 && (
+
+            {/* Dropdown Herramientas */}
+            <div className="relative" ref={herramientasRef}>
               <button
-                onClick={() => {
-                  const pendientes = documentosFiltrados.filter((d) => d.estado === 'sin_indexar' || d.estado === 'error')
-                  indexarTodosSecuencial(pendientes)
-                }}
-                disabled={indexandoLote}
-                className="flex items-center gap-1.5 rounded-lg border border-blue-700 bg-blue-950/40 px-3 py-2 text-sm text-blue-400 hover:bg-blue-950 disabled:opacity-60"
+                onClick={() => setMenuHerramientas((v) => !v)}
+                className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors ${menuHerramientas ? 'border-neutral-500 bg-neutral-800 text-white' : 'border-neutral-700 text-neutral-400 hover:border-neutral-600 hover:text-white'}`}
               >
-                <Zap className={`h-4 w-4 ${indexandoLote ? 'animate-pulse' : ''}`} />
-                {indexandoLote && progresoLote
-                  ? `Indexando ${progresoLote.actual + 1}/${progresoLote.total}…`
-                  : `Indexar todos (${sinIndexar})`}
+                <Settings2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Herramientas</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${menuHerramientas ? 'rotate-180' : ''}`} />
               </button>
-            )}
-            <button
-              onClick={extraerMetadatosLote}
-              disabled={extrayendoMeta || sinMetadatos === 0}
-              title="Extraer metadatos de documentos sin autor/año (PDF + CrossRef, sin IA)"
-              className="flex items-center gap-1.5 rounded-lg border border-teal-800 bg-teal-950/30 px-3 py-2 text-sm text-teal-400 hover:bg-teal-950 disabled:opacity-40"
-            >
-              <ScanSearch className={`h-4 w-4 ${extrayendoMeta ? 'animate-pulse' : ''}`} />
-              <span className="hidden sm:inline">
-                {extrayendoMeta && progresoMeta
-                  ? `Extrayendo ${progresoMeta.actual}/${progresoMeta.total}…`
-                  : `Metadatos (${sinMetadatos})`}
-              </span>
-            </button>
-            {/* Actualizar metadatos masivo (forzar=true) — siempre visible */}
-            <button
-              onClick={actualizarMetadatosLote}
-              disabled={actualizandoMetaLote || documentosFiltrados.length === 0}
-              title="Actualizar metadatos de TODOS los documentos (sobrescribe con datos frescos de PDF + CrossRef)"
-              className="flex items-center gap-1.5 rounded-lg border border-violet-800 bg-violet-950/30 px-3 py-2 text-sm text-violet-400 hover:bg-violet-950 disabled:opacity-40"
-            >
-              <RefreshCw className={`h-4 w-4 ${actualizandoMetaLote ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">
-                {actualizandoMetaLote && progresoActMeta
-                  ? `Actualizando ${progresoActMeta.actual}/${progresoActMeta.total}…`
-                  : 'Actualizar metadatos'}
-              </span>
-            </button>
-            <button
-              onClick={ocrTodosSecuencial}
-              disabled={ocrLoteActivo || conError === 0}
-              title="OCR + Re-indexar todos los documentos con error (PDFs escaneados)"
-              className="flex items-center gap-1.5 rounded-lg border border-orange-800 bg-orange-950/30 px-3 py-2 text-sm text-orange-400 hover:bg-orange-950 disabled:opacity-40"
-            >
-              <ScanText className={`h-4 w-4 ${ocrLoteActivo ? 'animate-pulse' : ''}`} />
-              <span className="hidden sm:inline">
-                {ocrLoteActivo && progresoOcrLote
-                  ? `OCR ${progresoOcrLote.actual + 1}/${progresoOcrLote.total}…`
-                  : `OCR (${conError})`}
-              </span>
-            </button>
-            {/* Pipeline completo: fichas + notas + citas + vínculos */}
-            <button
-              onClick={() => setShowPipeline(true)}
-              disabled={documentosFiltrados.filter((d) => d.estado === 'indexado').length === 0}
-              title="Procesar biblioteca: genera fichas, extrae notas y citas, vincula automáticamente"
-              className="flex items-center gap-1.5 rounded-lg border border-purple-700 bg-purple-950/30 px-3 py-2 text-sm text-purple-300 hover:bg-purple-950 disabled:opacity-40"
-            >
-              <Wand2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Procesar biblioteca</span>
-            </button>
-            <button
-              onClick={() => setModalImportarCarpeta(true)}
-              title="Importar carpeta completa"
-              className="flex items-center gap-2 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 hover:text-white"
-            >
-              <FolderInput className="h-4 w-4" />
-              <span className="hidden sm:inline">Importar carpeta</span>
-            </button>
+
+              {menuHerramientas && (
+                <div className="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
+                  <div className="p-1.5 space-y-0.5">
+
+                    {/* Indexar pendientes */}
+                    <button
+                      onClick={() => { setMenuHerramientas(false); indexarTodosSecuencial(documentosFiltrados.filter((d) => d.estado === 'sin_indexar' || d.estado === 'error')) }}
+                      disabled={indexandoLote || sinIndexar === 0}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                    >
+                      <Zap className={`h-4 w-4 flex-shrink-0 text-blue-400 ${indexandoLote ? 'animate-pulse' : ''}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">
+                          {indexandoLote && progresoLote ? `Indexando ${progresoLote.actual + 1}/${progresoLote.total}…` : 'Indexar pendientes'}
+                        </p>
+                        <p className="text-xs text-neutral-500">{sinIndexar} sin indexar</p>
+                      </div>
+                    </button>
+
+                    {/* OCR */}
+                    <button
+                      onClick={() => { setMenuHerramientas(false); ocrTodosSecuencial() }}
+                      disabled={ocrLoteActivo || conError === 0}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                    >
+                      <ScanText className={`h-4 w-4 flex-shrink-0 text-orange-400 ${ocrLoteActivo ? 'animate-pulse' : ''}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">{ocrLoteActivo && progresoOcrLote ? `OCR ${progresoOcrLote.actual + 1}/${progresoOcrLote.total}…` : 'OCR + Reindexar errores'}</p>
+                        <p className="text-xs text-neutral-500">{conError} con error</p>
+                      </div>
+                    </button>
+
+                    <div className="my-1 border-t border-neutral-800" />
+
+                    {/* Extraer metadatos vacíos */}
+                    <button
+                      onClick={() => { setMenuHerramientas(false); extraerMetadatosLote() }}
+                      disabled={extrayendoMeta || sinMetadatos === 0}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                    >
+                      <ScanSearch className={`h-4 w-4 flex-shrink-0 text-teal-400 ${extrayendoMeta ? 'animate-pulse' : ''}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">{extrayendoMeta && progresoMeta ? `Extrayendo ${progresoMeta.actual}/${progresoMeta.total}…` : 'Extraer metadatos vacíos'}</p>
+                        <p className="text-xs text-neutral-500">{sinMetadatos} sin autor/año</p>
+                      </div>
+                    </button>
+
+                    {/* Actualizar todos los metadatos */}
+                    <button
+                      onClick={() => { setMenuHerramientas(false); actualizarMetadatosLote() }}
+                      disabled={actualizandoMetaLote || documentosFiltrados.length === 0}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                    >
+                      <RefreshCw className={`h-4 w-4 flex-shrink-0 text-violet-400 ${actualizandoMetaLote ? 'animate-spin' : ''}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">{actualizandoMetaLote && progresoActMeta ? `Actualizando ${progresoActMeta.actual}/${progresoActMeta.total}…` : 'Actualizar todos los metadatos'}</p>
+                        <p className="text-xs text-neutral-500">Sobrescribe con datos frescos (CrossRef)</p>
+                      </div>
+                    </button>
+
+                    <div className="my-1 border-t border-neutral-800" />
+
+                    {/* Pipeline */}
+                    <button
+                      onClick={() => { setMenuHerramientas(false); setShowPipeline(true) }}
+                      disabled={documentosFiltrados.filter((d) => d.estado === 'indexado').length === 0}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                    >
+                      <Wand2 className="h-4 w-4 flex-shrink-0 text-purple-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">Procesar biblioteca</p>
+                        <p className="text-xs text-neutral-500">Fichas + notas + citas + vínculos</p>
+                      </div>
+                    </button>
+
+                    {/* Importar carpeta */}
+                    <button
+                      onClick={() => { setMenuHerramientas(false); setModalImportarCarpeta(true) }}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800"
+                    >
+                      <FolderInput className="h-4 w-4 flex-shrink-0 text-neutral-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">Importar carpeta</p>
+                        <p className="text-xs text-neutral-500">Subir varios PDFs desde carpeta local</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Subir PDF — botón principal siempre visible */}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={subiendo}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+              className="flex h-9 items-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
             >
               <Upload className="h-4 w-4" />
-              {subiendo ? 'Subiendo…' : 'Subir PDF'}
+              <span>{subiendo ? 'Subiendo…' : 'Subir PDF'}</span>
             </button>
             <input ref={fileInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => e.target.files && subirArchivos(e.target.files)} />
           </div>
