@@ -1,5 +1,5 @@
 import { Fragmento, Documento } from '@/types'
-import { initUserDrive, findFile, readJSON, listPDFs } from './drive'
+import { initUserDrive, findFile, readJSON, listPDFs, listFilesInFolder } from './drive'
 import { getGeminiClient } from './gemini'
 import { GEMINI_MODEL_EMBEDDING } from './gemini'
 import { cosineSimilarity } from './indexer'
@@ -10,6 +10,8 @@ export interface FragmentoConDocumento extends Fragmento {
   año: string
 }
 
+const LOAD_BATCH = 30
+
 export async function semanticSearch(
   query: string,
   accessToken: string,
@@ -17,18 +19,32 @@ export async function semanticSearch(
 ): Promise<FragmentoConDocumento[]> {
   const { topK = 8, documentoIds } = opciones ?? {}
 
-  // Cargar índice de embeddings desde Drive
   const estructura = await initUserDrive(accessToken)
-  const embeddingsFileId = await findFile(accessToken, 'embeddings.json', estructura.indexId)
-  if (!embeddingsFileId) return []
+  const fragmentos: Fragmento[] = []
 
-  let fragmentos: Fragmento[] = await readJSON<Fragmento[]>(accessToken, embeddingsFileId)
-  if (!fragmentos.length) return []
-
-  // Filtrar por documentos si se especificó
   if (documentoIds?.length) {
-    fragmentos = fragmentos.filter((f) => documentoIds.includes(f.documentoId))
+    // Solo cargar los archivos de los documentos solicitados
+    const results = await Promise.allSettled(
+      documentoIds.map(async (id) => {
+        const fileId = await findFile(accessToken, `emb_${id}.json`, estructura.indexId)
+        if (!fileId) return [] as Fragmento[]
+        return readJSON<Fragmento[]>(accessToken, fileId)
+      })
+    )
+    fragmentos.push(...results.flatMap((r) => r.status === 'fulfilled' ? r.value : []))
+  } else {
+    // Cargar todos los archivos emb_*.json en lotes para no saturar la API
+    const archivos = await listFilesInFolder(accessToken, estructura.indexId, 'emb_')
+    for (let i = 0; i < archivos.length; i += LOAD_BATCH) {
+      const lote = archivos.slice(i, i + LOAD_BATCH)
+      const results = await Promise.allSettled(
+        lote.map((a) => readJSON<Fragmento[]>(accessToken, a.id))
+      )
+      fragmentos.push(...results.flatMap((r) => r.status === 'fulfilled' ? r.value : []))
+    }
   }
+
+  if (!fragmentos.length) return []
 
   // Embeber la query
   const genAI = await getGeminiClient(accessToken)

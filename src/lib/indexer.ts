@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { GEMINI_MODEL_EMBEDDING, getGeminiClient } from './gemini'
-import { initUserDrive, writeJSON, findFile, readJSON, updateDocumentMetadata } from './drive'
+import { initUserDrive, writeJSON, findFile, trashPDF, updateDocumentMetadata } from './drive'
 import { Fragmento } from '@/types'
 
 const MIN_PAGE_CHARS = 30    // below this, page is considered empty/scanned
@@ -110,15 +110,15 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return normA && normB ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0
 }
 
-// Elimina fragmentos de documentos específicos del índice de embeddings
+// Elimina archivos de embeddings por documento
 export async function removeFromIndex(accessToken: string, documentoIds: string[]): Promise<void> {
   const estructura = await initUserDrive(accessToken)
-  const embeddingsFileId = await findFile(accessToken, 'embeddings.json', estructura.indexId)
-  if (!embeddingsFileId) return
-  const todos = await readJSON<Fragmento[]>(accessToken, embeddingsFileId)
-  const idsSet = new Set(documentoIds)
-  const filtrados = todos.filter((f) => !idsSet.has(f.documentoId))
-  await writeJSON(accessToken, estructura.indexId, 'embeddings.json', filtrados)
+  await Promise.allSettled(
+    documentoIds.map(async (id) => {
+      const fileId = await findFile(accessToken, `emb_${id}.json`, estructura.indexId)
+      if (fileId) await trashPDF(accessToken, fileId)
+    })
+  )
 }
 
 // Pipeline completo de indexación con callback de progreso
@@ -207,16 +207,7 @@ export async function indexDocument(
   }))
 
   const estructura = await initUserDrive(accessToken)
-  const embeddingsFileId = await findFile(accessToken, 'embeddings.json', estructura.indexId)
-  let todos: Fragmento[] = []
-  if (embeddingsFileId) {
-    try {
-      todos = await readJSON<Fragmento[]>(accessToken, embeddingsFileId)
-      todos = todos.filter((f) => f.documentoId !== documentoId)
-    } catch { todos = [] }
-  }
-  todos.push(...fragmentos)
-  await writeJSON(accessToken, estructura.indexId, 'embeddings.json', todos)
+  await writeJSON(accessToken, estructura.indexId, `emb_${documentoId}.json`, fragmentos)
 
   onProgress('Actualizando metadatos…', 5, TOTAL)
   await updateDocumentMetadata(accessToken, documentoId, {

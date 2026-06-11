@@ -29,11 +29,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
 
     // Load embeddings for this document
     const estructura = await initUserDrive(accessToken)
-    const embeddingsFileId = await findFile(accessToken, 'embeddings.json', estructura.indexId)
     let fragmentos: Fragmento[] = []
-    if (embeddingsFileId) {
-      const todos = await readJSON<Fragmento[]>(accessToken, embeddingsFileId)
-      fragmentos = todos.filter((f) => f.documentoId === documentoId)
+    const embFileId = await findFile(accessToken, `emb_${documentoId}.json`, estructura.indexId)
+    if (embFileId) {
+      fragmentos = await readJSON<Fragmento[]>(accessToken, embFileId)
     }
 
     if (!fragmentos.length) {

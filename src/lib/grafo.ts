@@ -1,5 +1,5 @@
 import { Documento, Fragmento, Grafo, NodoGrafo, AristaGrafo, FichaLectura } from '@/types'
-import { initUserDrive, findFile, readJSON, listPDFs, writeJSON } from './drive'
+import { initUserDrive, findFile, readJSON, listPDFs, writeJSON, listFilesInFolder } from './drive'
 import { cosineSimilarity } from './indexer'
 
 export async function buildGrafo(accessToken: string): Promise<Grafo> {
@@ -66,9 +66,17 @@ export async function buildGrafo(accessToken: string): Promise<Grafo> {
 
   // Document-document edges via embedding similarity
   try {
-    const embeddingsFileId = await findFile(accessToken, 'embeddings.json', estructura.indexId)
-    if (embeddingsFileId && indexados.length > 1) {
-      const fragmentos = await readJSON<Fragmento[]>(accessToken, embeddingsFileId)
+    const archivos = await listFilesInFolder(accessToken, estructura.indexId, 'emb_')
+    if (archivos.length > 0 && indexados.length > 1) {
+      const BATCH = 30
+      const fragmentos: Fragmento[] = []
+      for (let i = 0; i < archivos.length; i += BATCH) {
+        const lote = archivos.slice(i, i + BATCH)
+        const results = await Promise.allSettled(
+          lote.map((a) => readJSON<Fragmento[]>(accessToken, a.id))
+        )
+        fragmentos.push(...results.flatMap((r) => r.status === 'fulfilled' ? r.value : []))
+      }
 
       // Compute average embedding per document
       const avgEmbeddings = new Map<string, number[]>()

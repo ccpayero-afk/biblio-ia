@@ -216,6 +216,31 @@ export async function getOrInitStructure(accessToken: string): Promise<DriveStru
   return initUserDrive(accessToken)
 }
 
+export async function listFilesInFolder(
+  accessToken: string,
+  parentId: string,
+  nameContains: string
+): Promise<{ id: string; name: string }[]> {
+  const drive = getDriveClient(accessToken)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allFiles: { id: string; name: string }[] = []
+  let pageToken: string | undefined = undefined
+  do {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res: any = await drive.files.list({
+      q: `name contains '${nameContains}' and '${parentId}' in parents and trashed=false`,
+      fields: 'nextPageToken, files(id, name)',
+      pageSize: 1000,
+      pageToken,
+    })
+    for (const f of res.data.files ?? []) {
+      allFiles.push({ id: f.id!, name: f.name! })
+    }
+    pageToken = res.data.nextPageToken ?? undefined
+  } while (pageToken)
+  return allFiles
+}
+
 export async function trashPDF(accessToken: string, fileId: string): Promise<void> {
   const drive = getDriveClient(accessToken)
   await drive.files.update({ fileId, requestBody: { trashed: true } })
