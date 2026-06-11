@@ -1,5 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { PDFParse } = require('pdf-parse')
+import { getDocumentProxy } from 'unpdf'
 
 export interface MetadatosExtraidos {
   titulo?: string
@@ -95,8 +94,11 @@ export async function extraerMetadatos(buffer: Buffer): Promise<MetadatosExtraid
 
   // 1. Metadatos embebidos en el PDF + texto de las primeras páginas
   try {
-    const parsed = await new PDFParse().parse(buffer, { max: 3 })
-    const info = (parsed.info ?? {}) as Record<string, string>
+    const pdf = await getDocumentProxy(new Uint8Array(buffer))
+
+    // Metadata del documento
+    const meta = await pdf.getMetadata()
+    const info = (meta.info ?? {}) as Record<string, string>
 
     if (info.Title?.trim()) resultado.titulo = info.Title.trim().slice(0, 200)
     if (info.Author?.trim()) resultado.autor = info.Author.trim().slice(0, 200)
@@ -108,15 +110,25 @@ export async function extraerMetadatos(buffer: Buffer): Promise<MetadatosExtraid
         .slice(0, 10)
     }
 
-    // Extraer año de la fecha de creación del PDF
     const fechaStr = info.CreationDate?.toString() ?? ''
     const añoMatch = fechaStr.match(/(\d{4})/)
     if (añoMatch) resultado.año = añoMatch[1]
 
-    // Buscar DOI e ISBN en el texto de las primeras páginas
-    const texto = (parsed.text ?? '').slice(0, 4000)
-    const doi = extraerDOI(texto)
-    const isbn = extraerISBN(texto)
+    // Texto de las primeras 3 páginas para buscar DOI/ISBN
+    let texto = ''
+    const pagesToScan = Math.min(3, pdf.numPages)
+    for (let i = 1; i <= pagesToScan; i++) {
+      const page = await pdf.getPage(i)
+      const content = await page.getTextContent()
+      for (const item of content.items) {
+        if ('str' in item) texto += (item as { str: string }).str + ' '
+        if (texto.length > 4000) break
+      }
+      if (texto.length > 4000) break
+    }
+
+    const doi = extraerDOI(texto.slice(0, 4000))
+    const isbn = extraerISBN(texto.slice(0, 4000))
     if (doi) resultado.doi = doi
     if (isbn) resultado.isbn = isbn
   } catch { /* PDF parsing failed, continuar */ }
@@ -153,9 +165,7 @@ export async function extraerMetadatos(buffer: Buffer): Promise<MetadatosExtraid
 // Formatea el autor extraído al estilo APA 7ma edición
 export function formatearAutorAPA(autor: string): string {
   if (!autor) return ''
-  // Si ya viene "Apellido, I." no tocamos
   if (/^[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+,/.test(autor)) return autor
-  // Si viene "Nombre Apellido", invertir
   const partes = autor.trim().split(/\s+/)
   if (partes.length >= 2) {
     const apellido = partes[partes.length - 1]
