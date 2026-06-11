@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { FileText, Pencil, Zap, FolderInput, Folder, CheckSquare2, Square, ScanSearch, CheckCircle2, ScanText, RefreshCw } from 'lucide-react'
+import { FileText, Pencil, Zap, FolderInput, Folder, CheckSquare2, Square, ScanSearch, CheckCircle2, ScanText, RefreshCw, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 
 const COLORES_CARPETA: Record<Carpeta['color'], string> = {
@@ -25,6 +25,7 @@ interface Props {
   onIndexadoOk: (documentoId: string, fragmentos: number) => void
   onRegistrarIndexar?: (fn: () => void) => void
   onMetadatosExtraidos?: (documentoId: string, campos: string[]) => void
+  onEliminar?: () => void
   modoSeleccion?: boolean
   seleccionado?: boolean
   onToggleSeleccion?: () => void
@@ -33,7 +34,7 @@ interface Props {
 
 export default function DocumentoCard({
   documento, carpeta, onEditar, onMover, onIndexadoOk, onRegistrarIndexar,
-  onMetadatosExtraidos,
+  onMetadatosExtraidos, onEliminar,
   modoSeleccion, seleccionado, onToggleSeleccion, vista = 'grilla',
 }: Props) {
   const [estado, setEstado] = useState(documento.estado)
@@ -228,6 +229,15 @@ export default function DocumentoCard({
             <button onClick={(e) => { e.stopPropagation(); onEditar() }} className="rounded p-1 text-neutral-600 hover:text-neutral-300" title="Editar metadatos">
               <Pencil className="h-3.5 w-3.5" />
             </button>
+            {onEliminar && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onEliminar() }}
+                title="Eliminar documento"
+                className="rounded p-1 text-neutral-700 hover:text-red-400"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -298,6 +308,15 @@ export default function DocumentoCard({
             <button onClick={onEditar} className="rounded p-1 text-neutral-600 hover:text-neutral-300" title="Editar metadatos">
               <Pencil className="h-3.5 w-3.5" />
             </button>
+            {onEliminar && (
+              <button
+                onClick={onEliminar}
+                title="Eliminar documento"
+                className="rounded p-1 text-neutral-700 hover:text-red-400"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
         )}
       </div>

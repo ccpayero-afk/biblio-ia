@@ -523,6 +523,17 @@ export default function BibliotecaClient() {
     }
   }
 
+  async function eliminarDocumento(doc: Documento) {
+    const nombre = (doc.nombre.split('/').pop() ?? doc.nombre).replace(/\.pdf$/i, '')
+    if (!confirm(`¿Eliminar "${nombre}"? El archivo irá a la papelera de Google Drive.`)) return
+    await fetch('/api/drive/pdfs', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [doc.id] }),
+    })
+    setDocumentos((prev) => prev.filter((d) => d.id !== doc.id))
+  }
+
   async function eliminarCarpetaConDocumentos(id: string) {
     const subtreeIds = getSubtreeIds(id, carpetas)
     const docsEnSubarbol = documentos.filter((d) => d.carpetaId && subtreeIds.includes(d.carpetaId))
@@ -979,6 +990,7 @@ export default function BibliotecaClient() {
                     carpeta={carpetas.find((c) => c.id === doc.carpetaId)}
                     onEditar={() => setEditando(doc)}
                     onMover={() => setMoviendo(doc)}
+                    onEliminar={() => eliminarDocumento(doc)}
                     onIndexadoOk={onDocumentIndexado}
                     onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
                     onMetadatosExtraidos={onMetadatosExtraidos}
@@ -998,6 +1010,7 @@ export default function BibliotecaClient() {
                     carpeta={carpetas.find((c) => c.id === doc.carpetaId)}
                     onEditar={() => setEditando(doc)}
                     onMover={() => setMoviendo(doc)}
+                    onEliminar={() => eliminarDocumento(doc)}
                     onIndexadoOk={onDocumentIndexado}
                     onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
                     onMetadatosExtraidos={onMetadatosExtraidos}
