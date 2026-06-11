@@ -62,24 +62,25 @@ export async function extractChunks(buffer: Buffer): Promise<{ texto: string; pa
   return conTexto.flatMap(({ texto, pagina }) => chunkText(texto, pagina))
 }
 
-// Genera embeddings en lotes de 20 para respetar rate limits
+// Genera embeddings usando batchEmbedContents (hasta 100 textos por llamada)
 export async function generateEmbeddings(
   chunks: string[],
   genAI: GoogleGenerativeAI,
   onProgress?: (done: number, total: number) => void
 ): Promise<number[][]> {
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_EMBEDDING })
-  const BATCH_SIZE = 20
+  const BATCH_SIZE = 100
   const embeddings: number[][] = []
 
   for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
     const lote = chunks.slice(i, i + BATCH_SIZE)
-    const resultados = await Promise.all(
-      lote.map((texto) => model.embedContent(texto).then((r) => r.embedding.values))
-    )
-    embeddings.push(...resultados)
+    const result = await model.batchEmbedContents({
+      requests: lote.map((text) => ({
+        content: { parts: [{ text }], role: 'user' as const },
+      })),
+    })
+    embeddings.push(...result.embeddings.map((e) => e.values))
     onProgress?.(Math.min(i + BATCH_SIZE, chunks.length), chunks.length)
-    if (i + BATCH_SIZE < chunks.length) await new Promise((r) => setTimeout(r, 500))
   }
 
   return embeddings
