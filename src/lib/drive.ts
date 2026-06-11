@@ -84,10 +84,19 @@ export async function listPDFs(accessToken: string, pdfsId: string): Promise<Doc
     return {
       id: f.id!,
       nombre: f.name ?? 'Sin nombre',
+      titulo: props.titulo || undefined,
       autor: props.autor ?? '',
       año: props.anio ?? '',
-      editorial: props.editorial,
-      abstract: props.abstract,
+      tipo: (props.tipo as Documento['tipo']) || undefined,
+      revista: props.revista || undefined,
+      editorial: props.editorial || undefined,
+      volumen: props.volumen || undefined,
+      numero: props.numero || undefined,
+      paginas: props.paginas || undefined,
+      url: props.url || undefined,
+      doi: props.doi || undefined,
+      isbn: props.isbn || undefined,
+      abstract: props.abstract || undefined,
       etiquetas: props.etiquetas ? JSON.parse(props.etiquetas) : [],
       estado: (props.estado === 'indexando' ? 'sin_indexar' : props.estado ?? 'sin_indexar') as Documento['estado'],
       fragmentos: props.fragmentos ? parseInt(props.fragmentos) : 0,
@@ -95,7 +104,6 @@ export async function listPDFs(accessToken: string, pdfsId: string): Promise<Doc
       creadoEn: f.createdTime ?? new Date().toISOString(),
       fichaGenerada: props.fichaGenerada === 'true',
       carpetaId: props.carpetaId || undefined,
-      doi: props.doi || undefined,
     }
   })
 }
@@ -133,13 +141,26 @@ export async function getPDFDownloadUrl(accessToken: string, fileId: string): Pr
 export async function updateDocumentMetadata(
   accessToken: string,
   fileId: string,
-  metadata: Partial<Pick<Documento, 'nombre' | 'autor' | 'año' | 'editorial' | 'abstract' | 'etiquetas' | 'estado' | 'fragmentos' | 'indexadoEn' | 'fichaGenerada' | 'carpetaId' | 'doi'>>
+  metadata: Partial<Pick<Documento,
+    'nombre' | 'titulo' | 'autor' | 'año' | 'tipo' | 'revista' | 'editorial' |
+    'volumen' | 'numero' | 'paginas' | 'url' | 'doi' | 'isbn' | 'abstract' |
+    'etiquetas' | 'estado' | 'fragmentos' | 'indexadoEn' | 'fichaGenerada' | 'carpetaId'
+  >>
 ): Promise<void> {
   const drive = getDriveClient(accessToken)
   const properties: Record<string, string> = {}
+  if (metadata.titulo !== undefined) properties.titulo = metadata.titulo
   if (metadata.autor !== undefined) properties.autor = metadata.autor
   if (metadata.año !== undefined) properties.anio = metadata.año
+  if (metadata.tipo !== undefined) properties.tipo = metadata.tipo
+  if (metadata.revista !== undefined) properties.revista = metadata.revista
   if (metadata.editorial !== undefined) properties.editorial = metadata.editorial
+  if (metadata.volumen !== undefined) properties.volumen = metadata.volumen
+  if (metadata.numero !== undefined) properties.numero = metadata.numero
+  if (metadata.paginas !== undefined) properties.paginas = metadata.paginas
+  if (metadata.url !== undefined) properties.url = metadata.url
+  if (metadata.doi !== undefined) properties.doi = metadata.doi
+  if (metadata.isbn !== undefined) properties.isbn = metadata.isbn
   if (metadata.abstract !== undefined) properties.abstract = metadata.abstract
   if (metadata.etiquetas !== undefined) properties.etiquetas = JSON.stringify(metadata.etiquetas)
   if (metadata.estado !== undefined) properties.estado = metadata.estado
@@ -147,7 +168,6 @@ export async function updateDocumentMetadata(
   if (metadata.indexadoEn !== undefined) properties.indexadoEn = metadata.indexadoEn
   if (metadata.fichaGenerada !== undefined) properties.fichaGenerada = String(metadata.fichaGenerada)
   if (metadata.carpetaId !== undefined) properties.carpetaId = metadata.carpetaId ?? ''
-  if (metadata.doi !== undefined) properties.doi = metadata.doi
 
   const requestBody: Record<string, unknown> = { properties }
   if (metadata.nombre !== undefined) {

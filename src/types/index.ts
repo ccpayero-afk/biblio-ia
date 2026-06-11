@@ -9,9 +9,18 @@ export interface Usuario {
 export interface Documento {
   id: string
   nombre: string
+  titulo?: string          // título del trabajo (distinto del nombre de archivo)
   autor: string
   año: string
-  editorial?: string
+  tipo?: 'articulo' | 'libro' | 'capitulo' | 'tesis' | 'otro'
+  revista?: string         // nombre de la revista (para artículos)
+  editorial?: string       // editorial/publisher
+  volumen?: string         // volumen (artículos/libros)
+  numero?: string          // número/issue (artículos)
+  paginas?: string         // rango de páginas, ej: "45-67"
+  url?: string
+  doi?: string
+  isbn?: string
   abstract?: string
   etiquetas: string[]
   estado: 'sin_indexar' | 'indexando' | 'indexado' | 'error'
@@ -20,7 +29,6 @@ export interface Documento {
   creadoEn: string
   fichaGenerada: boolean
   carpetaId?: string
-  doi?: string
 }
 
 export interface Fragmento {

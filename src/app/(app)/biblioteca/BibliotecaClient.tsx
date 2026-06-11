@@ -356,11 +356,8 @@ export default function BibliotecaClient() {
     setIndexandoLote(false)
   }
 
-  function onMetadatosExtraidos(docId: string, campos: string[]) {
-    // Recarga mínima: marca que este doc tiene datos para que UI refleje
-    if (campos.includes('autor') || campos.includes('año')) {
-      cargar()
-    }
+  function onMetadatosExtraidos(_docId: string, campos: string[]) {
+    if (campos.length > 0) cargar()
   }
 
   async function extraerMetadatosLote() {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { FileText, Pencil, Zap, FolderInput, Folder, CheckSquare2, Square, ScanSearch, CheckCircle2, ScanText } from 'lucide-react'
+import { FileText, Pencil, Zap, FolderInput, Folder, CheckSquare2, Square, ScanSearch, CheckCircle2, ScanText, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 
 const COLORES_CARPETA: Record<Carpeta['color'], string> = {
@@ -41,6 +41,8 @@ export default function DocumentoCard({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [extrayendo, setExtrayendo] = useState(false)
   const [extraidoOk, setExtraidoOk] = useState(false)
+  const [actualizando, setActualizando] = useState(false)
+  const [actualizadoOk, setActualizadoOk] = useState(false)
   const [ocrActivo, setOcrActivo] = useState(false)
 
   const estadoConfig = ESTADO_CONFIG[estado]
@@ -84,19 +86,24 @@ export default function DocumentoCard({
     }
   }
 
-  async function extraerMetadatos() {
-    setExtrayendo(true)
-    setExtraidoOk(false)
+  async function extraerMetadatos(forzar = false) {
+    if (forzar) { setActualizando(true); setActualizadoOk(false) }
+    else        { setExtrayendo(true);   setExtraidoOk(false) }
     try {
-      const res = await fetch(`/api/metadatos/${documento.id}`, { method: 'POST' })
+      const res = await fetch(`/api/metadatos/${documento.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forzar }),
+      })
       const data = await res.json()
       if (data.ok && data.actualizados?.length > 0) {
-        setExtraidoOk(true)
         onMetadatosExtraidos?.(documento.id, data.actualizados)
-        setTimeout(() => setExtraidoOk(false), 3000)
+        if (forzar) { setActualizadoOk(true); setTimeout(() => setActualizadoOk(false), 3000) }
+        else        { setExtraidoOk(true);    setTimeout(() => setExtraidoOk(false), 3000) }
       }
     } catch { /* silencioso */ }
-    setExtrayendo(false)
+    if (forzar) setActualizando(false)
+    else        setExtrayendo(false)
   }
 
   const nombre = (documento.nombre.split('/').pop() ?? documento.nombre).replace(/\.pdf$/i, '')
@@ -175,7 +182,7 @@ export default function DocumentoCard({
 
         {/* Acciones */}
         {!modoSeleccion && (
-          <div className="flex w-24 flex-shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex w-28 flex-shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
             {(estado === 'sin_indexar' || estado === 'error') && (
               <button onClick={(e) => { e.stopPropagation(); iniciarIndexacion() }} className="rounded p-1 text-neutral-600 hover:text-blue-400" title="Indexar">
                 <Zap className="h-3.5 w-3.5" />
@@ -192,9 +199,9 @@ export default function DocumentoCard({
               </button>
             )}
             <button
-              onClick={(e) => { e.stopPropagation(); extraerMetadatos() }}
+              onClick={(e) => { e.stopPropagation(); extraerMetadatos(false) }}
               disabled={extrayendo}
-              title="Extraer metadatos (sin IA)"
+              title="Extraer metadatos (rellena campos vacíos)"
               className="rounded p-1 text-neutral-600 hover:text-teal-400 disabled:opacity-40"
             >
               {extraidoOk
@@ -202,6 +209,16 @@ export default function DocumentoCard({
                 : extrayendo
                 ? <ScanSearch className="h-3.5 w-3.5 animate-pulse text-teal-400" />
                 : <ScanSearch className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); extraerMetadatos(true) }}
+              disabled={actualizando}
+              title="Actualizar metadatos (sobrescribe todos)"
+              className="rounded p-1 text-neutral-600 hover:text-violet-400 disabled:opacity-40"
+            >
+              {actualizadoOk
+                ? <CheckCircle2 className="h-3.5 w-3.5 text-violet-400" />
+                : <RefreshCw className={`h-3.5 w-3.5 ${actualizando ? 'animate-spin text-violet-400' : ''}`} />}
             </button>
             {onMover && (
               <button onClick={(e) => { e.stopPropagation(); onMover() }} className="rounded p-1 text-neutral-600 hover:text-neutral-300" title="Mover a carpeta">
@@ -252,9 +269,9 @@ export default function DocumentoCard({
               </button>
             )}
             <button
-              onClick={extraerMetadatos}
+              onClick={() => extraerMetadatos(false)}
               disabled={extrayendo}
-              title="Extraer metadatos (sin IA)"
+              title="Extraer metadatos (rellena campos vacíos)"
               className="rounded p-1 text-neutral-600 hover:text-teal-400 disabled:opacity-40"
             >
               {extraidoOk
@@ -262,6 +279,16 @@ export default function DocumentoCard({
                 : extrayendo
                 ? <ScanSearch className="h-3.5 w-3.5 animate-pulse text-teal-400" />
                 : <ScanSearch className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={() => extraerMetadatos(true)}
+              disabled={actualizando}
+              title="Actualizar metadatos (sobrescribe todos)"
+              className="rounded p-1 text-neutral-600 hover:text-violet-400 disabled:opacity-40"
+            >
+              {actualizadoOk
+                ? <CheckCircle2 className="h-3.5 w-3.5 text-violet-400" />
+                : <RefreshCw className={`h-3.5 w-3.5 ${actualizando ? 'animate-spin text-violet-400' : ''}`} />}
             </button>
             {onMover && (
               <button onClick={onMover} className="rounded p-1 text-neutral-600 hover:text-neutral-300" title="Mover a carpeta">
