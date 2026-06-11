@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
@@ -50,6 +50,7 @@ interface CarpetaItemProps {
   documentos: Documento[]
   carpetaActiva: string | null
   menuCarpeta: string | null
+  colapsoGlobal: boolean
   onSelect: (id: string) => void
   onMenuToggle: (id: string | null) => void
   onNuevaSubcarpeta: (padreId: string) => void
@@ -59,10 +60,12 @@ interface CarpetaItemProps {
 }
 
 function CarpetaItem({
-  carpeta, depth, carpetas, documentos, carpetaActiva, menuCarpeta,
+  carpeta, depth, carpetas, documentos, carpetaActiva, menuCarpeta, colapsoGlobal,
   onSelect, onMenuToggle, onNuevaSubcarpeta, onEditar, onEliminar, onEliminarConArchivos,
 }: CarpetaItemProps) {
   const [expandido, setExpandido] = useState(true)
+
+  useEffect(() => { setExpandido(!colapsoGlobal) }, [colapsoGlobal])
   const hijos = carpetas.filter((c) => c.carpetaPadreId === carpeta.id)
   const estaActiva = carpetaActiva === carpeta.id
   const ids = getSubtreeIds(carpeta.id, carpetas)
@@ -116,6 +119,7 @@ function CarpetaItem({
           documentos={documentos}
           carpetaActiva={carpetaActiva}
           menuCarpeta={menuCarpeta}
+          colapsoGlobal={colapsoGlobal}
           onSelect={onSelect}
           onMenuToggle={onMenuToggle}
           onNuevaSubcarpeta={onNuevaSubcarpeta}
@@ -258,6 +262,7 @@ export default function BibliotecaClient() {
   const [eliminandoLote, setEliminandoLote] = useState(false)
   const [vista, setVista] = useState<'lista' | 'grilla'>('lista')
   const [sidebarAbierto, setSidebarAbierto] = useState(true)
+  const [todosColapsados, setTodosColapsados] = useState(false)
   const [panelWidth, setPanelWidth] = useState(208)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -495,6 +500,15 @@ export default function BibliotecaClient() {
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600">Carpetas</p>
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setTodosColapsados((v) => !v)}
+              className="rounded p-0.5 text-neutral-600 hover:text-neutral-300"
+              title={todosColapsados ? 'Expandir todo' : 'Colapsar todo'}
+            >
+              {todosColapsados
+                ? <ChevronsUpDown className="h-3.5 w-3.5" />
+                : <ChevronsDownUp className="h-3.5 w-3.5" />}
+            </button>
             <button onClick={() => setModalCarpeta({})} className="rounded p-0.5 text-neutral-600 hover:text-neutral-300" title="Nueva carpeta">
               <FolderPlus className="h-4 w-4" />
             </button>
@@ -540,6 +554,7 @@ export default function BibliotecaClient() {
             documentos={documentos}
             carpetaActiva={carpetaActiva}
             menuCarpeta={menuCarpeta}
+            colapsoGlobal={todosColapsados}
             onSelect={(id) => setCarpetaActiva(carpetaActiva === id ? null : id)}
             onMenuToggle={setMenuCarpeta}
             onNuevaSubcarpeta={(padreId) => setModalCarpeta({ padreId })}
