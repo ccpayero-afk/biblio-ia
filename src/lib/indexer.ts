@@ -4,8 +4,6 @@ import { initUserDrive, writeJSON, findFile, trashPDF, updateDocumentMetadata } 
 import { Fragmento } from '@/types'
 
 const MIN_PAGE_CHARS = 30    // below this, page is considered empty/scanned
-const OCR_THRESHOLD = 0.3   // if >30% of pages have no text → treat as scanned
-const MAX_OCR_PAGES = 25    // Tesseract is slow (~3-5s/pág), limitar por sesión
 
 // Descarga el PDF desde Drive como Buffer
 export async function downloadPDFBuffer(accessToken: string, fileId: string): Promise<Buffer> {
@@ -40,19 +38,6 @@ async function extractAllPageTexts(buffer: Buffer): Promise<{
   }
 
   return { conTexto, sinTexto, total: pages.length }
-}
-
-// OCR de una página: render a PNG → Tesseract.js → texto
-async function ocrPage(
-  buffer: Buffer,
-  pageNumber: number,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  worker: any  // Tesseract.Worker — tipado dinámico para evitar errores de build
-): Promise<string> {
-  const { renderPageAsImage } = await import('unpdf')
-  const imageBuffer = await renderPageAsImage(new Uint8Array(buffer), pageNumber, { scale: 1.5 })
-  const { data } = await worker.recognize(Buffer.from(imageBuffer))
-  return (data.text as string).trim()
 }
 
 // Divide texto en fragmentos de ~400 palabras con overlap de 50
@@ -136,56 +121,22 @@ export async function indexDocument(
   onProgress('Extrayendo texto del PDF…', 2, TOTAL)
   const { conTexto, sinTexto, total } = await extractAllPageTexts(buffer)
 
-  let rawChunks = conTexto.flatMap(({ texto, pagina }) => chunkText(texto, pagina))
-
-  // ── OCR automático si el PDF está escaneado ──────────────────────────────
-  const fraccionSinTexto = total > 0 ? sinTexto.length / total : 0
-  const esEscaneado = fraccionSinTexto >= OCR_THRESHOLD && sinTexto.length > 0
-
-  if (esEscaneado) {
-    const paginasAOCR = sinTexto.slice(0, MAX_OCR_PAGES)
-    const totalOCR = paginasAOCR.length
-
-    onProgress(
-      `PDF escaneado (${sinTexto.length}/${total} págs sin texto). Cargando OCR…`,
-      2, TOTAL
-    )
-
-    const { createWorker } = await import('tesseract.js')
-    // spa+eng cubre libros académicos en español e inglés
-    const worker = await createWorker(['spa', 'eng'], 1, {
-      cachePath: '/tmp/tesseract',
-    })
-
-    const chunksPorOCR: { texto: string; pagina: number }[] = []
-
-    try {
-      for (let i = 0; i < paginasAOCR.length; i++) {
-        onProgress(`OCR ${i + 1}/${totalOCR} páginas…`, 2, TOTAL)
-        try {
-          const texto = await ocrPage(buffer, paginasAOCR[i], worker)
-          if (texto.length > 20) chunksPorOCR.push(...chunkText(texto, paginasAOCR[i]))
-        } catch { /* página fallida — continuar */ }
-      }
-    } finally {
-      await worker.terminate()
-    }
-
-    rawChunks = [...rawChunks, ...chunksPorOCR]
-
-    if (paginasAOCR.length < sinTexto.length) {
-      onProgress(
-        `OCR completado (${paginasAOCR.length}/${sinTexto.length} págs). Re-indexá para continuar.`,
-        2, TOTAL
-      )
-    }
-  }
+  const rawChunks = conTexto.flatMap(({ texto, pagina }) => chunkText(texto, pagina))
 
   if (rawChunks.length === 0) {
-    throw new Error(
-      esEscaneado
-        ? 'No se pudo extraer texto del PDF escaneado (OCR sin resultados)'
-        : 'No se pudo extraer texto del PDF'
+    if (sinTexto.length > 0) {
+      throw new Error(
+        `PDF escaneado: ${sinTexto.length} de ${total} páginas no tienen texto seleccionable. ` +
+        `Convertí el PDF a texto con Adobe Acrobat, Google Drive (abrir como Docs) u otra herramienta y volvé a subirlo.`
+      )
+    }
+    throw new Error('No se pudo extraer texto del PDF')
+  }
+
+  if (sinTexto.length > 0) {
+    onProgress(
+      `Texto extraído (${conTexto.length} págs con texto, ${sinTexto.length} págs escaneadas omitidas)`,
+      2, TOTAL
     )
   }
 
