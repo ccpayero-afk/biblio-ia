@@ -73,7 +73,7 @@ export default function DocumentoCard({
     }
   }
 
-  const nombre = documento.nombre.replace(/\.pdf$/i, '')
+  const nombre = (documento.nombre.split('/').pop() ?? documento.nombre).replace(/\.pdf$/i, '')
 
   // ── Vista lista (detalle) ────────────────────────────────────────────────────
   if (vista === 'lista') {

@@ -105,7 +105,7 @@ export async function uploadPDF(accessToken: string, pdfsId: string, file: File)
 
   const res = await drive.files.create({
     requestBody: {
-      name: file.name,
+      name: file.name.split('/').pop() ?? file.name,
       parents: [pdfsId],
       properties: {
         autor: '',
