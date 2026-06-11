@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { Documento } from '@/types'
-import { X } from 'lucide-react'
+import { X, RefreshCw, CheckCircle2 } from 'lucide-react'
 
 interface Props {
   documento: Documento
   onGuardar: (datos: Partial<Documento>) => void
+  onActualizar?: () => Promise<void>
   onCerrar: () => void
 }
 
@@ -30,7 +31,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 const inputCls = 'w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-600 focus:border-blue-500 focus:outline-none'
 
-export default function MetadatosModal({ documento, onGuardar, onCerrar }: Props) {
+export default function MetadatosModal({ documento, onGuardar, onActualizar, onCerrar }: Props) {
   const nombreOriginal = (documento.nombre.split('/').pop() ?? documento.nombre).replace(/\.pdf$/i, '')
   const [nombre, setNombre]     = useState(nombreOriginal)
   const [titulo, setTitulo]     = useState(documento.titulo ?? '')
@@ -48,6 +49,8 @@ export default function MetadatosModal({ documento, onGuardar, onCerrar }: Props
   const [abstract, setAbstract] = useState(documento.abstract ?? '')
   const [etiquetas, setEtiquetas] = useState<string[]>(documento.etiquetas)
   const [guardando, setGuardando] = useState(false)
+  const [actualizando, setActualizando] = useState(false)
+  const [actualizadoOk, setActualizadoOk] = useState(false)
 
   function toggleEtiqueta(tag: string) {
     setEtiquetas((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag])
@@ -274,20 +277,44 @@ export default function MetadatosModal({ documento, onGuardar, onCerrar }: Props
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-neutral-800 p-5 flex-shrink-0">
-          <button
-            onClick={onCerrar}
-            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-neutral-600"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleGuardar}
-            disabled={guardando || !nombre.trim()}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
-          >
-            {guardando ? 'Guardando...' : 'Guardar'}
-          </button>
+        <div className="flex items-center justify-between gap-2 border-t border-neutral-800 p-5 flex-shrink-0">
+          {/* Botón actualizar metadatos (forzar desde PDF/CrossRef) */}
+          {onActualizar && (
+            <button
+              onClick={async () => {
+                setActualizando(true)
+                setActualizadoOk(false)
+                await onActualizar()
+                setActualizando(false)
+                setActualizadoOk(true)
+                setTimeout(() => setActualizadoOk(false), 3000)
+              }}
+              disabled={actualizando}
+              title="Re-extrae todos los metadatos desde el PDF / CrossRef y sobrescribe los actuales"
+              className="flex items-center gap-1.5 rounded-lg border border-violet-800 bg-violet-950/30 px-3 py-2 text-sm text-violet-400 hover:bg-violet-950 disabled:opacity-50"
+            >
+              {actualizadoOk
+                ? <><CheckCircle2 className="h-4 w-4" /> Actualizado</>
+                : actualizando
+                ? <><RefreshCw className="h-4 w-4 animate-spin" /> Actualizando...</>
+                : <><RefreshCw className="h-4 w-4" /> Actualizar metadatos</>}
+            </button>
+          )}
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={onCerrar}
+              className="rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-neutral-600"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleGuardar}
+              disabled={guardando || !nombre.trim()}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            >
+              {guardando ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

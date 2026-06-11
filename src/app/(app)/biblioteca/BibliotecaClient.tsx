@@ -946,6 +946,19 @@ export default function BibliotecaClient() {
         <MetadatosModal
           documento={editando}
           onGuardar={(datos) => guardarMetadatos(editando.id, datos)}
+          onActualizar={async () => {
+            const docId = editando.id
+            const res = await fetch(`/api/metadatos/${docId}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ forzar: true }),
+            })
+            const data = await res.json()
+            if (data.ok) {
+              cargar()
+              setEditando(null)
+            }
+          }}
           onCerrar={() => setEditando(null)}
         />
       )}
