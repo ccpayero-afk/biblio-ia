@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2 } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
@@ -55,11 +55,12 @@ interface CarpetaItemProps {
   onNuevaSubcarpeta: (padreId: string) => void
   onEditar: (c: Carpeta) => void
   onEliminar: (id: string) => void
+  onEliminarConArchivos: (id: string) => void
 }
 
 function CarpetaItem({
   carpeta, depth, carpetas, documentos, carpetaActiva, menuCarpeta,
-  onSelect, onMenuToggle, onNuevaSubcarpeta, onEditar, onEliminar,
+  onSelect, onMenuToggle, onNuevaSubcarpeta, onEditar, onEliminar, onEliminarConArchivos,
 }: CarpetaItemProps) {
   const [expandido, setExpandido] = useState(true)
   const hijos = carpetas.filter((c) => c.carpetaPadreId === carpeta.id)
@@ -97,10 +98,12 @@ function CarpetaItem({
           </button>
         </div>
         {menuCarpeta === carpeta.id && (
-          <div className="absolute right-0 top-full z-20 mt-0.5 w-44 rounded-lg border border-neutral-700 bg-neutral-900 py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-20 mt-0.5 w-52 rounded-lg border border-neutral-700 bg-neutral-900 py-1 shadow-lg">
             <button onClick={() => { onNuevaSubcarpeta(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800">+ Subcarpeta</button>
             <button onClick={() => { onEditar(carpeta); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800">Editar</button>
-            <button onClick={() => { onEliminar(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-neutral-800">Eliminar</button>
+            <div className="my-1 border-t border-neutral-800" />
+            <button onClick={() => { onEliminar(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-neutral-400 hover:bg-neutral-800">Eliminar carpeta</button>
+            <button onClick={() => { onEliminarConArchivos(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-neutral-800">Eliminar carpeta + archivos</button>
           </div>
         )}
       </div>
@@ -118,6 +121,7 @@ function CarpetaItem({
           onNuevaSubcarpeta={onNuevaSubcarpeta}
           onEditar={onEditar}
           onEliminar={onEliminar}
+          onEliminarConArchivos={onEliminarConArchivos}
         />
       ))}
     </div>
@@ -249,6 +253,9 @@ export default function BibliotecaClient() {
   const [moviendo, setMoviendo] = useState<Documento | null>(null)
   const [indexandoLote, setIndexandoLote] = useState(false)
   const [progresoLote, setProgresoLote] = useState<{ actual: number; total: number } | null>(null)
+  const [modoSeleccion, setModoSeleccion] = useState(false)
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
+  const [eliminandoLote, setEliminandoLote] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const indexarRefs = useRef<Record<string, () => void>>({})
 
@@ -382,6 +389,64 @@ export default function BibliotecaClient() {
     setMoviendo(null)
   }
 
+  function toggleSeleccion(id: string) {
+    setSeleccionados((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function salirModoSeleccion() {
+    setModoSeleccion(false)
+    setSeleccionados(new Set())
+  }
+
+  async function eliminarSeleccionados() {
+    if (!seleccionados.size) return
+    const n = seleccionados.size
+    if (!confirm(`¿Eliminar ${n} documento${n !== 1 ? 's' : ''}? Los archivos irán a la papelera de Google Drive.`)) return
+    setEliminandoLote(true)
+    try {
+      await fetch('/api/drive/pdfs', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(seleccionados) }),
+      })
+      setDocumentos((prev) => prev.filter((d) => !seleccionados.has(d.id)))
+      salirModoSeleccion()
+    } finally {
+      setEliminandoLote(false)
+    }
+  }
+
+  async function eliminarCarpetaConDocumentos(id: string) {
+    const subtreeIds = getSubtreeIds(id, carpetas)
+    const docsEnSubarbol = documentos.filter((d) => d.carpetaId && subtreeIds.includes(d.carpetaId))
+    const n = docsEnSubarbol.length
+    if (!confirm(`¿Eliminar esta carpeta${n > 0 ? ` y sus ${n} documento${n !== 1 ? 's' : ''}` : ''}? Los archivos irán a la papelera de Google Drive.`)) return
+
+    if (n > 0) {
+      await fetch('/api/drive/pdfs', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: docsEnSubarbol.map((d) => d.id) }),
+      })
+    }
+
+    await fetch(`/api/carpetas/${id}?subtree=true`, { method: 'DELETE' })
+
+    const subtreeSet = new Set(subtreeIds)
+    setCarpetas((prev) =>
+      prev
+        .filter((c) => !subtreeSet.has(c.id))
+        .map((c) => ({ ...c, subcarpetasIds: c.subcarpetasIds.filter((sid) => !subtreeSet.has(sid)) }))
+    )
+    setDocumentos((prev) => prev.filter((d) => !d.carpetaId || !subtreeSet.has(d.carpetaId)))
+    if (carpetaActiva && subtreeSet.has(carpetaActiva)) setCarpetaActiva(null)
+  }
+
   // Documentos filtrados por carpeta activa (incluye subcarpetas)
   const documentosFiltrados = (() => {
     if (carpetaActiva === 'sin-carpeta') return documentos.filter((d) => !d.carpetaId)
@@ -454,6 +519,7 @@ export default function BibliotecaClient() {
             onNuevaSubcarpeta={(padreId) => setModalCarpeta({ padreId })}
             onEditar={(c) => setModalCarpeta({ carpeta: c })}
             onEliminar={eliminarCarpeta}
+            onEliminarConArchivos={eliminarCarpetaConDocumentos}
           />
         ))}
 
@@ -494,6 +560,16 @@ export default function BibliotecaClient() {
             <button onClick={cargar} disabled={cargando} className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-600 disabled:opacity-50">
               <RefreshCw className={`h-4 w-4 ${cargando ? 'animate-spin' : ''}`} />
             </button>
+            {!modoSeleccion && (
+              <button
+                onClick={() => setModoSeleccion(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-600"
+                title="Seleccionar para eliminar"
+              >
+                <CheckSquare2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Seleccionar</span>
+              </button>
+            )}
             {sinIndexar > 0 && (
               <button
                 onClick={() => {
@@ -528,6 +604,39 @@ export default function BibliotecaClient() {
             <input ref={fileInputRef} type="file" accept="application/pdf" multiple className="hidden" onChange={(e) => e.target.files && subirArchivos(e.target.files)} />
           </div>
         </div>
+
+        {/* Barra de selección */}
+        {modoSeleccion && (
+          <div className="flex items-center gap-3 border-b border-neutral-800 bg-neutral-950 px-6 py-2.5">
+            <span className="text-sm text-neutral-400">
+              {seleccionados.size > 0 ? `${seleccionados.size} seleccionado${seleccionados.size !== 1 ? 's' : ''}` : 'Ninguno seleccionado'}
+            </span>
+            <button
+              onClick={() => setSeleccionados(new Set(documentosFiltrados.map((d) => d.id)))}
+              className="text-xs text-blue-400 hover:underline"
+            >
+              Todo
+            </button>
+            {seleccionados.size > 0 && (
+              <button onClick={() => setSeleccionados(new Set())} className="text-xs text-neutral-500 hover:underline">
+                Limpiar
+              </button>
+            )}
+            <div className="ml-auto flex gap-2">
+              <button onClick={salirModoSeleccion} className="rounded-lg px-3 py-1.5 text-sm text-neutral-400 hover:text-white">
+                Cancelar
+              </button>
+              <button
+                onClick={eliminarSeleccionados}
+                disabled={!seleccionados.size || eliminandoLote}
+                className="flex items-center gap-1.5 rounded-lg border border-red-800 bg-red-950/40 px-3 py-1.5 text-sm text-red-400 hover:bg-red-950 disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                {eliminandoLote ? 'Eliminando…' : `Eliminar (${seleccionados.size})`}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Errores */}
         <div className="px-6">
@@ -595,6 +704,9 @@ export default function BibliotecaClient() {
                   onMover={() => setMoviendo(doc)}
                   onIndexadoOk={onDocumentIndexado}
                   onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
+                  modoSeleccion={modoSeleccion}
+                  seleccionado={seleccionados.has(doc.id)}
+                  onToggleSeleccion={() => toggleSeleccion(doc.id)}
                 />
               ))}
             </div>

@@ -215,3 +215,22 @@ export async function findFile(accessToken: string, name: string, parentId: stri
 export async function getOrInitStructure(accessToken: string): Promise<DriveStructure> {
   return initUserDrive(accessToken)
 }
+
+export async function trashPDF(accessToken: string, fileId: string): Promise<void> {
+  const drive = getDriveClient(accessToken)
+  await drive.files.update({ fileId, requestBody: { trashed: true } })
+}
+
+export async function trashPDFs(
+  accessToken: string,
+  fileIds: string[]
+): Promise<{ ok: string[]; errors: string[] }> {
+  const results = await Promise.allSettled(fileIds.map((id) => trashPDF(accessToken, id)))
+  const ok: string[] = []
+  const errors: string[] = []
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') ok.push(fileIds[i])
+    else errors.push(fileIds[i])
+  })
+  return { ok, errors }
+}

@@ -110,6 +110,17 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return normA && normB ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0
 }
 
+// Elimina fragmentos de documentos específicos del índice de embeddings
+export async function removeFromIndex(accessToken: string, documentoIds: string[]): Promise<void> {
+  const estructura = await initUserDrive(accessToken)
+  const embeddingsFileId = await findFile(accessToken, 'embeddings.json', estructura.indexId)
+  if (!embeddingsFileId) return
+  const todos = await readJSON<Fragmento[]>(accessToken, embeddingsFileId)
+  const idsSet = new Set(documentoIds)
+  const filtrados = todos.filter((f) => !idsSet.has(f.documentoId))
+  await writeJSON(accessToken, estructura.indexId, 'embeddings.json', filtrados)
+}
+
 // Pipeline completo de indexación con callback de progreso
 export async function indexDocument(
   documentoId: string,
