@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch, ScanText } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
@@ -262,6 +262,8 @@ export default function BibliotecaClient() {
   const [eliminandoLote, setEliminandoLote] = useState(false)
   const [extrayendoMeta, setExtrayendoMeta] = useState(false)
   const [progresoMeta, setProgresoMeta] = useState<{ actual: number; total: number } | null>(null)
+  const [ocrLoteActivo, setOcrLoteActivo] = useState(false)
+  const [progresoOcrLote, setProgresoOcrLote] = useState<{ actual: number; total: number } | null>(null)
   const [vista, setVista] = useState<'lista' | 'grilla'>('lista')
   const [sidebarAbierto, setSidebarAbierto] = useState(true)
   const [todosColapsados, setTodosColapsados] = useState(false)
@@ -376,6 +378,21 @@ export default function BibliotecaClient() {
     setProgresoMeta(null)
     setExtrayendoMeta(false)
     cargar()
+  }
+
+  async function ocrTodosSecuencial() {
+    const conError = documentosFiltrados.filter((d) => d.estado === 'error')
+    if (!conError.length || ocrLoteActivo) return
+    setOcrLoteActivo(true)
+    setProgresoOcrLote({ actual: 0, total: conError.length })
+    for (let i = 0; i < conError.length; i++) {
+      setProgresoOcrLote({ actual: i, total: conError.length })
+      const fn = indexarRefs.current[conError[i].id]
+      if (fn) await (fn as () => Promise<void>)()
+      if (i < conError.length - 1) await new Promise((r) => setTimeout(r, 3000))
+    }
+    setProgresoOcrLote(null)
+    setOcrLoteActivo(false)
   }
 
   async function guardarMetadatos(id: string, datos: Partial<Documento>) {
@@ -508,6 +525,7 @@ export default function BibliotecaClient() {
   })()
 
   const sinIndexar = documentosFiltrados.filter((d) => d.estado === 'sin_indexar').length
+  const conError = documentosFiltrados.filter((d) => d.estado === 'error').length
   const sinCarpeta = documentos.filter((d) => !d.carpetaId).length
 
   return (
@@ -716,6 +734,21 @@ export default function BibliotecaClient() {
                   : `Metadatos (${documentosFiltrados.filter((d) => !d.autor && !d.año).length})`}
               </span>
             </button>
+            {conError > 0 && (
+              <button
+                onClick={ocrTodosSecuencial}
+                disabled={ocrLoteActivo}
+                title="OCR + Indexar todos los documentos con error (PDFs escaneados)"
+                className="flex items-center gap-1.5 rounded-lg border border-orange-800 bg-orange-950/30 px-3 py-2 text-sm text-orange-400 hover:bg-orange-950 disabled:opacity-60"
+              >
+                <ScanText className={`h-4 w-4 ${ocrLoteActivo ? 'animate-pulse' : ''}`} />
+                <span className="hidden sm:inline">
+                  {ocrLoteActivo && progresoOcrLote
+                    ? `OCR ${progresoOcrLote.actual + 1}/${progresoOcrLote.total}…`
+                    : `OCR (${conError})`}
+                </span>
+              </button>
+            )}
             <button
               onClick={() => setModalImportarCarpeta(true)}
               title="Importar carpeta completa"
