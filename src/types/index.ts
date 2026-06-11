@@ -20,6 +20,7 @@ export interface Documento {
   creadoEn: string
   fichaGenerada: boolean
   carpetaId?: string
+  doi?: string
 }
 
 export interface Fragmento {

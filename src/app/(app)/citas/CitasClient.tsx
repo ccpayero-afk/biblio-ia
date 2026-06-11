@@ -87,10 +87,10 @@ export default function CitasClient() {
                 <div className="space-y-0.5">
                   <p className="text-xs font-medium text-neutral-400">{cita.formatoAPA}</p>
                   <Link
-                    href={`/lector/${cita.documentoId}`}
-                    className="flex items-center gap-1 text-xs text-neutral-600 hover:text-neutral-400"
+                    href={`/lector/${cita.documentoId}?pagina=${cita.pagina}`}
+                    className="flex items-center gap-1 text-xs text-neutral-600 hover:text-blue-400"
                   >
-                    <BookMarked className="h-3 w-3" /> {cita.documentoNombre.replace(/\.pdf$/i, '')}
+                    <BookMarked className="h-3 w-3" /> {cita.documentoNombre.replace(/\.pdf$/i, '')} · p.{cita.pagina}
                   </Link>
                 </div>
                 <button

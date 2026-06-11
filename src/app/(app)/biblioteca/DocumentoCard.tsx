@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { FileText, Pencil, Zap, FolderInput, Folder, CheckSquare2, Square } from 'lucide-react'
+import { FileText, Pencil, Zap, FolderInput, Folder, CheckSquare2, Square, ScanSearch, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 
 const COLORES_CARPETA: Record<Carpeta['color'], string> = {
@@ -24,6 +24,7 @@ interface Props {
   onMover?: () => void
   onIndexadoOk: (documentoId: string, fragmentos: number) => void
   onRegistrarIndexar?: (fn: () => void) => void
+  onMetadatosExtraidos?: (documentoId: string, campos: string[]) => void
   modoSeleccion?: boolean
   seleccionado?: boolean
   onToggleSeleccion?: () => void
@@ -32,11 +33,14 @@ interface Props {
 
 export default function DocumentoCard({
   documento, carpeta, onEditar, onMover, onIndexadoOk, onRegistrarIndexar,
+  onMetadatosExtraidos,
   modoSeleccion, seleccionado, onToggleSeleccion, vista = 'grilla',
 }: Props) {
   const [estado, setEstado] = useState(documento.estado)
   const [progreso, setProgreso] = useState<{ msg: string; paso: number; total: number } | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [extrayendo, setExtrayendo] = useState(false)
+  const [extraidoOk, setExtraidoOk] = useState(false)
 
   const estadoConfig = ESTADO_CONFIG[estado]
 
@@ -71,6 +75,21 @@ export default function DocumentoCard({
       setErrorMsg(e instanceof Error ? e.message : 'Error desconocido')
       setProgreso(null)
     }
+  }
+
+  async function extraerMetadatos() {
+    setExtrayendo(true)
+    setExtraidoOk(false)
+    try {
+      const res = await fetch(`/api/metadatos/${documento.id}`, { method: 'POST' })
+      const data = await res.json()
+      if (data.ok && data.actualizados?.length > 0) {
+        setExtraidoOk(true)
+        onMetadatosExtraidos?.(documento.id, data.actualizados)
+        setTimeout(() => setExtraidoOk(false), 3000)
+      }
+    } catch { /* silencioso */ }
+    setExtrayendo(false)
   }
 
   const nombre = (documento.nombre.split('/').pop() ?? documento.nombre).replace(/\.pdf$/i, '')
@@ -149,12 +168,24 @@ export default function DocumentoCard({
 
         {/* Acciones */}
         {!modoSeleccion && (
-          <div className="flex w-16 flex-shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex w-20 flex-shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
             {(estado === 'sin_indexar' || estado === 'error') && (
               <button onClick={(e) => { e.stopPropagation(); iniciarIndexacion() }} className="rounded p-1 text-neutral-600 hover:text-blue-400" title="Indexar">
                 <Zap className="h-3.5 w-3.5" />
               </button>
             )}
+            <button
+              onClick={(e) => { e.stopPropagation(); extraerMetadatos() }}
+              disabled={extrayendo}
+              title="Extraer metadatos (sin IA)"
+              className="rounded p-1 text-neutral-600 hover:text-teal-400 disabled:opacity-40"
+            >
+              {extraidoOk
+                ? <CheckCircle2 className="h-3.5 w-3.5 text-teal-400" />
+                : extrayendo
+                ? <ScanSearch className="h-3.5 w-3.5 animate-pulse text-teal-400" />
+                : <ScanSearch className="h-3.5 w-3.5" />}
+            </button>
             {onMover && (
               <button onClick={(e) => { e.stopPropagation(); onMover() }} className="rounded p-1 text-neutral-600 hover:text-neutral-300" title="Mover a carpeta">
                 <FolderInput className="h-3.5 w-3.5" />
@@ -193,6 +224,18 @@ export default function DocumentoCard({
                 <Zap className="h-3.5 w-3.5" />
               </button>
             )}
+            <button
+              onClick={extraerMetadatos}
+              disabled={extrayendo}
+              title="Extraer metadatos (sin IA)"
+              className="rounded p-1 text-neutral-600 hover:text-teal-400 disabled:opacity-40"
+            >
+              {extraidoOk
+                ? <CheckCircle2 className="h-3.5 w-3.5 text-teal-400" />
+                : extrayendo
+                ? <ScanSearch className="h-3.5 w-3.5 animate-pulse text-teal-400" />
+                : <ScanSearch className="h-3.5 w-3.5" />}
+            </button>
             {onMover && (
               <button onClick={onMover} className="rounded p-1 text-neutral-600 hover:text-neutral-300" title="Mover a carpeta">
                 <FolderInput className="h-3.5 w-3.5" />

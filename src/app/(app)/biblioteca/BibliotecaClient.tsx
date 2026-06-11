@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
@@ -260,6 +260,8 @@ export default function BibliotecaClient() {
   const [modoSeleccion, setModoSeleccion] = useState(false)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [eliminandoLote, setEliminandoLote] = useState(false)
+  const [extrayendoMeta, setExtrayendoMeta] = useState(false)
+  const [progresoMeta, setProgresoMeta] = useState<{ actual: number; total: number } | null>(null)
   const [vista, setVista] = useState<'lista' | 'grilla'>('lista')
   const [sidebarAbierto, setSidebarAbierto] = useState(true)
   const [todosColapsados, setTodosColapsados] = useState(false)
@@ -350,6 +352,30 @@ export default function BibliotecaClient() {
     }
     setProgresoLote(null)
     setIndexandoLote(false)
+  }
+
+  function onMetadatosExtraidos(docId: string, campos: string[]) {
+    // Recarga mínima: marca que este doc tiene datos para que UI refleje
+    if (campos.includes('autor') || campos.includes('año')) {
+      cargar()
+    }
+  }
+
+  async function extraerMetadatosLote() {
+    const sinDatos = documentosFiltrados.filter((d) => !d.autor && !d.año)
+    if (!sinDatos.length || extrayendoMeta) return
+    setExtrayendoMeta(true)
+    setProgresoMeta({ actual: 0, total: sinDatos.length })
+    for (let i = 0; i < sinDatos.length; i++) {
+      setProgresoMeta({ actual: i + 1, total: sinDatos.length })
+      try {
+        await fetch(`/api/metadatos/${sinDatos[i].id}`, { method: 'POST' })
+      } catch { /* continuar */ }
+      if (i < sinDatos.length - 1) await new Promise((r) => setTimeout(r, 300))
+    }
+    setProgresoMeta(null)
+    setExtrayendoMeta(false)
+    cargar()
   }
 
   async function guardarMetadatos(id: string, datos: Partial<Documento>) {
@@ -678,6 +704,19 @@ export default function BibliotecaClient() {
               </button>
             )}
             <button
+              onClick={extraerMetadatosLote}
+              disabled={extrayendoMeta || documentosFiltrados.filter((d) => !d.autor && !d.año).length === 0}
+              title="Extraer metadatos de documentos sin autor/año (PDF + CrossRef, sin IA)"
+              className="flex items-center gap-1.5 rounded-lg border border-teal-800 bg-teal-950/30 px-3 py-2 text-sm text-teal-400 hover:bg-teal-950 disabled:opacity-40"
+            >
+              <ScanSearch className={`h-4 w-4 ${extrayendoMeta ? 'animate-pulse' : ''}`} />
+              <span className="hidden sm:inline">
+                {extrayendoMeta && progresoMeta
+                  ? `Extrayendo ${progresoMeta.actual}/${progresoMeta.total}…`
+                  : `Metadatos (${documentosFiltrados.filter((d) => !d.autor && !d.año).length})`}
+              </span>
+            </button>
+            <button
               onClick={() => setModalImportarCarpeta(true)}
               title="Importar carpeta completa"
               className="flex items-center gap-2 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 hover:text-white"
@@ -822,6 +861,7 @@ export default function BibliotecaClient() {
                     onMover={() => setMoviendo(doc)}
                     onIndexadoOk={onDocumentIndexado}
                     onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
+                    onMetadatosExtraidos={onMetadatosExtraidos}
                     modoSeleccion={modoSeleccion}
                     seleccionado={seleccionados.has(doc.id)}
                     onToggleSeleccion={() => toggleSeleccion(doc.id)}
@@ -840,6 +880,7 @@ export default function BibliotecaClient() {
                     onMover={() => setMoviendo(doc)}
                     onIndexadoOk={onDocumentIndexado}
                     onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
+                    onMetadatosExtraidos={onMetadatosExtraidos}
                     modoSeleccion={modoSeleccion}
                     seleccionado={seleccionados.has(doc.id)}
                     onToggleSeleccion={() => toggleSeleccion(doc.id)}

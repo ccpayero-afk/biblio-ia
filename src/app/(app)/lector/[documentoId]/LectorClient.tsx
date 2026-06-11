@@ -20,6 +20,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/b
 interface Props {
   documento: Documento
   pdfUrl: string
+  initialPage?: number
 }
 
 interface Seleccion {
@@ -37,16 +38,16 @@ const COLOR_BG: Record<string, string> = {
 const ZOOM_PRESETS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
 const RENDER_WINDOW = 3
 
-export default function LectorClient({ documento, pdfUrl }: Props) {
+export default function LectorClient({ documento, pdfUrl, initialPage = 1 }: Props) {
   const [numPages, setNumPages] = useState(0)
-  const [paginaActual, setPaginaActual] = useState(1)
+  const [paginaActual, setPaginaActual] = useState(initialPage)
   const [zoom, setZoom] = useState(1.2)
   const [panelAbierto, setPanelAbierto] = useState(false)
   const [highlights, setHighlights] = useState<Highlight[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null)
   const [modalCita, setModalCita] = useState<Seleccion | null>(null)
-  const [inputPagina, setInputPagina] = useState('1')
+  const [inputPagina, setInputPagina] = useState(String(initialPage))
   const [anchoContenedor, setAnchoContenedor] = useState(0)
   const [naturalPageWidth, setNaturalPageWidth] = useState(0)
   const [fitApplied, setFitApplied] = useState(false)
@@ -84,6 +85,17 @@ export default function LectorClient({ documento, pdfUrl }: Props) {
       setFitApplied(true)
     }
   }, [anchoContenedor, naturalPageWidth, fitApplied])
+
+  // Scroll to initialPage once PDF is loaded
+  useEffect(() => {
+    if (numPages > 0 && initialPage > 1) {
+      const target = pageRefs.current[initialPage - 1]
+      if (target) {
+        setTimeout(() => target.scrollIntoView({ behavior: 'instant', block: 'start' }), 300)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numPages])
 
   // IntersectionObserver — track which page is most visible while scrolling
   useEffect(() => {

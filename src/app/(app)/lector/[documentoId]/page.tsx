@@ -4,8 +4,15 @@ import { initUserDrive, listPDFs } from '@/lib/drive'
 import { notFound } from 'next/navigation'
 import LectorClient from './LectorClient'
 
-export default async function LectorPage({ params }: { params: Promise<{ documentoId: string }> }) {
+export default async function LectorPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ documentoId: string }>
+  searchParams: Promise<{ pagina?: string }>
+}) {
   const { documentoId } = await params
+  const { pagina } = await searchParams
   const session = await auth()
   const accessToken = getAccessToken(session)
 
@@ -14,8 +21,8 @@ export default async function LectorPage({ params }: { params: Promise<{ documen
   const documento = documentos.find((d) => d.id === documentoId)
   if (!documento) notFound()
 
-  // Proxy URL — el browser carga el PDF desde nuestra API, no directamente desde Drive
   const pdfUrl = `/api/drive/pdf/${documentoId}`
+  const initialPage = parseInt(pagina ?? '1') || 1
 
-  return <LectorClient documento={documento} pdfUrl={pdfUrl} />
+  return <LectorClient documento={documento} pdfUrl={pdfUrl} initialPage={initialPage} />
 }

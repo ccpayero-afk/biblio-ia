@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { FileText, Sparkles, Loader2, Search, ChevronRight, RefreshCw, BookOpen, Tag } from 'lucide-react'
+import Link from 'next/link'
 import { Documento, FichaLectura } from '@/types'
 
 function esFichaValida(f: unknown): f is FichaLectura {
@@ -33,9 +34,17 @@ function FichaDetalle({
       <div className="flex items-start justify-between gap-4 border-b border-neutral-800 px-6 py-4">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-white leading-snug">{titulo}</h2>
-          <p className="mt-0.5 text-sm text-neutral-500">
-            {doc.autor || 'Autor desconocido'}{doc.año ? ` · ${doc.año}` : ''}
-          </p>
+          <div className="mt-0.5 flex items-center gap-3">
+            <p className="text-sm text-neutral-500">
+              {doc.autor || 'Autor desconocido'}{doc.año ? ` · ${doc.año}` : ''}
+            </p>
+            <Link
+              href={`/lector/${doc.id}`}
+              className="flex items-center gap-1 text-xs text-neutral-600 hover:text-blue-400"
+            >
+              <BookOpen className="h-3.5 w-3.5" /> Abrir PDF
+            </Link>
+          </div>
         </div>
         <button
           onClick={onGenerar}

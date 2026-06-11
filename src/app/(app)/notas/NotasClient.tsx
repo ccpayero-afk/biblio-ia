@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Nota, TipoNota, VinculoZettel, VinculoSugerido } from '@/types'
 import {
   Plus, Search, X, Link2, Loader2, ChevronRight,
-  AlertTriangle, Sparkles, Check, ExternalLink, RefreshCw, Zap,
+  AlertTriangle, Sparkles, Check, ExternalLink, RefreshCw, Zap, BookOpen,
 } from 'lucide-react'
+import Link from 'next/link'
 import { generarIdZettel } from '@/lib/zettel-id'
 
 // ─── Configuración de tipos ──────────────────────────────────────────────────
@@ -426,10 +427,17 @@ function NotaDetalle({
 
         {(nota.documentoOrigenId ?? nota.documentoId) && (
           <div className="rounded-lg border border-neutral-800 p-3">
-            <p className="mb-1 text-xs font-medium text-neutral-500">Origen</p>
-            <p className="text-xs text-neutral-400">
-              Documento: {nota.documentoOrigenId ?? nota.documentoId}
-              {(nota.paginaOrigen ?? nota.pagina) ? ` · p. ${nota.paginaOrigen ?? nota.pagina}` : ''}
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-neutral-500">Origen</p>
+              <Link
+                href={`/lector/${nota.documentoOrigenId ?? nota.documentoId}${(nota.paginaOrigen ?? nota.pagina) ? `?pagina=${nota.paginaOrigen ?? nota.pagina}` : ''}`}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-blue-400 hover:bg-blue-950/30 hover:text-blue-300"
+              >
+                <BookOpen className="h-3 w-3" /> Abrir en lector
+              </Link>
+            </div>
+            <p className="mt-1 text-xs text-neutral-500">
+              {(nota.paginaOrigen ?? nota.pagina) ? `p. ${nota.paginaOrigen ?? nota.pagina}` : 'Sin página'}
             </p>
           </div>
         )}

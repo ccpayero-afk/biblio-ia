@@ -95,6 +95,7 @@ export async function listPDFs(accessToken: string, pdfsId: string): Promise<Doc
       creadoEn: f.createdTime ?? new Date().toISOString(),
       fichaGenerada: props.fichaGenerada === 'true',
       carpetaId: props.carpetaId || undefined,
+      doi: props.doi || undefined,
     }
   })
 }
@@ -132,7 +133,7 @@ export async function getPDFDownloadUrl(accessToken: string, fileId: string): Pr
 export async function updateDocumentMetadata(
   accessToken: string,
   fileId: string,
-  metadata: Partial<Pick<Documento, 'autor' | 'año' | 'editorial' | 'abstract' | 'etiquetas' | 'estado' | 'fragmentos' | 'indexadoEn' | 'fichaGenerada' | 'carpetaId'>>
+  metadata: Partial<Pick<Documento, 'autor' | 'año' | 'editorial' | 'abstract' | 'etiquetas' | 'estado' | 'fragmentos' | 'indexadoEn' | 'fichaGenerada' | 'carpetaId' | 'doi'>>
 ): Promise<void> {
   const drive = getDriveClient(accessToken)
   const properties: Record<string, string> = {}
@@ -146,6 +147,7 @@ export async function updateDocumentMetadata(
   if (metadata.indexadoEn !== undefined) properties.indexadoEn = metadata.indexadoEn
   if (metadata.fichaGenerada !== undefined) properties.fichaGenerada = String(metadata.fichaGenerada)
   if (metadata.carpetaId !== undefined) properties.carpetaId = metadata.carpetaId ?? ''
+  if (metadata.doi !== undefined) properties.doi = metadata.doi
 
   await drive.files.update({ fileId, requestBody: { properties } })
 }
