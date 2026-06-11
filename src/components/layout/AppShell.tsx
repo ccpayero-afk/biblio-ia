@@ -13,12 +13,26 @@ interface Props {
 
 export default function AppShell({ children, user, apiKeyConfigurada }: Props) {
   const [sidebarAbierto, setSidebarAbierto] = useState(false)
+  const [navColapsada, setNavColapsada] = useState(false)
   const pathname = usePathname()
 
-  // Cerrar sidebar al navegar (mobile)
+  // Persistir preferencia de colapso
+  useEffect(() => {
+    const saved = localStorage.getItem('nav-colapsada')
+    if (saved === 'true') setNavColapsada(true)
+  }, [])
+
+  function toggleNav() {
+    setNavColapsada((v) => {
+      localStorage.setItem('nav-colapsada', String(!v))
+      return !v
+    })
+  }
+
+  // Cerrar drawer móvil al navegar
   useEffect(() => { setSidebarAbierto(false) }, [pathname])
 
-  // Cerrar sidebar al hacer resize a desktop
+  // Cerrar drawer al hacer resize a desktop
   useEffect(() => {
     const handler = () => { if (window.innerWidth >= 768) setSidebarAbierto(false) }
     window.addEventListener('resize', handler)
@@ -35,16 +49,20 @@ export default function AppShell({ children, user, apiKeyConfigurada }: Props) {
         />
       )}
 
-      {/* Sidebar — fixed drawer on mobile, static on desktop */}
+      {/* Sidebar — drawer en mobile, estático en desktop */}
       <div className={`
         fixed inset-y-0 left-0 z-30 transition-transform duration-200 md:static md:translate-x-0
         ${sidebarAbierto ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <Sidebar onClose={() => setSidebarAbierto(false)} />
+        <Sidebar
+          onClose={() => setSidebarAbierto(false)}
+          colapsada={navColapsada}
+          onToggleColapsar={toggleNav}
+        />
       </div>
 
-      {/* Main area */}
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+      {/* Área principal */}
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header
           user={user}
           apiKeyConfigurada={apiKeyConfigurada}

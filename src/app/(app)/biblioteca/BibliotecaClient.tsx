@@ -258,7 +258,26 @@ export default function BibliotecaClient() {
   const [eliminandoLote, setEliminandoLote] = useState(false)
   const [vista, setVista] = useState<'lista' | 'grilla'>('lista')
   const [sidebarAbierto, setSidebarAbierto] = useState(true)
+  const [panelWidth, setPanelWidth] = useState(208)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const PANEL_MIN = 150
+  const PANEL_MAX = 420
+
+  function onPanelDragStart(e: React.MouseEvent) {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = panelWidth
+    function onMove(ev: MouseEvent) {
+      setPanelWidth(Math.min(PANEL_MAX, Math.max(PANEL_MIN, startWidth + ev.clientX - startX)))
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
   const indexarRefs = useRef<Record<string, () => void>>({})
 
   const cargar = useCallback(async () => {
@@ -469,10 +488,10 @@ export default function BibliotecaClient() {
     >
       {/* Panel de carpetas */}
       <div
-        className="hidden flex-shrink-0 overflow-hidden border-r border-neutral-800 bg-neutral-950 transition-[width] duration-200 md:block"
-        style={{ width: sidebarAbierto ? 208 : 0 }}
+        className="hidden flex-shrink-0 overflow-hidden bg-neutral-950 transition-[width] duration-200 md:block"
+        style={{ width: sidebarAbierto ? panelWidth : 0 }}
       >
-        <div className="flex h-full w-52 flex-col overflow-y-auto p-3">
+        <div className="flex h-full flex-col overflow-y-auto p-3" style={{ width: panelWidth }}>
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600">Carpetas</p>
           <div className="flex items-center gap-1">
@@ -538,6 +557,15 @@ export default function BibliotecaClient() {
         </button>
         </div>
       </div>
+
+      {/* Drag handle redimensionable */}
+      {sidebarAbierto && (
+        <div
+          onMouseDown={onPanelDragStart}
+          className="group hidden w-1.5 flex-shrink-0 cursor-col-resize bg-neutral-800 hover:bg-blue-500/50 transition-colors md:block"
+          title="Arrastrar para redimensionar"
+        />
+      )}
 
       {/* Área principal */}
       <div className="flex flex-1 flex-col overflow-hidden">
