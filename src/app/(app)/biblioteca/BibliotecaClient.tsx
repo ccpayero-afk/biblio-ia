@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch, ScanText } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch, ScanText, Wand2 } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
+import PipelineModal from './PipelineModal'
 
 const COLORES_CARPETA: Record<Carpeta['color'], string> = {
   purple: 'text-purple-400',
@@ -262,8 +263,11 @@ export default function BibliotecaClient() {
   const [eliminandoLote, setEliminandoLote] = useState(false)
   const [extrayendoMeta, setExtrayendoMeta] = useState(false)
   const [progresoMeta, setProgresoMeta] = useState<{ actual: number; total: number } | null>(null)
+  const [actualizandoMetaLote, setActualizandoMetaLote] = useState(false)
+  const [progresoActMeta, setProgresoActMeta] = useState<{ actual: number; total: number } | null>(null)
   const [ocrLoteActivo, setOcrLoteActivo] = useState(false)
   const [progresoOcrLote, setProgresoOcrLote] = useState<{ actual: number; total: number } | null>(null)
+  const [showPipeline, setShowPipeline] = useState(false)
   const [vista, setVista] = useState<'lista' | 'grilla'>('lista')
   const [sidebarAbierto, setSidebarAbierto] = useState(true)
   const [todosColapsados, setTodosColapsados] = useState(false)
@@ -374,6 +378,26 @@ export default function BibliotecaClient() {
     }
     setProgresoMeta(null)
     setExtrayendoMeta(false)
+    cargar()
+  }
+
+  async function actualizarMetadatosLote() {
+    if (actualizandoMetaLote || documentosFiltrados.length === 0) return
+    setActualizandoMetaLote(true)
+    setProgresoActMeta({ actual: 0, total: documentosFiltrados.length })
+    for (let i = 0; i < documentosFiltrados.length; i++) {
+      setProgresoActMeta({ actual: i + 1, total: documentosFiltrados.length })
+      try {
+        await fetch(`/api/metadatos/${documentosFiltrados[i].id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ forzar: true }),
+        })
+      } catch { /* continuar */ }
+      if (i < documentosFiltrados.length - 1) await new Promise((r) => setTimeout(r, 400))
+    }
+    setProgresoActMeta(null)
+    setActualizandoMetaLote(false)
     cargar()
   }
 
@@ -732,6 +756,20 @@ export default function BibliotecaClient() {
                   : `Metadatos (${sinMetadatos})`}
               </span>
             </button>
+            {/* Actualizar metadatos masivo (forzar=true) — siempre visible */}
+            <button
+              onClick={actualizarMetadatosLote}
+              disabled={actualizandoMetaLote || documentosFiltrados.length === 0}
+              title="Actualizar metadatos de TODOS los documentos (sobrescribe con datos frescos de PDF + CrossRef)"
+              className="flex items-center gap-1.5 rounded-lg border border-violet-800 bg-violet-950/30 px-3 py-2 text-sm text-violet-400 hover:bg-violet-950 disabled:opacity-40"
+            >
+              <RefreshCw className={`h-4 w-4 ${actualizandoMetaLote ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">
+                {actualizandoMetaLote && progresoActMeta
+                  ? `Actualizando ${progresoActMeta.actual}/${progresoActMeta.total}…`
+                  : 'Actualizar metadatos'}
+              </span>
+            </button>
             <button
               onClick={ocrTodosSecuencial}
               disabled={ocrLoteActivo || conError === 0}
@@ -744,6 +782,16 @@ export default function BibliotecaClient() {
                   ? `OCR ${progresoOcrLote.actual + 1}/${progresoOcrLote.total}…`
                   : `OCR (${conError})`}
               </span>
+            </button>
+            {/* Pipeline completo: fichas + notas + citas + vínculos */}
+            <button
+              onClick={() => setShowPipeline(true)}
+              disabled={documentosFiltrados.filter((d) => d.estado === 'indexado').length === 0}
+              title="Procesar biblioteca: genera fichas, extrae notas y citas, vincula automáticamente"
+              className="flex items-center gap-1.5 rounded-lg border border-purple-700 bg-purple-950/30 px-3 py-2 text-sm text-purple-300 hover:bg-purple-950 disabled:opacity-40"
+            >
+              <Wand2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Procesar biblioteca</span>
             </button>
             <button
               onClick={() => setModalImportarCarpeta(true)}
@@ -966,6 +1014,14 @@ export default function BibliotecaClient() {
       {modalImportarCarpeta && (
         <ImportarCarpetaModal
           onCerrar={() => setModalImportarCarpeta(false)}
+          onTerminado={() => { cargar() }}
+        />
+      )}
+
+      {showPipeline && (
+        <PipelineModal
+          documentos={documentosFiltrados}
+          onCerrar={() => setShowPipeline(false)}
           onTerminado={() => { cargar() }}
         />
       )}
