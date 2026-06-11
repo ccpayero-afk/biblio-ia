@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2 } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
@@ -256,6 +256,8 @@ export default function BibliotecaClient() {
   const [modoSeleccion, setModoSeleccion] = useState(false)
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [eliminandoLote, setEliminandoLote] = useState(false)
+  const [vista, setVista] = useState<'lista' | 'grilla'>('lista')
+  const [sidebarAbierto, setSidebarAbierto] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const indexarRefs = useRef<Record<string, () => void>>({})
 
@@ -466,16 +468,21 @@ export default function BibliotecaClient() {
       onDrop={(e) => { e.preventDefault(); setDragging(false); subirArchivos(e.dataTransfer.files) }}
     >
       {/* Panel de carpetas */}
-      <div className="hidden w-52 flex-shrink-0 overflow-y-auto border-r border-neutral-800 bg-neutral-950 p-3 md:flex md:flex-col">
+      <div
+        className="hidden flex-shrink-0 overflow-hidden border-r border-neutral-800 bg-neutral-950 transition-[width] duration-200 md:block"
+        style={{ width: sidebarAbierto ? 208 : 0 }}
+      >
+        <div className="flex h-full w-52 flex-col overflow-y-auto p-3">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600">Carpetas</p>
-          <button
-            onClick={() => setModalCarpeta({})}
-            className="rounded p-0.5 text-neutral-600 hover:text-neutral-300"
-            title="Nueva carpeta"
-          >
-            <FolderPlus className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => setModalCarpeta({})} className="rounded p-0.5 text-neutral-600 hover:text-neutral-300" title="Nueva carpeta">
+              <FolderPlus className="h-4 w-4" />
+            </button>
+            <button onClick={() => setSidebarAbierto(false)} className="rounded p-0.5 text-neutral-600 hover:text-neutral-300" title="Colapsar panel">
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Todas */}
@@ -529,13 +536,20 @@ export default function BibliotecaClient() {
         >
           <FolderPlus className="h-3.5 w-3.5" /> Nueva carpeta
         </button>
+        </div>
       </div>
 
       {/* Área principal */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Barra superior */}
-        <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-3">
-          <div>
+        <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            {!sidebarAbierto && (
+              <button onClick={() => setSidebarAbierto(true)} className="hidden rounded p-1 text-neutral-600 hover:text-neutral-300 md:block" title="Expandir panel">
+                <PanelLeftOpen className="h-4 w-4" />
+              </button>
+            )}
+            <div className="min-w-0">
             <h1 className="flex items-center gap-1 text-lg font-semibold text-white">
               {carpetaActiva && carpetaActiva !== 'sin-carpeta' ? (
                 getRuta(carpetaActiva, carpetas).map((c, i, arr) => (
@@ -555,11 +569,29 @@ export default function BibliotecaClient() {
               {documentosFiltrados.length} documento{documentosFiltrados.length !== 1 ? 's' : ''}
               {sinIndexar > 0 && ` · ${sinIndexar} sin indexar`}
             </p>
+            </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-shrink-0 gap-2">
             <button onClick={cargar} disabled={cargando} className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-600 disabled:opacity-50">
               <RefreshCw className={`h-4 w-4 ${cargando ? 'animate-spin' : ''}`} />
             </button>
+            {/* Toggle vista */}
+            <div className="flex rounded-lg border border-neutral-700 overflow-hidden">
+              <button
+                onClick={() => setVista('lista')}
+                className={`px-2.5 py-2 ${vista === 'lista' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                title="Vista detalle"
+              >
+                <LayoutList className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setVista('grilla')}
+                className={`px-2.5 py-2 ${vista === 'grilla' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                title="Vista grilla"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+            </div>
             {!modoSeleccion && (
               <button
                 onClick={() => setModoSeleccion(true)}
@@ -656,7 +688,7 @@ export default function BibliotecaClient() {
         </div>
 
         {/* Contenido principal */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className={`flex-1 overflow-y-auto ${vista === 'lista' ? 'p-0' : 'p-6'}`}>
           {dragging && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 backdrop-blur-sm">
               <div className="rounded-2xl border-2 border-dashed border-blue-500 bg-neutral-900 p-16 text-center">
@@ -667,7 +699,7 @@ export default function BibliotecaClient() {
           )}
 
           {!cargando && documentosFiltrados.length === 0 && (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-700 py-20">
+            <div className={`flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-700 py-20 ${vista === 'lista' ? 'mx-6 mt-6' : ''}`}>
               <Upload className="h-10 w-10 text-neutral-600" />
               <p className="mt-3 text-sm font-medium text-neutral-400">
                 {carpetaActiva ? 'Esta carpeta está vacía' : 'No hay documentos todavía'}
@@ -686,30 +718,76 @@ export default function BibliotecaClient() {
           )}
 
           {cargando && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-44 animate-pulse rounded-xl border border-neutral-800 bg-neutral-900" />
-              ))}
-            </div>
+            vista === 'lista' ? (
+              <div className="space-y-0">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 border-b border-neutral-800/50 px-4 py-2.5">
+                    <div className="h-4 w-4 animate-pulse rounded bg-neutral-800" />
+                    <div className="h-3 flex-1 animate-pulse rounded bg-neutral-800" />
+                    <div className="h-3 w-32 animate-pulse rounded bg-neutral-800" />
+                    <div className="h-3 w-24 animate-pulse rounded bg-neutral-800" />
+                    <div className="h-5 w-20 animate-pulse rounded-full bg-neutral-800" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-44 animate-pulse rounded-xl border border-neutral-800 bg-neutral-900" />
+                ))}
+              </div>
+            )
           )}
 
           {!cargando && documentosFiltrados.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {documentosFiltrados.map((doc) => (
-                <DocumentoCard
-                  key={doc.id}
-                  documento={doc}
-                  carpeta={carpetas.find((c) => c.id === doc.carpetaId)}
-                  onEditar={() => setEditando(doc)}
-                  onMover={() => setMoviendo(doc)}
-                  onIndexadoOk={onDocumentIndexado}
-                  onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
-                  modoSeleccion={modoSeleccion}
-                  seleccionado={seleccionados.has(doc.id)}
-                  onToggleSeleccion={() => toggleSeleccion(doc.id)}
-                />
-              ))}
-            </div>
+            vista === 'lista' ? (
+              <div>
+                {/* Cabecera de columnas */}
+                <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-neutral-800 bg-neutral-950/95 px-4 py-1.5 text-xs font-medium uppercase tracking-wide text-neutral-600 backdrop-blur">
+                  {modoSeleccion && <div className="h-4 w-4 flex-shrink-0" />}
+                  <div className="h-4 w-4 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">Nombre</div>
+                  <div className="w-40 flex-shrink-0">Autor</div>
+                  <div className="w-32 flex-shrink-0">Carpeta</div>
+                  <div className="w-24 flex-shrink-0">Estado</div>
+                  <div className="w-16 flex-shrink-0 text-right">Frags.</div>
+                  {!modoSeleccion && <div className="w-16 flex-shrink-0" />}
+                </div>
+                {documentosFiltrados.map((doc) => (
+                  <DocumentoCard
+                    key={doc.id}
+                    documento={doc}
+                    carpeta={carpetas.find((c) => c.id === doc.carpetaId)}
+                    onEditar={() => setEditando(doc)}
+                    onMover={() => setMoviendo(doc)}
+                    onIndexadoOk={onDocumentIndexado}
+                    onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
+                    modoSeleccion={modoSeleccion}
+                    seleccionado={seleccionados.has(doc.id)}
+                    onToggleSeleccion={() => toggleSeleccion(doc.id)}
+                    vista="lista"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {documentosFiltrados.map((doc) => (
+                  <DocumentoCard
+                    key={doc.id}
+                    documento={doc}
+                    carpeta={carpetas.find((c) => c.id === doc.carpetaId)}
+                    onEditar={() => setEditando(doc)}
+                    onMover={() => setMoviendo(doc)}
+                    onIndexadoOk={onDocumentIndexado}
+                    onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
+                    modoSeleccion={modoSeleccion}
+                    seleccionado={seleccionados.has(doc.id)}
+                    onToggleSeleccion={() => toggleSeleccion(doc.id)}
+                    vista="grilla"
+                  />
+                ))}
+              </div>
+            )
           )}
         </div>
       </div>
