@@ -133,7 +133,7 @@ export async function getPDFDownloadUrl(accessToken: string, fileId: string): Pr
 export async function updateDocumentMetadata(
   accessToken: string,
   fileId: string,
-  metadata: Partial<Pick<Documento, 'autor' | 'año' | 'editorial' | 'abstract' | 'etiquetas' | 'estado' | 'fragmentos' | 'indexadoEn' | 'fichaGenerada' | 'carpetaId' | 'doi'>>
+  metadata: Partial<Pick<Documento, 'nombre' | 'autor' | 'año' | 'editorial' | 'abstract' | 'etiquetas' | 'estado' | 'fragmentos' | 'indexadoEn' | 'fichaGenerada' | 'carpetaId' | 'doi'>>
 ): Promise<void> {
   const drive = getDriveClient(accessToken)
   const properties: Record<string, string> = {}
@@ -149,7 +149,14 @@ export async function updateDocumentMetadata(
   if (metadata.carpetaId !== undefined) properties.carpetaId = metadata.carpetaId ?? ''
   if (metadata.doi !== undefined) properties.doi = metadata.doi
 
-  await drive.files.update({ fileId, requestBody: { properties } })
+  const requestBody: Record<string, unknown> = { properties }
+  if (metadata.nombre !== undefined) {
+    // Preservar extensión .pdf al renombrar
+    const nuevoNombre = metadata.nombre.trim()
+    requestBody.name = nuevoNombre.toLowerCase().endsWith('.pdf') ? nuevoNombre : `${nuevoNombre}.pdf`
+  }
+
+  await drive.files.update({ fileId, requestBody })
 }
 
 // ─── Carpetas ─────────────────────────────────────────────────────────────────

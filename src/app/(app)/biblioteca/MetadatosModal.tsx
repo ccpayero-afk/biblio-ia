@@ -13,6 +13,9 @@ interface Props {
 const ETIQUETAS_SUGERIDAS = ['teoría', 'metodología', 'empiria', 'debate', 'concepto clave', 'latinoamérica', 'historia', 'política', 'economía', 'sociología']
 
 export default function MetadatosModal({ documento, onGuardar, onCerrar }: Props) {
+  // Nombre visible sin extensión .pdf
+  const nombreOriginal = (documento.nombre.split('/').pop() ?? documento.nombre).replace(/\.pdf$/i, '')
+  const [nombre, setNombre] = useState(nombreOriginal)
   const [autor, setAutor] = useState(documento.autor)
   const [año, setAño] = useState(documento.año)
   const [editorial, setEditorial] = useState(documento.editorial ?? '')
@@ -26,7 +29,12 @@ export default function MetadatosModal({ documento, onGuardar, onCerrar }: Props
 
   async function handleGuardar() {
     setGuardando(true)
-    await onGuardar({ autor, año, editorial, abstract, etiquetas })
+    const datos: Partial<Documento> = { autor, año, editorial, abstract, etiquetas }
+    // Solo enviar nombre si cambió
+    if (nombre.trim() && nombre.trim() !== nombreOriginal) {
+      datos.nombre = nombre.trim()
+    }
+    await onGuardar(datos)
     setGuardando(false)
   }
 
@@ -35,19 +43,30 @@ export default function MetadatosModal({ documento, onGuardar, onCerrar }: Props
       <div className="w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-neutral-800 p-5">
-          <h2 className="text-sm font-medium text-white">Editar metadatos</h2>
+          <h2 className="text-sm font-medium text-white">Editar documento</h2>
           <button onClick={onCerrar} className="rounded p-1 text-neutral-500 hover:text-neutral-300">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Nombre del archivo (read-only) */}
-        <div className="border-b border-neutral-800 px-5 py-3">
-          <p className="truncate text-xs text-neutral-500">{documento.nombre}</p>
-        </div>
-
         {/* Campos */}
         <div className="space-y-4 p-5">
+
+          {/* Nombre del archivo */}
+          <div>
+            <label className="mb-1 block text-xs text-neutral-400">Nombre del archivo</label>
+            <div className="flex items-center rounded-lg border border-neutral-700 bg-neutral-800 focus-within:border-blue-500">
+              <input
+                type="text"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Nombre del documento"
+                className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none"
+              />
+              <span className="flex-shrink-0 pr-3 text-xs text-neutral-600">.pdf</span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs text-neutral-400">Autor / Autores</label>
@@ -123,7 +142,7 @@ export default function MetadatosModal({ documento, onGuardar, onCerrar }: Props
           </button>
           <button
             onClick={handleGuardar}
-            disabled={guardando}
+            disabled={guardando || !nombre.trim()}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
           >
             {guardando ? 'Guardando...' : 'Guardar'}

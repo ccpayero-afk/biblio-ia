@@ -526,6 +526,7 @@ export default function BibliotecaClient() {
 
   const sinIndexar = documentosFiltrados.filter((d) => d.estado === 'sin_indexar').length
   const conError = documentosFiltrados.filter((d) => d.estado === 'error').length
+  const sinMetadatos = documentosFiltrados.filter((d) => !d.autor && !d.año).length
   const sinCarpeta = documentos.filter((d) => !d.carpetaId).length
 
   return (
@@ -675,7 +676,7 @@ export default function BibliotecaClient() {
             </p>
             </div>
           </div>
-          <div className="flex flex-shrink-0 gap-2">
+          <div className="flex flex-shrink-0 flex-wrap justify-end gap-2">
             <button onClick={cargar} disabled={cargando} className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-600 disabled:opacity-50">
               <RefreshCw className={`h-4 w-4 ${cargando ? 'animate-spin' : ''}`} />
             </button>
@@ -723,7 +724,7 @@ export default function BibliotecaClient() {
             )}
             <button
               onClick={extraerMetadatosLote}
-              disabled={extrayendoMeta || documentosFiltrados.filter((d) => !d.autor && !d.año).length === 0}
+              disabled={extrayendoMeta || sinMetadatos === 0}
               title="Extraer metadatos de documentos sin autor/año (PDF + CrossRef, sin IA)"
               className="flex items-center gap-1.5 rounded-lg border border-teal-800 bg-teal-950/30 px-3 py-2 text-sm text-teal-400 hover:bg-teal-950 disabled:opacity-40"
             >
@@ -731,24 +732,22 @@ export default function BibliotecaClient() {
               <span className="hidden sm:inline">
                 {extrayendoMeta && progresoMeta
                   ? `Extrayendo ${progresoMeta.actual}/${progresoMeta.total}…`
-                  : `Metadatos (${documentosFiltrados.filter((d) => !d.autor && !d.año).length})`}
+                  : `Metadatos (${sinMetadatos})`}
               </span>
             </button>
-            {conError > 0 && (
-              <button
-                onClick={ocrTodosSecuencial}
-                disabled={ocrLoteActivo}
-                title="OCR + Indexar todos los documentos con error (PDFs escaneados)"
-                className="flex items-center gap-1.5 rounded-lg border border-orange-800 bg-orange-950/30 px-3 py-2 text-sm text-orange-400 hover:bg-orange-950 disabled:opacity-60"
-              >
-                <ScanText className={`h-4 w-4 ${ocrLoteActivo ? 'animate-pulse' : ''}`} />
-                <span className="hidden sm:inline">
-                  {ocrLoteActivo && progresoOcrLote
-                    ? `OCR ${progresoOcrLote.actual + 1}/${progresoOcrLote.total}…`
-                    : `OCR (${conError})`}
-                </span>
-              </button>
-            )}
+            <button
+              onClick={ocrTodosSecuencial}
+              disabled={ocrLoteActivo || conError === 0}
+              title="OCR + Re-indexar todos los documentos con error (PDFs escaneados)"
+              className="flex items-center gap-1.5 rounded-lg border border-orange-800 bg-orange-950/30 px-3 py-2 text-sm text-orange-400 hover:bg-orange-950 disabled:opacity-40"
+            >
+              <ScanText className={`h-4 w-4 ${ocrLoteActivo ? 'animate-pulse' : ''}`} />
+              <span className="hidden sm:inline">
+                {ocrLoteActivo && progresoOcrLote
+                  ? `OCR ${progresoOcrLote.actual + 1}/${progresoOcrLote.total}…`
+                  : `OCR (${conError})`}
+              </span>
+            </button>
             <button
               onClick={() => setModalImportarCarpeta(true)}
               title="Importar carpeta completa"
