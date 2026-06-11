@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { GEMINI_MODEL_EMBEDDING, getGeminiClient } from './gemini'
 import { initUserDrive, writeJSON, findFile, trashPDF, updateDocumentMetadata } from './drive'
+import { ocrWithGoogleDrive } from './ocr-drive'
 import { Fragmento } from '@/types'
 
 const MIN_PAGE_CHARS = 30    // below this, page is considered empty/scanned
@@ -121,35 +122,52 @@ export async function indexDocument(
   onProgress('Extrayendo texto del PDF…', 2, TOTAL)
   const { conTexto, sinTexto, total } = await extractAllPageTexts(buffer)
 
-  const rawChunks = conTexto.flatMap(({ texto, pagina }) => chunkText(texto, pagina))
+  const allChunks = conTexto.flatMap(({ texto, pagina }) => chunkText(texto, pagina))
 
-  if (rawChunks.length === 0) {
-    if (sinTexto.length > 0) {
-      throw new Error(
-        `PDF escaneado: ${sinTexto.length} de ${total} páginas no tienen texto seleccionable. ` +
-        `Convertí el PDF a texto con Adobe Acrobat, Google Drive (abrir como Docs) u otra herramienta y volvé a subirlo.`
-      )
-    }
-    throw new Error('No se pudo extraer texto del PDF')
-  }
-
+  // ── OCR automático via Google Drive si hay páginas escaneadas ───────────────
   if (sinTexto.length > 0) {
     onProgress(
-      `Texto extraído (${conTexto.length} págs con texto, ${sinTexto.length} págs escaneadas omitidas)`,
+      `PDF con ${sinTexto.length} págs escaneadas. Aplicando OCR con Google Drive…`,
       2, TOTAL
+    )
+    try {
+      const ocrPages = await ocrWithGoogleDrive(accessToken, buffer)
+      let ocrAdded = 0
+      for (const pageNum of sinTexto) {
+        const ocrText = (ocrPages[pageNum - 1] ?? '').trim()
+        if (ocrText.length > 20) {
+          allChunks.push(...chunkText(ocrText, pageNum))
+          ocrAdded++
+        }
+      }
+      onProgress(
+        `OCR completado: ${ocrAdded}/${sinTexto.length} págs recuperadas`,
+        2, TOTAL
+      )
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.slice(0, 100) : 'error'
+      onProgress(`OCR falló (${msg}). Indexando solo págs con texto…`, 2, TOTAL)
+    }
+  }
+
+  if (allChunks.length === 0) {
+    throw new Error(
+      sinTexto.length > 0
+        ? `PDF totalmente escaneado y el OCR no pudo recuperar texto. Verificá los permisos de Google Drive o resubí el PDF.`
+        : 'No se pudo extraer texto del PDF'
     )
   }
 
-  onProgress(`Generando embeddings para ${rawChunks.length} fragmentos…`, 3, TOTAL)
+  onProgress(`Generando embeddings para ${allChunks.length} fragmentos…`, 3, TOTAL)
   const genAI = await getGeminiClient(accessToken)
   const embeddings = await generateEmbeddings(
-    rawChunks.map((c) => c.texto),
+    allChunks.map((c) => c.texto),
     genAI,
     (done, total) => onProgress(`Embeddings: ${done}/${total}…`, 3, TOTAL)
   )
 
   onProgress('Guardando índice en Drive…', 4, TOTAL)
-  const fragmentos: Fragmento[] = rawChunks.map((c, i) => ({
+  const fragmentos: Fragmento[] = allChunks.map((c, i) => ({
     id: `${documentoId}_${i}`,
     documentoId,
     texto: c.texto,

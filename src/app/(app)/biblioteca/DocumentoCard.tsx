@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { FileText, Pencil, Zap, FolderInput, Folder, CheckSquare2, Square, ScanSearch, CheckCircle2 } from 'lucide-react'
+import { FileText, Pencil, Zap, FolderInput, Folder, CheckSquare2, Square, ScanSearch, CheckCircle2, ScanText } from 'lucide-react'
 import Link from 'next/link'
 
 const COLORES_CARPETA: Record<Carpeta['color'], string> = {
@@ -41,10 +41,17 @@ export default function DocumentoCard({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [extrayendo, setExtrayendo] = useState(false)
   const [extraidoOk, setExtraidoOk] = useState(false)
+  const [ocrActivo, setOcrActivo] = useState(false)
 
   const estadoConfig = ESTADO_CONFIG[estado]
 
   useEffect(() => { onRegistrarIndexar?.(iniciarIndexacion) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function iniciarOCR() {
+    setOcrActivo(true)
+    await iniciarIndexacion()
+    setOcrActivo(false)
+  }
 
   async function iniciarIndexacion() {
     setEstado('indexando')
@@ -168,10 +175,20 @@ export default function DocumentoCard({
 
         {/* Acciones */}
         {!modoSeleccion && (
-          <div className="flex w-20 flex-shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex w-24 flex-shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
             {(estado === 'sin_indexar' || estado === 'error') && (
               <button onClick={(e) => { e.stopPropagation(); iniciarIndexacion() }} className="rounded p-1 text-neutral-600 hover:text-blue-400" title="Indexar">
                 <Zap className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {estado !== 'indexando' && (
+              <button
+                onClick={(e) => { e.stopPropagation(); iniciarOCR() }}
+                disabled={ocrActivo}
+                title="OCR + Indexar (para PDFs escaneados)"
+                className="rounded p-1 text-neutral-600 hover:text-orange-400 disabled:opacity-40"
+              >
+                <ScanText className={`h-3.5 w-3.5 ${ocrActivo ? 'animate-pulse text-orange-400' : ''}`} />
               </button>
             )}
             <button
@@ -222,6 +239,16 @@ export default function DocumentoCard({
             {(estado === 'sin_indexar' || estado === 'error') && (
               <button onClick={iniciarIndexacion} className="rounded p-1 text-neutral-600 hover:text-blue-400" title="Indexar">
                 <Zap className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {estado !== 'indexando' && (
+              <button
+                onClick={iniciarOCR}
+                disabled={ocrActivo}
+                title="OCR + Indexar (para PDFs escaneados)"
+                className="rounded p-1 text-neutral-600 hover:text-orange-400 disabled:opacity-40"
+              >
+                <ScanText className={`h-3.5 w-3.5 ${ocrActivo ? 'animate-pulse text-orange-400' : ''}`} />
               </button>
             )}
             <button
