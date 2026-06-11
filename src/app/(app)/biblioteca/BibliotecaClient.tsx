@@ -550,20 +550,37 @@ export default function BibliotecaClient() {
               </button>
             )}
             <div className="min-w-0">
-            <h1 className="flex items-center gap-1 text-lg font-semibold text-white">
-              {carpetaActiva && carpetaActiva !== 'sin-carpeta' ? (
-                getRuta(carpetaActiva, carpetas).map((c, i, arr) => (
-                  <span key={c.id} className="flex items-center gap-1">
-                    {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-neutral-600" />}
-                    <button
-                      onClick={() => setCarpetaActiva(c.id)}
-                      className={i === arr.length - 1 ? 'text-white' : 'text-neutral-400 hover:text-white'}
-                    >
-                      {c.nombre}
-                    </button>
-                  </span>
-                ))
-              ) : carpetaActiva === 'sin-carpeta' ? 'Sin carpeta' : 'Biblioteca'}
+            <h1 className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-sm font-semibold text-white">
+              {(() => {
+                if (!carpetaActiva || carpetaActiva === 'sin-carpeta') {
+                  return <span className="text-base">{carpetaActiva === 'sin-carpeta' ? 'Sin carpeta' : 'Biblioteca'}</span>
+                }
+                const ruta = getRuta(carpetaActiva, carpetas)
+                const truncada = ruta.length > 3
+                const visible = truncada ? ruta.slice(-2) : ruta
+                return (
+                  <>
+                    {truncada && (
+                      <span className="flex items-center gap-1 text-neutral-600">
+                        <span className="text-xs">…</span>
+                        <ChevronRight className="h-3 w-3" />
+                      </span>
+                    )}
+                    {visible.map((c, i, arr) => (
+                      <span key={c.id} className="flex items-center gap-1">
+                        {i > 0 && <ChevronRight className="h-3 w-3 text-neutral-600" />}
+                        <button
+                          onClick={() => setCarpetaActiva(c.id)}
+                          className={`truncate ${i === arr.length - 1 ? 'max-w-[200px] text-white' : 'max-w-[120px] text-neutral-400 hover:text-white'}`}
+                          title={c.nombre}
+                        >
+                          {c.nombre}
+                        </button>
+                      </span>
+                    ))}
+                  </>
+                )
+              })()}
             </h1>
             <p className="text-xs text-neutral-500">
               {documentosFiltrados.length} documento{documentosFiltrados.length !== 1 ? 's' : ''}
