@@ -89,7 +89,7 @@ export async function listPDFs(accessToken: string, pdfsId: string): Promise<Doc
       editorial: props.editorial,
       abstract: props.abstract,
       etiquetas: props.etiquetas ? JSON.parse(props.etiquetas) : [],
-      estado: (props.estado as Documento['estado']) ?? 'sin_indexar',
+      estado: (props.estado === 'indexando' ? 'sin_indexar' : props.estado ?? 'sin_indexar') as Documento['estado'],
       fragmentos: props.fragmentos ? parseInt(props.fragmentos) : 0,
       indexadoEn: props.indexadoEn,
       creadoEn: f.createdTime ?? new Date().toISOString(),
