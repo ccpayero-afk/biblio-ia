@@ -125,6 +125,12 @@ export async function indexDocument(
 
   const allChunks = conTexto.flatMap(({ texto, pagina }) => chunkText(texto, pagina))
 
+  // Mapa página → texto completo (se guarda para búsqueda en el lector)
+  const textosPorPagina: Record<number, string> = {}
+  for (const { texto, pagina } of conTexto) {
+    textosPorPagina[pagina] = texto
+  }
+
   // ── OCR automático via Google Drive si hay páginas escaneadas ───────────────
   if (sinTexto.length > 0) {
     onProgress(
@@ -138,6 +144,7 @@ export async function indexDocument(
         const ocrText = (ocrPages[pageNum - 1] ?? '').trim()
         if (ocrText.length > 20) {
           allChunks.push(...chunkText(ocrText, pageNum))
+          textosPorPagina[pageNum] = ocrText
           ocrAdded++
         }
       }
@@ -177,7 +184,10 @@ export async function indexDocument(
   }))
 
   const estructura = await initUserDrive(accessToken)
-  await writeJSON(accessToken, estructura.indexId, `emb_${documentoId}.json`, fragmentos)
+  await Promise.all([
+    writeJSON(accessToken, estructura.indexId, `emb_${documentoId}.json`, fragmentos),
+    writeJSON(accessToken, estructura.indexId, `txt_${documentoId}.json`, textosPorPagina),
+  ])
 
   onProgress('Actualizando metadatos…', 5, TOTAL)
   await updateDocumentMetadata(accessToken, documentoId, {

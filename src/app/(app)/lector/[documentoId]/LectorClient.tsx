@@ -12,7 +12,7 @@ import PanelLateral from './PanelLateral'
 import {
   ChevronLeft, ChevronRight, ZoomIn, ZoomOut,
   PanelRight, X, Sparkles, Check, Loader2,
-  Maximize2, Minimize2,
+  Maximize2, Minimize2, Search,
 } from 'lucide-react'
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
@@ -59,8 +59,14 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
   } | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  const [textosPaginas, setTextosPaginas] = useState<Record<number, string>>({})
+  const [buscadorAbierto, setBuscadorAbierto] = useState(false)
+  const [queryBusqueda, setQueryBusqueda] = useState('')
+  const [resultadosBusq, setResultadosBusq] = useState<{ pagina: number; contexto: string }[]>([])
+  const [indiceResultado, setIndiceResultado] = useState(0)
 
   const lectorRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const contenedorRef = useRef<HTMLDivElement>(null)
   const highlightsRef = useRef(highlights)
   highlightsRef.current = highlights
@@ -139,6 +145,14 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
       .catch(() => {})
   }, [documento.id])
 
+  // Texto por página (para búsqueda interna, incluye OCR)
+  useEffect(() => {
+    fetch(`/api/texto/${documento.id}`)
+      .then((r) => r.json())
+      .then((data) => { if (data && !data.error) setTextosPaginas(data) })
+      .catch(() => {})
+  }, [documento.id])
+
   // Keyboard shortcuts
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -147,6 +161,12 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
       if (e.key === '+' || (e.key === '=' && !e.metaKey)) { e.preventDefault(); zoomIn() }
       if (e.key === '-') { e.preventDefault(); zoomOut() }
       if (e.key === 'f' && !e.metaKey && !e.ctrlKey) toggleFullscreen()
+      if (e.key === 'f' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setBuscadorAbierto((v) => !v)
+        setTimeout(() => searchInputRef.current?.focus(), 50)
+      }
+      if (e.key === 'Escape') { setBuscadorAbierto(false); setQueryBusqueda(''); setResultadosBusq([]) }
       if (e.key === 'ArrowRight' || e.key === 'PageDown') irAPagina(paginaActualRef.current + 1)
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') irAPagina(paginaActualRef.current - 1)
     }
@@ -240,6 +260,26 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
 
   const matchedPreset = ZOOM_PRESETS.find((p) => Math.abs(p - zoom) < 0.02)
   const selectValue = matchedPreset?.toString() ?? 'custom'
+
+  function buscarEnTexto(query: string) {
+    setQueryBusqueda(query)
+    if (!query.trim()) { setResultadosBusq([]); return }
+    const q = query.toLowerCase()
+    const resultados: { pagina: number; contexto: string }[] = []
+    for (const [p, texto] of Object.entries(textosPaginas)) {
+      const idx = (texto as string).toLowerCase().indexOf(q)
+      if (idx !== -1) {
+        const start = Math.max(0, idx - 40)
+        const end = Math.min((texto as string).length, idx + query.length + 40)
+        const contexto = (start > 0 ? '…' : '') + (texto as string).slice(start, end) + (end < (texto as string).length ? '…' : '')
+        resultados.push({ pagina: parseInt(p), contexto })
+      }
+    }
+    resultados.sort((a, b) => a.pagina - b.pagina)
+    setResultadosBusq(resultados)
+    setIndiceResultado(0)
+    if (resultados.length > 0) irAPagina(resultados[0].pagina)
+  }
 
   function irAPagina(n: number) {
     const p = Math.max(1, Math.min(n, numPages))
@@ -422,6 +462,15 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
             </button>
           </div>
 
+          {/* Buscar en el documento */}
+          <button
+            onClick={() => { setBuscadorAbierto((v) => !v); setTimeout(() => searchInputRef.current?.focus(), 50) }}
+            title="Buscar en el documento (Ctrl+F)"
+            className={`rounded p-1 transition-colors ${buscadorAbierto ? 'text-blue-400' : 'text-neutral-400 hover:text-white'}`}
+          >
+            <Search className="h-4 w-4" />
+          </button>
+
           {/* Pantalla completa */}
           <button
             onClick={toggleFullscreen}
@@ -482,8 +531,63 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
         {/* ── PDF — scroll continuo ── */}
         <div
           ref={contenedorRef}
-          className="flex-1 overflow-auto bg-neutral-700"
+          className="relative flex-1 overflow-auto bg-neutral-700"
         >
+          {/* Buscador superpuesto (Ctrl+F) */}
+          {buscadorAbierto && (
+            <div className="absolute right-4 top-3 z-40 w-80 rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
+              <div className="flex items-center gap-2 p-2">
+                <Search className="h-4 w-4 shrink-0 text-neutral-500" />
+                <input
+                  ref={searchInputRef}
+                  value={queryBusqueda}
+                  onChange={(e) => buscarEnTexto(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape') { setBuscadorAbierto(false); setQueryBusqueda(''); setResultadosBusq([]) }
+                    if (e.key === 'Enter' && resultadosBusq.length > 0) {
+                      const next = (indiceResultado + 1) % resultadosBusq.length
+                      setIndiceResultado(next)
+                      irAPagina(resultadosBusq[next].pagina)
+                    }
+                  }}
+                  placeholder="Buscar en el documento…"
+                  className="flex-1 bg-transparent text-sm text-white placeholder-neutral-600 focus:outline-none"
+                />
+                {queryBusqueda && (
+                  <span className="shrink-0 text-xs text-neutral-500">{resultadosBusq.length}</span>
+                )}
+                <button
+                  onClick={() => { setBuscadorAbierto(false); setQueryBusqueda(''); setResultadosBusq([]) }}
+                  className="shrink-0 text-neutral-500 hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {resultadosBusq.length > 0 && (
+                <div className="max-h-60 overflow-y-auto border-t border-neutral-800 p-1">
+                  {resultadosBusq.map((r, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setIndiceResultado(i); irAPagina(r.pagina) }}
+                      className={`flex w-full items-baseline gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
+                        i === indiceResultado ? 'bg-neutral-700' : 'hover:bg-neutral-800'
+                      }`}
+                    >
+                      <span className="shrink-0 text-xs font-semibold text-blue-400">p. {r.pagina}</span>
+                      <span className="truncate text-xs text-neutral-400">{r.contexto}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {queryBusqueda && resultadosBusq.length === 0 && (
+                <p className="border-t border-neutral-800 px-3 py-2 text-xs text-neutral-600">
+                  {Object.keys(textosPaginas).length === 0
+                    ? 'Sin texto guardado. Reindexá el documento para activar la búsqueda.'
+                    : 'Sin resultados.'}
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex flex-col items-center gap-4 py-6 px-4">
             <Document
               file={pdfUrl}
