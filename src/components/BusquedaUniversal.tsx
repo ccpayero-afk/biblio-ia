@@ -4,11 +4,17 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, FileText, Quote, StickyNote, X, Loader2 } from 'lucide-react'
 import { Documento, Cita, Nota } from '@/types'
+import { displayNombre, limpiarNombre } from '@/lib/nombre'
 
 interface ResultadoBusqueda {
   documentos: Documento[]
   citas: Cita[]
   notas: Nota[]
+}
+
+function snippet(texto: string, largo = 120): string {
+  const t = texto?.trim() ?? ''
+  return t.length > largo ? t.slice(0, largo) + '…' : t
 }
 
 export default function BusquedaUniversal() {
@@ -66,9 +72,9 @@ export default function BusquedaUniversal() {
     setAbierto(false)
   }
 
-  const hayResultados = resultados && (
-    resultados.documentos.length + resultados.citas.length + resultados.notas.length > 0
-  )
+  const total = resultados
+    ? resultados.documentos.length + resultados.citas.length + resultados.notas.length
+    : 0
 
   if (!abierto) {
     return (
@@ -106,85 +112,106 @@ export default function BusquedaUniversal() {
             placeholder="Buscar documentos, citas, notas…"
             className="flex-1 bg-transparent text-sm text-white placeholder-neutral-600 outline-none"
           />
-          <button onClick={() => setAbierto(false)} className="text-neutral-600 hover:text-neutral-400">
+          {query && (
+            <button onClick={() => { setQuery(''); setResultados(null) }} className="text-neutral-600 hover:text-neutral-400">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button onClick={() => setAbierto(false)} className="text-neutral-600 hover:text-neutral-400 pl-1">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Resultados */}
-        {hayResultados && (
-          <div className="max-h-80 overflow-y-auto p-2">
-            {resultados!.documentos.length > 0 && (
+        {total > 0 && resultados && (
+          <div className="max-h-[480px] overflow-y-auto p-2">
+
+            {/* Notas */}
+            {resultados.notas.length > 0 && (
+              <div className="mb-1">
+                <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Notas
+                </p>
+                {resultados.notas.map((n) => (
+                  <button
+                    key={n.id}
+                    onClick={() => navegar(`/notas`)}
+                    className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-neutral-800"
+                  >
+                    <StickyNote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-violet-400" />
+                    <div className="flex-1 min-w-0">
+                      {n.titulo && (
+                        <p className="truncate text-sm font-medium text-white">{n.titulo}</p>
+                      )}
+                      <p className="text-xs leading-relaxed text-neutral-400 line-clamp-2">
+                        {snippet(n.contenido ?? '', 140)}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Citas */}
+            {resultados.citas.length > 0 && (
+              <div className="mb-1">
+                <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+                  Citas
+                </p>
+                {resultados.citas.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => navegar(`/citas`)}
+                    className="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-neutral-800"
+                  >
+                    <Quote className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs italic leading-relaxed text-neutral-200 line-clamp-2">
+                        &ldquo;{snippet(c.texto ?? '', 160)}&rdquo;
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-neutral-500">
+                        {limpiarNombre(c.documentoNombre)} · {c.autor}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Documentos */}
+            {resultados.documentos.length > 0 && (
               <div className="mb-1">
                 <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-neutral-600">
                   Documentos
                 </p>
-                {resultados!.documentos.map((d) => (
+                {resultados.documentos.map((d) => (
                   <button
                     key={d.id}
                     onClick={() => navegar(`/lector/${d.id}`)}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-neutral-800"
                   >
-                    <FileText className="h-4 w-4 flex-shrink-0 text-neutral-500" />
+                    <FileText className="h-4 w-4 flex-shrink-0 text-blue-400" />
                     <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm text-white">{d.nombre.replace(/\.pdf$/i, '')}</p>
+                      <p className="truncate text-sm text-white">{displayNombre(d)}</p>
                       <p className="text-xs text-neutral-500">{d.autor} · {d.año}</p>
                     </div>
                   </button>
                 ))}
               </div>
             )}
-
-            {resultados!.citas.length > 0 && (
-              <div className="mb-1">
-                <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-neutral-600">
-                  Citas
-                </p>
-                {resultados!.citas.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => navegar(`/citas`)}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-neutral-800"
-                  >
-                    <Quote className="h-4 w-4 flex-shrink-0 text-neutral-500" />
-                    <div className="flex-1 min-w-0">
-                      <p className="truncate text-sm italic text-neutral-300">"{c.texto}"</p>
-                      <p className="text-xs text-neutral-500">{c.formatoAPA}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {resultados!.notas.length > 0 && (
-              <div className="mb-1">
-                <p className="px-2 py-1 text-xs font-semibold uppercase tracking-wider text-neutral-600">
-                  Notas
-                </p>
-                {resultados!.notas.map((n) => (
-                  <button
-                    key={n.id}
-                    onClick={() => navegar(`/notas`)}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-neutral-800"
-                  >
-                    <StickyNote className="h-4 w-4 flex-shrink-0 text-neutral-500" />
-                    <p className="flex-1 truncate text-sm text-neutral-300">{n.contenido}</p>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
-        {query.length >= 2 && !cargando && resultados && !hayResultados && (
+        {query.length >= 2 && !cargando && resultados && total === 0 && (
           <div className="px-4 py-6 text-center text-sm text-neutral-600">
-            Sin resultados para "{query}"
+            Sin resultados para &ldquo;{query}&rdquo;
           </div>
         )}
 
         {!query && (
           <div className="px-4 py-4 text-center text-xs text-neutral-700">
-            Escribí para buscar · <kbd className="rounded border border-neutral-800 px-1">Esc</kbd> para cerrar
+            Escribí para buscar en notas, citas y documentos ·{' '}
+            <kbd className="rounded border border-neutral-800 px-1">Esc</kbd> para cerrar
           </div>
         )}
       </div>

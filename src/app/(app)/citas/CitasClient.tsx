@@ -10,7 +10,8 @@ function norm(str: string): string {
 }
 
 function limpiarNombre(nombre: string): string {
-  return nombre.replace(/\.pdf$/i, '').replace(/\//g, ' · ').trim()
+  const ultima = (nombre ?? '').split('/').pop() ?? nombre ?? ''
+  return ultima.replace(/\.pdf$/i, '').trim()
 }
 
 // Colores de acento que se rotan por documento

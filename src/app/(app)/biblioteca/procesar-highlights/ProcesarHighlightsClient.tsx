@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Documento } from '@/types'
+import { displayNombre } from '@/lib/nombre'
 import {
   FileText, Sparkles, Check, X, Loader2, AlertCircle,
   ChevronLeft, CheckSquare, Square, Clock,
@@ -257,7 +258,7 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
 
                 <div className="flex-1 min-w-0">
                   <p className="truncate text-sm font-medium text-white">
-                    {doc.nombre.replace(/\.pdf$/i, '')}
+                    {displayNombre(doc)}
                   </p>
                   <p className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
                     {doc.autor || 'Sin autor'} · {doc.año || 's.f.'}
