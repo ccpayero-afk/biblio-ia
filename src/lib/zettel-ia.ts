@@ -17,20 +17,16 @@ export async function sugerirVinculos(
       .filter((w) => w.length > 4)
   )
 
-  // Solo notas con al menos 1 keyword en común; máximo 8 candidatas
+  // Ordenar por keyword overlap; incluir todas (0 matches también) como fallback conceptual
   const candidatas = elegibles
     .map((n) => {
       const texto = `${n.titulo} ${n.contenido}`.toLowerCase()
       const matches = [...palabrasRef].filter((p) => texto.includes(p)).length
       return { n, matches }
     })
-    .filter((s) => s.matches >= 1)
     .sort((a, b) => b.matches - a.matches)
-    .slice(0, 8)
+    .slice(0, 10)
     .map((s) => s.n)
-
-  // Sin candidatas con keyword overlap → no hay conexión probable, evitar llamada a la IA
-  if (candidatas.length === 0) return []
 
   const listaCandidatas = candidatas
     .map((n) => `[${n.id}] ${n.titulo} — ${n.contenido.slice(0, 60)}`)
