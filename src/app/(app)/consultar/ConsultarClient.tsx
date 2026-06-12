@@ -45,6 +45,24 @@ function guardarHistorial(convs: Conversacion[]) {
   } catch { /* quota exceeded — no crítico */ }
 }
 
+function guardarEnDrive(convs: Conversacion[]) {
+  fetch('/api/conversaciones', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(convs),
+  }).catch(() => { /* sin Drive — no crítico */ })
+}
+
+function mergear(local: Conversacion[], drive: Conversacion[]): Conversacion[] {
+  const map = new Map<string, Conversacion>()
+  for (const c of local) map.set(c.id, c)
+  for (const c of drive) {
+    const ex = map.get(c.id)
+    if (!ex || c.fecha > ex.fecha) map.set(c.id, c)
+  }
+  return Array.from(map.values()).sort((a, b) => b.fecha.localeCompare(a.fecha))
+}
+
 function nuevaId() {
   return `conv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 }
@@ -71,11 +89,10 @@ export default function ConsultarClient() {
   const bottomRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
-  // Cargar historial al montar
+  // Cargar historial al montar (localStorage inmediato + Drive async)
   useEffect(() => {
     const hist = cargarHistorial()
     setConversaciones(hist)
-    // Si hay una conversación guardada reciente (< 24h), cargarla automáticamente
     if (hist.length > 0) {
       const ultima = hist[0]
       const hace24h = Date.now() - 24 * 60 * 60 * 1000
@@ -84,6 +101,18 @@ export default function ConsultarClient() {
         setTurnos(ultima.turnos)
       }
     }
+    // Merge con Drive en segundo plano
+    fetch('/api/conversaciones')
+      .then((r) => r.json())
+      .then((drive: unknown) => {
+        if (!Array.isArray(drive)) return
+        setConversaciones((prev) => {
+          const merged = mergear(prev, drive as Conversacion[])
+          guardarHistorial(merged)
+          return merged
+        })
+      })
+      .catch(() => { /* offline o sin Drive */ })
   }, [])
 
   // Cerrar panel al hacer clic fuera
@@ -97,7 +126,7 @@ export default function ConsultarClient() {
     return () => document.removeEventListener('mousedown', handler)
   }, [panelAbierto])
 
-  // Guardar conversación actual en localStorage cuando cambian los turnos
+  // Guardar conversación actual en localStorage + Drive cuando cambian los turnos
   useEffect(() => {
     if (turnos.length === 0) return
     const conv: Conversacion = {
@@ -110,6 +139,7 @@ export default function ConsultarClient() {
       const sin = prev.filter((c) => c.id !== convId)
       const nuevas = [conv, ...sin]
       guardarHistorial(nuevas)
+      guardarEnDrive(nuevas)
       return nuevas
     })
   }, [turnos, convId])
@@ -139,6 +169,7 @@ export default function ConsultarClient() {
     setConversaciones((prev) => {
       const nuevas = prev.filter((c) => c.id !== id)
       guardarHistorial(nuevas)
+      guardarEnDrive(nuevas)
       return nuevas
     })
     if (id === convId) iniciarNuevaConversacion()

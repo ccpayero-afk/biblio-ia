@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
-  BookOpen, Check, X, Minus, Loader2, AlertCircle,
+  BookOpen, BookText, Check, X, Minus, Loader2, AlertCircle,
   RefreshCcw, Shuffle, ChevronRight,
 } from 'lucide-react'
 import type { Nota, TipoNota } from '@/types'
@@ -55,6 +55,20 @@ function advance(prev: CardState | undefined, grade: 0 | 1 | 2): CardState {
   return { interval: newInterval, ease: newEase, due: d.toISOString().slice(0, 10), reviews: (prev?.reviews ?? 0) + 1 }
 }
 
+// ─── Card types ──────────────────────────────────────────────────────────────
+
+type NotaCard = Nota & { kind: 'nota' }
+
+interface ConceptoCard {
+  kind: 'concepto'
+  id: string
+  concepto: string
+  definicion: string
+  documentoNombre: string
+}
+
+type RepasoCard = NotaCard | ConceptoCard
+
 // ─── Metadata por tipo ────────────────────────────────────────────────────────
 
 const TIPO_META: Record<TipoNota, { label: string; color: string; bg: string; border: string }> = {
@@ -67,6 +81,13 @@ const TIPO_META: Record<TipoNota, { label: string; color: string; bg: string; bo
   ia:          { label: 'IA',         color: '#22d3ee', bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.20)'  },
   consulta:    { label: 'Consulta',   color: '#22d3ee', bg: 'rgba(6,182,212,0.08)',   border: 'rgba(6,182,212,0.20)'  },
   ficha:       { label: 'Ficha',      color: '#a78bfa', bg: 'rgba(124,58,237,0.09)',  border: 'rgba(139,92,246,0.22)' },
+}
+
+const CONCEPTO_META = {
+  label: 'Concepto',
+  color: '#34d399',
+  bg: 'rgba(52,211,153,0.08)',
+  border: 'rgba(52,211,153,0.25)',
 }
 
 const TIPOS_REPASO: TipoNota[] = ['permanente', 'referencia', 'manual', 'ia']
@@ -86,16 +107,19 @@ function shuffle<T>(arr: T[]): T[] {
 
 export default function RepasoClient() {
   const [notas, setNotas] = useState<Nota[]>([])
+  const [conceptos, setConceptos] = useState<ConceptoCard[]>([])
   const [states, setStates] = useState<Record<string, CardState>>({})
   const [cargando, setCargando] = useState(true)
+  const [cargandoFichas, setCargandoFichas] = useState(false)
   const [error, setError] = useState('')
 
   // Session
-  const [queue, setQueue] = useState<Nota[]>([])
+  const [queue, setQueue] = useState<RepasoCard[]>([])
   const [idx, setIdx] = useState(0)
   const [revealed, setRevealed] = useState(false)
   const [sessionDone, setSessionDone] = useState(0)
   const [modoTodas, setModoTodas] = useState(false)
+  const [incluirFichas, setIncluirFichas] = useState(false)
 
   // Fetch notas once
   useEffect(() => {
@@ -119,18 +143,39 @@ export default function RepasoClient() {
     cargar()
   }, [])
 
-  const buildQueue = useCallback((todas: boolean, sts: Record<string, CardState>, ns: Nota[]) => {
-    const pool = todas ? ns : ns.filter((n) => isDue(sts[n.id]))
-    setQueue(shuffle(pool))
-    setIdx(0)
-    setRevealed(false)
-    setSessionDone(0)
-  }, [])
+  // Fetch conceptos when toggle is enabled (lazy, cached)
+  useEffect(() => {
+    if (!incluirFichas || conceptos.length > 0) return
+    setCargandoFichas(true)
+    fetch('/api/fichas/conceptos')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setConceptos(data as ConceptoCard[]) })
+      .catch(() => { /* best effort */ })
+      .finally(() => setCargandoFichas(false))
+  }, [incluirFichas]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const buildQueue = useCallback(
+    (todas: boolean, sts: Record<string, CardState>, ns: Nota[], cs: ConceptoCard[], usarFichas: boolean) => {
+      const notaCards: NotaCard[] = ns.map((n) => ({ ...n, kind: 'nota' as const }))
+      const notasPool = todas ? notaCards : notaCards.filter((c) => isDue(sts[c.id]))
+      const concPool = usarFichas ? (todas ? cs : cs.filter((c) => isDue(sts[c.id]))) : []
+      setQueue(shuffle([...notasPool, ...concPool]))
+      setIdx(0)
+      setRevealed(false)
+      setSessionDone(0)
+    },
+    []
+  )
 
   // Build initial queue once notas load
   useEffect(() => {
-    if (notas.length > 0) buildQueue(modoTodas, states, notas)
+    if (notas.length > 0) buildQueue(modoTodas, states, notas, conceptos, incluirFichas)
   }, [notas]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Rebuild when conceptos load after toggle
+  useEffect(() => {
+    if (conceptos.length > 0 && incluirFichas) buildQueue(modoTodas, states, notas, conceptos, true)
+  }, [conceptos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard: Space = reveal, 1/2/3 = grade
   useEffect(() => {
@@ -146,10 +191,10 @@ export default function RepasoClient() {
   }) // intentionally no deps so grade closure stays fresh
 
   function grade(g: 0 | 1 | 2) {
-    const nota = queue[idx]
-    if (!nota) return
-    const newSt = advance(states[nota.id], g)
-    const newStates = { ...states, [nota.id]: newSt }
+    const card = queue[idx]
+    if (!card) return
+    const newSt = advance(states[card.id], g)
+    const newStates = { ...states, [card.id]: newSt }
     setStates(newStates)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newStates))
     setSessionDone((d) => d + 1)
@@ -160,7 +205,18 @@ export default function RepasoClient() {
   function toggleModo() {
     const next = !modoTodas
     setModoTodas(next)
-    buildQueue(next, states, notas)
+    buildQueue(next, states, notas, conceptos, incluirFichas)
+  }
+
+  function toggleFichas() {
+    const next = !incluirFichas
+    setIncluirFichas(next)
+    if (next && conceptos.length > 0) {
+      buildQueue(modoTodas, states, notas, conceptos, true)
+    } else if (!next) {
+      buildQueue(modoTodas, states, notas, [], false)
+    }
+    // If next=true and conceptos.length===0, the useEffect will rebuild when conceptos load
   }
 
   // ─── States: cargando / error / sin notas ────────────────────────────────
@@ -194,10 +250,12 @@ export default function RepasoClient() {
     </div>
   )
 
-  const nota = queue[idx]
+  const card = queue[idx]
   const finished = idx >= queue.length
-  const dueCount = notas.filter((n) => isDue(states[n.id])).length
-  const meta = nota ? TIPO_META[nota.tipo] : null
+  const totalCards = notas.length + (incluirFichas ? conceptos.length : 0)
+  const dueNotas = notas.filter((n) => isDue(states[n.id])).length
+  const dueConceptos = incluirFichas ? conceptos.filter((c) => isDue(states[c.id])).length : 0
+  const dueCount = dueNotas + dueConceptos
   const progress = queue.length > 0 ? Math.min(1, idx / queue.length) * 100 : 0
 
   // ─── Header ──────────────────────────────────────────────────────────────
@@ -208,12 +266,30 @@ export default function RepasoClient() {
         <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#f8fafc', margin: '0 0 4px' }}>Repaso</h1>
         <p style={{ fontSize: '12px', color: 'rgba(148,163,184,0.45)', margin: 0 }}>
           {dueCount > 0
-            ? <><span style={{ color: '#a78bfa', fontWeight: 600 }}>{dueCount}</span> pendiente{dueCount !== 1 ? 's' : ''} hoy &middot; {notas.length} nota{notas.length !== 1 ? 's' : ''}</>
-            : <>Al día · {notas.length} nota{notas.length !== 1 ? 's' : ''}</>
+            ? <><span style={{ color: '#a78bfa', fontWeight: 600 }}>{dueCount}</span> pendiente{dueCount !== 1 ? 's' : ''} hoy &middot; {totalCards} carta{totalCards !== 1 ? 's' : ''}</>
+            : <>Al día · {totalCards} carta{totalCards !== 1 ? 's' : ''}</>
           }
         </p>
       </div>
-      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          onClick={toggleFichas}
+          disabled={cargandoFichas}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '5px',
+            padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 600,
+            background: incluirFichas ? 'rgba(52,211,153,0.14)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${incluirFichas ? 'rgba(52,211,153,0.38)' : 'rgba(255,255,255,0.08)'}`,
+            color: incluirFichas ? '#34d399' : 'rgba(148,163,184,0.5)',
+            cursor: cargandoFichas ? 'wait' : 'pointer', letterSpacing: '0.03em',
+          }}
+        >
+          {cargandoFichas
+            ? <Loader2 style={{ height: '11px', width: '11px', animation: 'spin 1s linear infinite' }} />
+            : <BookText style={{ height: '11px', width: '11px' }} />
+          }
+          {incluirFichas ? 'Con fichas' : 'Solo notas'}
+        </button>
         <button
           onClick={toggleModo}
           style={{
@@ -229,7 +305,7 @@ export default function RepasoClient() {
           {modoTodas ? 'Todas' : 'Pendientes'}
         </button>
         <button
-          onClick={() => buildQueue(modoTodas, states, notas)}
+          onClick={() => buildQueue(modoTodas, states, notas, conceptos, incluirFichas)}
           style={{
             display: 'flex', alignItems: 'center', gap: '5px',
             padding: '6px 12px', borderRadius: '8px', fontSize: '11px',
@@ -263,16 +339,16 @@ export default function RepasoClient() {
           <Check style={{ height: '24px', width: '24px', color: '#34d399' }} />
         </div>
         <p style={{ fontSize: '18px', fontWeight: 700, color: '#f8fafc', margin: '0 0 8px' }}>
-          {sessionDone > 0 ? `Repasaste ${sessionDone} nota${sessionDone !== 1 ? 's' : ''}` : '¡Todo al día!'}
+          {sessionDone > 0 ? `Repasaste ${sessionDone} carta${sessionDone !== 1 ? 's' : ''}` : '¡Todo al día!'}
         </p>
         <p style={{ fontSize: '13px', color: 'rgba(148,163,184,0.5)', margin: '0 0 28px', lineHeight: 1.6 }}>
           {dueCount === 0
             ? 'No hay pendientes para hoy. Volvé mañana.'
-            : `Todavía tenés ${dueCount} nota${dueCount !== 1 ? 's' : ''} pendiente${dueCount !== 1 ? 's' : ''}.`}
+            : `Todavía tenés ${dueCount} carta${dueCount !== 1 ? 's' : ''} pendiente${dueCount !== 1 ? 's' : ''}.`}
         </p>
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            onClick={() => buildQueue(false, states, notas)}
+            onClick={() => buildQueue(false, states, notas, conceptos, incluirFichas)}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '9px 18px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
@@ -284,7 +360,7 @@ export default function RepasoClient() {
             <RefreshCcw style={{ height: '13px', width: '13px' }} /> Repetir pendientes
           </button>
           <button
-            onClick={() => buildQueue(true, states, notas)}
+            onClick={() => buildQueue(true, states, notas, conceptos, incluirFichas)}
             style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '9px 18px', borderRadius: '10px', fontSize: '13px',
@@ -299,7 +375,18 @@ export default function RepasoClient() {
     </div>
   )
 
-  // ─── Tarjeta ──────────────────────────────────────────────────────────────
+  // ─── Tarjeta activa ───────────────────────────────────────────────────────
+
+  if (!card) return null
+
+  const isConcepto = card.kind === 'concepto'
+  const meta = isConcepto ? CONCEPTO_META : TIPO_META[(card as NotaCard).tipo]
+  const cardTags = isConcepto
+    ? [(card as ConceptoCard).documentoNombre.slice(0, 45)]
+    : ((card as NotaCard).etiquetas ?? []).slice(0, 4)
+
+  const frente = isConcepto ? (card as ConceptoCard).concepto : (card as NotaCard).titulo
+  const dorso  = isConcepto ? (card as ConceptoCard).definicion : (card as NotaCard).contenido
 
   return (
     <div style={{ maxWidth: '600px' }}>
@@ -323,7 +410,7 @@ export default function RepasoClient() {
       <div style={{
         borderRadius: '20px', overflow: 'hidden',
         background: 'linear-gradient(150deg, rgba(10,6,24,0.97) 0%, rgba(7,7,18,0.94) 100%)',
-        border: `1px solid ${revealed ? (meta?.border ?? 'rgba(255,255,255,0.08)') : 'rgba(255,255,255,0.08)'}`,
+        border: `1px solid ${revealed ? meta.border : 'rgba(255,255,255,0.08)'}`,
         boxShadow: revealed
           ? `0 0 28px rgba(109,40,217,0.1), inset 0 1px 0 rgba(255,255,255,0.04)`
           : `0 0 20px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)`,
@@ -333,7 +420,7 @@ export default function RepasoClient() {
         transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
       }}>
 
-        {/* Top bar: tipo + etiquetas */}
+        {/* Top bar: tipo + tags */}
         <div style={{
           padding: '12px 18px', borderBottom: '1px solid rgba(255,255,255,0.05)',
           display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap',
@@ -341,11 +428,11 @@ export default function RepasoClient() {
           <span style={{
             fontSize: '10px', fontWeight: 700, letterSpacing: '0.09em', textTransform: 'uppercase',
             padding: '3px 9px', borderRadius: '100px',
-            background: meta?.bg, border: `1px solid ${meta?.border}`, color: meta?.color,
+            background: meta.bg, border: `1px solid ${meta.border}`, color: meta.color,
           }}>
-            {meta?.label}
+            {meta.label}
           </span>
-          {nota.etiquetas?.slice(0, 4).map((t) => (
+          {cardTags.map((t) => (
             <span key={t} style={{
               fontSize: '10px', color: 'rgba(148,163,184,0.4)',
               padding: '2px 8px', borderRadius: '100px',
@@ -357,10 +444,10 @@ export default function RepasoClient() {
         {/* Cuerpo */}
         <div style={{ flex: 1, padding: '28px 28px 24px', display: 'flex', flexDirection: 'column' }}>
           {!revealed ? (
-            /* FRENTE — solo título */
+            /* FRENTE */
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '22px', textAlign: 'center' }}>
               <p style={{ fontSize: '1.2rem', fontWeight: 700, lineHeight: 1.35, color: '#f1f5f9', margin: 0, maxWidth: '88%' }}>
-                {nota.titulo}
+                {frente}
               </p>
               <button
                 onClick={() => setRevealed(true)}
@@ -368,41 +455,40 @@ export default function RepasoClient() {
                   display: 'flex', alignItems: 'center', gap: '6px',
                   padding: '9px 20px', borderRadius: '10px', fontSize: '13px', fontWeight: 500,
                   background: 'rgba(124,58,237,0.14)', border: '1px solid rgba(139,92,246,0.28)',
-                  color: '#a78bfa', cursor: 'pointer',
-                  transition: 'background 0.15s',
+                  color: '#a78bfa', cursor: 'pointer', transition: 'background 0.15s',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(124,58,237,0.26)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(124,58,237,0.14)' }}
               >
                 <ChevronRight style={{ height: '14px', width: '14px' }} />
-                Mostrar contenido
+                {isConcepto ? 'Ver definición' : 'Mostrar contenido'}
               </button>
               <span style={{ fontSize: '11px', color: 'rgba(148,163,184,0.25)' }}>Espacio para revelar</span>
             </div>
           ) : (
-            /* DORSO — contenido */
+            /* DORSO */
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: 'rgba(148,163,184,0.45)' }}>
-                {nota.titulo}
+                {frente}
               </p>
               <div style={{
                 flex: 1, overflowY: 'auto', maxHeight: '240px',
-                borderLeft: `2px solid ${meta?.color ?? 'rgba(139,92,246,0.5)'}`,
+                borderLeft: `2px solid ${meta.color}`,
                 paddingLeft: '14px',
               }}>
-                {nota.contenido.split('\n').map((line, i) => (
+                {dorso.split('\n').map((line, i) => (
                   line.trim()
                     ? <p key={i} style={{ margin: '0 0 7px', fontSize: '13.5px', lineHeight: 1.65, color: 'rgba(203,213,225,0.82)' }}>{line}</p>
                     : <div key={i} style={{ height: '6px' }} />
                 ))}
               </div>
-              {nota.comentarioPersonal && (
+              {!isConcepto && (card as NotaCard).comentarioPersonal && (
                 <div style={{
                   padding: '9px 13px', borderRadius: '8px',
                   background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)',
                   fontSize: '12px', color: 'rgba(251,191,36,0.7)', lineHeight: 1.5,
                 }}>
-                  {nota.comentarioPersonal}
+                  {(card as NotaCard).comentarioPersonal}
                 </div>
               )}
             </div>
@@ -414,9 +500,9 @@ export default function RepasoClient() {
       {revealed ? (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
           {([
-            { g: 0 as const, label: 'No lo sabía',    sub: 'Repetir mañana',     color: '#f87171', bg: 'rgba(239,68,68,0.08)',   border: 'rgba(239,68,68,0.22)',   Icon: X     },
-            { g: 1 as const, label: 'Con dificultad', sub: 'Pronto de nuevo',    color: '#fbbf24', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.22)', Icon: Minus },
-            { g: 2 as const, label: 'Lo sabía',        sub: 'Siguiente intervalo', color: '#34d399', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.22)', Icon: Check },
+            { g: 0 as const, label: 'No lo sabía',    sub: 'Repetir mañana',      color: '#f87171', bg: 'rgba(239,68,68,0.08)',   border: 'rgba(239,68,68,0.22)',   Icon: X     },
+            { g: 1 as const, label: 'Con dificultad', sub: 'Pronto de nuevo',      color: '#fbbf24', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.22)', Icon: Minus },
+            { g: 2 as const, label: 'Lo sabía',        sub: 'Siguiente intervalo',  color: '#34d399', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.22)', Icon: Check },
           ]).map(({ g, label, sub, color, bg, border, Icon }) => (
             <button
               key={g}
