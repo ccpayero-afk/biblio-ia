@@ -159,10 +159,12 @@ function PanelHerramientas({
   doc,
   guia,
   onRecargar,
+  onGuiaGenerada,
 }: {
   doc: Documento
   guia: GuiaLectura | null
   onRecargar: () => void
+  onGuiaGenerada: (guia: GuiaLectura) => void
 }) {
   const [editandoMeta, setEditandoMeta] = useState(false)
   const [meta, setMeta] = useState({ autor: doc.autor || '', año: doc.año || '' })
@@ -237,7 +239,7 @@ function PanelHerramientas({
         body: JSON.stringify({ documentoNombre: doc.nombre, autor: doc.autor, año: doc.año }),
       })
       const data = await res.json()
-      if (data.error) { setGuiaError(data.error) } else { setGuiaLocal(data) }
+      if (data.error) { setGuiaError(data.error) } else { setGuiaLocal(data); onGuiaGenerada(data) }
     } catch (e) { setGuiaError(String(e)) }
     setGenerandoGuia(false)
   }
@@ -654,11 +656,12 @@ export default function SalaLecturaClient() {
   useEffect(() => { cargar() }, [cargar])
 
   async function cargarGuia(docId: string) {
-    if (guias[docId] !== undefined) return
+    // Sólo bail si ya tenemos la guía cargada (no null — null significa "sin guía aún")
+    if (guias[docId] != null) return
     try {
       const res = await fetch(`/api/sala-lectura/${docId}/guia`)
       const data = await res.json()
-      setGuias((p) => ({ ...p, [docId]: data }))
+      setGuias((p) => ({ ...p, [docId]: data ?? null }))
     } catch {
       setGuias((p) => ({ ...p, [docId]: null }))
     }
@@ -711,6 +714,7 @@ export default function SalaLecturaClient() {
             doc={docSel}
             guia={guias[docSel.id] ?? null}
             onRecargar={cargar}
+            onGuiaGenerada={(g) => setGuias((p) => ({ ...p, [docSel.id]: g }))}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-center px-8">

@@ -17,8 +17,12 @@ export default async function LectorPage({
   const accessToken = getAccessToken(session)
 
   const estructura = await initUserDrive(accessToken)
-  const documentos = await listPDFs(accessToken, estructura.pdfsId)
-  const documento = documentos.find((d) => d.id === documentoId)
+  // Buscar en Biblioteca Y en Sala de Lectura (por-leer)
+  const [docsbibl, docsPorLeer] = await Promise.all([
+    listPDFs(accessToken, estructura.pdfsId),
+    estructura.porLeerFolderId ? listPDFs(accessToken, estructura.porLeerFolderId) : Promise.resolve([]),
+  ])
+  const documento = [...docsbibl, ...docsPorLeer].find((d) => d.id === documentoId)
   if (!documento) notFound()
 
   const pdfUrl = `/api/drive/pdf/${documentoId}`
