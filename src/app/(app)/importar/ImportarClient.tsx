@@ -79,21 +79,26 @@ export default function ImportarClient() {
   return (
     <div className="max-w-3xl">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-white">Importación masiva</h1>
-        <p className="mt-1 text-sm text-neutral-500">
+        <h1 className="text-xl font-bold text-white">Importación masiva</h1>
+        <p className="mt-1 text-sm" style={{ color: 'rgba(148,163,184,0.55)' }}>
           Importá metadatos desde BibTeX o Zotero JSON, o cargá PDFs en lote.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl border border-neutral-800 bg-neutral-900 p-1">
+      <div
+        className="mb-6 flex gap-1 rounded-xl p-1"
+        style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+      >
         {(['bibtex', 'zotero', 'pdf'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => { setTab(t); setMetadatos([]); setResultados([]); setContenido(''); setError('') }}
-            className={`flex-1 rounded-lg py-2 text-sm capitalize transition-colors ${
-              tab === t ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'
-            }`}
+            className="flex-1 rounded-lg py-2 text-sm capitalize transition-all"
+            style={tab === t
+              ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.25), rgba(30,58,138,0.15))', color: '#fff', border: '1px solid rgba(139,92,246,0.25)' }
+              : { color: 'rgba(148,163,184,0.5)', border: '1px solid transparent' }
+            }
           >
             {t === 'bibtex' ? 'BibTeX' : t === 'zotero' ? 'Zotero JSON' : 'PDFs'}
           </button>
@@ -101,7 +106,10 @@ export default function ImportarClient() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-900 bg-red-900/20 px-4 py-3 text-sm text-red-400">{error}</div>
+        <div
+          className="mb-4 rounded-xl px-4 py-3 text-sm text-red-400"
+          style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
+        >{error}</div>
       )}
 
       {tab !== 'pdf' && (
@@ -109,7 +117,10 @@ export default function ImportarClient() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => inputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-xs text-neutral-300 hover:border-neutral-600"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition-all"
+              style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
             >
               <FileText className="h-3.5 w-3.5" /> Cargar archivo
             </button>
@@ -120,19 +131,25 @@ export default function ImportarClient() {
               className="hidden"
               onChange={(e) => e.target.files?.[0] && leerArchivo(e.target.files[0])}
             />
-            <span className="text-xs text-neutral-600">o pegá el contenido abajo</span>
+            <span className="text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>o pegá el contenido abajo</span>
           </div>
           <textarea
             value={contenido}
             onChange={(e) => setContenido(e.target.value)}
             placeholder={tab === 'bibtex' ? '@article{...}' : '[{"itemType": "book", ...}]'}
             rows={10}
-            className="w-full resize-none rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 font-mono text-xs text-neutral-300 placeholder-neutral-700 focus:border-neutral-600 focus:outline-none"
+            className="w-full resize-none rounded-xl px-4 py-3 font-mono text-xs text-neutral-300 placeholder-neutral-700 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
           />
           <button
             onClick={parsear}
             disabled={cargando || !contenido.trim()}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-white transition-all disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 12px rgba(124,58,237,0.3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 20px rgba(124,58,237,0.5)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(124,58,237,0.3)' }}
           >
             {cargando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Parsear
@@ -143,14 +160,18 @@ export default function ImportarClient() {
               <p className="mb-2 text-sm font-medium text-white">{metadatos.length} registros encontrados</p>
               <div className="max-h-80 overflow-y-auto space-y-2">
                 {metadatos.map((m, i) => (
-                  <div key={i} className="rounded-lg border border-neutral-800 bg-neutral-900 px-3 py-2 text-xs">
+                  <div
+                    key={i}
+                    className="rounded-lg px-3 py-2 text-xs"
+                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+                  >
                     <p className="font-medium text-white">{m.titulo}</p>
-                    <p className="text-neutral-500">{m.autor} · {m.año}</p>
-                    {m.editorial && <p className="text-neutral-600">{m.editorial}</p>}
+                    <p style={{ color: 'rgba(148,163,184,0.5)' }}>{m.autor} · {m.año}</p>
+                    {m.editorial && <p style={{ color: 'rgba(148,163,184,0.35)' }}>{m.editorial}</p>}
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-xs text-neutral-600">
+              <p className="mt-3 text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
                 Estos metadatos se usarán al subir los PDFs correspondientes.
               </p>
             </div>
@@ -162,11 +183,14 @@ export default function ImportarClient() {
         <div className="space-y-4">
           <div
             onClick={() => pdfRef.current?.click()}
-            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-700 py-12 hover:border-neutral-600"
+            className="flex cursor-pointer flex-col items-center justify-center rounded-xl py-12 transition-all"
+            style={{ border: '2px dashed rgba(139,92,246,0.25)', background: 'rgba(255,255,255,0.015)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.background = 'rgba(139,92,246,0.04)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)'; e.currentTarget.style.background = 'rgba(255,255,255,0.015)' }}
           >
-            <Upload className="h-8 w-8 text-neutral-600" />
-            <p className="mt-2 text-sm text-neutral-500">Hacé clic para seleccionar PDFs</p>
-            <p className="text-xs text-neutral-700">Podés seleccionar múltiples archivos</p>
+            <Upload className="h-8 w-8" style={{ color: 'rgba(139,92,246,0.5)' }} />
+            <p className="mt-2 text-sm" style={{ color: 'rgba(148,163,184,0.6)' }}>Hacé clic para seleccionar PDFs</p>
+            <p className="text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>Podés seleccionar múltiples archivos</p>
             <input
               ref={pdfRef}
               type="file"
@@ -182,17 +206,24 @@ export default function ImportarClient() {
               <p className="mb-2 text-sm font-medium text-white">{archivos.length} PDFs seleccionados</p>
               <div className="max-h-60 overflow-y-auto space-y-1">
                 {archivos.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 rounded-lg border border-neutral-800 px-3 py-2 text-xs text-neutral-400">
-                    <FileText className="h-3.5 w-3.5 text-neutral-600" />
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                    style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.6)' }}
+                  >
+                    <FileText className="h-3.5 w-3.5" style={{ color: 'rgba(139,92,246,0.5)' }} />
                     {f.name}
-                    <span className="ml-auto text-neutral-600">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <span className="ml-auto" style={{ color: 'rgba(148,163,184,0.35)' }}>{(f.size / 1024 / 1024).toFixed(1)} MB</span>
                   </div>
                 ))}
               </div>
               <button
                 onClick={subirPDFs}
                 disabled={cargando}
-                className="mt-3 flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500 disabled:opacity-50"
+                className="mt-3 flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-white transition-all disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 12px rgba(124,58,237,0.3)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 20px rgba(124,58,237,0.5)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(124,58,237,0.3)' }}
               >
                 {cargando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 Subir a Drive
@@ -203,10 +234,17 @@ export default function ImportarClient() {
           {resultados.length > 0 && (
             <div className="space-y-2">
               {resultados.map((r, i) => (
-                <div key={i} className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${r.ok ? 'border-green-900 text-green-400' : 'border-red-900 text-red-400'}`}>
+                <div
+                  key={i}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+                  style={r.ok
+                    ? { background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)', color: 'rgba(52,211,153,0.9)' }
+                    : { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', color: 'rgba(248,113,113,0.9)' }
+                  }
+                >
                   {r.ok ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
                   {r.nombre}
-                  {!r.ok && <span className="ml-auto text-neutral-600">{r.error}</span>}
+                  {!r.ok && <span className="ml-auto" style={{ color: 'rgba(148,163,184,0.4)' }}>{r.error}</span>}
                 </div>
               ))}
             </div>

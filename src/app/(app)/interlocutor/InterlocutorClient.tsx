@@ -87,23 +87,25 @@ export default function InterlocutorClient() {
   return (
     <div className="flex h-full flex-col -m-4 md:-m-6">
       {/* Mode selector */}
-      <div className="border-b border-neutral-800 px-6 py-3">
+      <div className="px-6 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(3,3,8,0.6)' }}>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {MODOS.map((m) => (
             <button
               key={m.id}
               onClick={() => { setModo(m.id); setTurnos([]); setRespuestaActual('') }}
-              className={`flex-shrink-0 rounded-lg px-3 py-2 text-xs transition-colors ${
-                modo === m.id
-                  ? 'bg-blue-700 text-white'
-                  : 'border border-neutral-700 text-neutral-400 hover:border-neutral-600 hover:text-neutral-200'
-              }`}
+              className="flex-shrink-0 rounded-lg px-3 py-2 text-xs transition-all"
+              style={modo === m.id
+                ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.3), rgba(30,58,138,0.2))', color: '#fff', border: '1px solid rgba(139,92,246,0.3)' }
+                : { border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.5)' }
+              }
+              onMouseEnter={(e) => { if (modo !== m.id) { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'; e.currentTarget.style.color = '#fff' } }}
+              onMouseLeave={(e) => { if (modo !== m.id) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' } }}
               title={m.desc}
             >
               {m.label}
             </button>
           ))}
-          <span className="flex-shrink-0 ml-2 self-center text-xs text-neutral-600">
+          <span className="flex-shrink-0 ml-2 self-center text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
             {MODOS.find((m) => m.id === modo)?.desc}
           </span>
         </div>
@@ -113,9 +115,14 @@ export default function InterlocutorClient() {
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
         {turnos.length === 0 && !consultando && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Users className="h-12 w-12 text-neutral-700" />
-            <h1 className="mt-4 text-lg font-semibold text-white">Interlocutor teórico</h1>
-            <p className="mt-2 max-w-sm text-sm text-neutral-500">
+            <div
+              className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
+              style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06))', border: '1px solid rgba(139,92,246,0.2)' }}
+            >
+              <Users className="h-8 w-8" style={{ color: 'rgba(139,92,246,0.6)' }} />
+            </div>
+            <h1 className="text-lg font-semibold text-white">Interlocutor teórico</h1>
+            <p className="mt-2 max-w-sm text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>
               {MODOS.find((m) => m.id === modo)?.desc}. Hacé una pregunta para empezar.
             </p>
           </div>
@@ -124,9 +131,15 @@ export default function InterlocutorClient() {
         {turnos.map((turno, i) => (
           <div key={i} className="space-y-3 max-w-3xl mx-auto w-full">
             <div className="flex justify-end">
-              <div className="rounded-2xl rounded-tr-sm bg-blue-700 px-4 py-3 text-sm text-white max-w-xl">{turno.pregunta}</div>
+              <div
+                className="rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white max-w-xl"
+                style={{ background: 'linear-gradient(135deg, #6d28d9, #1e40af)', boxShadow: '0 0 16px rgba(109,40,217,0.3)' }}
+              >{turno.pregunta}</div>
             </div>
-            <div className="rounded-2xl rounded-tl-sm border border-neutral-800 bg-neutral-900 px-5 py-4 text-sm text-neutral-200 leading-relaxed max-w-2xl whitespace-pre-wrap font-[family-name:var(--font-lora)]">
+            <div
+              className="rounded-2xl rounded-tl-sm px-5 py-4 text-sm leading-relaxed max-w-2xl whitespace-pre-wrap font-[family-name:var(--font-lora)]"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(203,213,225,0.85)' }}
+            >
               {turno.respuesta}
             </div>
           </div>
@@ -135,14 +148,20 @@ export default function InterlocutorClient() {
         {consultando && (
           <div className="space-y-3 max-w-3xl mx-auto w-full">
             <div className="flex justify-end">
-              <div className="rounded-2xl rounded-tr-sm bg-blue-700 px-4 py-3 text-sm text-white max-w-xl">
+              <div
+                className="rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white max-w-xl"
+                style={{ background: 'linear-gradient(135deg, #6d28d9, #1e40af)', boxShadow: '0 0 16px rgba(109,40,217,0.3)' }}
+              >
                 {query || historial[historial.length - 1]?.contenido}
               </div>
             </div>
-            <div className="rounded-2xl rounded-tl-sm border border-neutral-800 bg-neutral-900 px-5 py-4 text-sm text-neutral-200 leading-relaxed max-w-2xl whitespace-pre-wrap min-h-12 font-[family-name:var(--font-lora)]">
+            <div
+              className="rounded-2xl rounded-tl-sm px-5 py-4 text-sm leading-relaxed max-w-2xl whitespace-pre-wrap min-h-12 font-[family-name:var(--font-lora)]"
+              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(203,213,225,0.85)' }}
+            >
               {respuestaActual}
               {!respuestaActual && (
-                <span className="inline-flex gap-1 text-neutral-600">
+                <span className="inline-flex gap-1" style={{ color: 'rgba(139,92,246,0.6)' }}>
                   <span className="animate-bounce">·</span>
                   <span className="animate-bounce [animation-delay:0.15s]">·</span>
                   <span className="animate-bounce [animation-delay:0.3s]">·</span>
@@ -156,12 +175,15 @@ export default function InterlocutorClient() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-neutral-800 bg-neutral-950 px-6 py-4">
+      <div className="px-6 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(3,3,8,0.7)' }}>
         <div className="mx-auto max-w-3xl">
           {turnos.length > 0 && (
             <button
               onClick={() => setTurnos([])}
-              className="mb-2 flex items-center gap-1.5 text-xs text-neutral-600 hover:text-neutral-400"
+              className="mb-2 flex items-center gap-1.5 text-xs transition-colors"
+              style={{ color: 'rgba(148,163,184,0.4)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.8)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
             >
               <RotateCcw className="h-3 w-3" /> Nueva conversación
             </button>
@@ -180,12 +202,18 @@ export default function InterlocutorClient() {
               }
               rows={3}
               disabled={consultando}
-              className="flex-1 resize-none rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-blue-600 focus:outline-none disabled:opacity-50"
+              className="flex-1 resize-none rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none disabled:opacity-50"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.1)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.boxShadow = '' }}
             />
             <button
               onClick={consultar}
               disabled={!query.trim() || consultando}
-              className="flex h-12 w-12 flex-shrink-0 self-end items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40"
+              className="flex h-12 w-12 flex-shrink-0 self-end items-center justify-center rounded-xl text-white transition-all disabled:opacity-40"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 14px rgba(124,58,237,0.3)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 22px rgba(124,58,237,0.5)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 14px rgba(124,58,237,0.3)' }}
             >
               <Send className="h-4 w-4" />
             </button>
