@@ -11,10 +11,10 @@ const COLORES_CARPETA: Record<Carpeta['color'], string> = {
 }
 
 const ESTADO_CONFIG = {
-  sin_indexar: { label: 'Sin indexar', color: 'text-neutral-500 bg-neutral-800' },
-  indexando:   { label: 'Indexando…', color: 'text-blue-400 bg-blue-950 animate-pulse' },
-  indexado:    { label: 'Indexado',   color: 'text-green-400 bg-green-950' },
-  error:       { label: 'Error',      color: 'text-red-400 bg-red-950' },
+  sin_indexar: { label: 'Sin indexar', color: 'text-neutral-500', bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.08)' },
+  indexando:   { label: 'Indexando…', color: 'text-blue-400',    bg: 'rgba(59,130,246,0.1)',   border: 'rgba(59,130,246,0.25)' },
+  indexado:    { label: 'Indexado',   color: 'text-emerald-400', bg: 'rgba(52,211,153,0.1)',   border: 'rgba(52,211,153,0.25)' },
+  error:       { label: 'Error',      color: 'text-red-400',     bg: 'rgba(239,68,68,0.1)',    border: 'rgba(239,68,68,0.25)' },
 }
 
 interface Props {
@@ -113,11 +113,17 @@ export default function DocumentoCard({
   if (vista === 'lista') {
     return (
       <div
-        className={`group flex min-h-[2.5rem] items-center gap-3 border-b border-neutral-800/50 px-4 py-2 text-sm transition-colors ${
+        className={`group flex min-h-[2.5rem] items-center gap-3 px-4 py-2 text-sm transition-colors ${
           modoSeleccion
-            ? `cursor-pointer ${seleccionado ? 'bg-blue-950/20' : 'hover:bg-neutral-900/60'}`
-            : 'hover:bg-neutral-900/60'
+            ? `cursor-pointer ${seleccionado ? '' : ''}`
+            : ''
         }`}
+        style={{
+          borderBottom: '1px solid rgba(255,255,255,0.04)',
+          background: seleccionado ? 'rgba(99,102,241,0.08)' : undefined,
+        }}
+        onMouseEnter={(e) => { if (!seleccionado) e.currentTarget.style.background = 'rgba(255,255,255,0.025)' }}
+        onMouseLeave={(e) => { if (!seleccionado) e.currentTarget.style.background = '' }}
         onClick={modoSeleccion ? onToggleSeleccion : undefined}
       >
         {/* Checkbox */}
@@ -171,7 +177,10 @@ export default function DocumentoCard({
 
         {/* Estado */}
         <div className="w-24 flex-shrink-0">
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${estadoConfig.color}`}>
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${estadoConfig.color}`}
+            style={{ background: estadoConfig.bg, border: `1px solid ${estadoConfig.border}` }}
+          >
             {estadoConfig.label}
           </span>
         </div>
@@ -179,7 +188,7 @@ export default function DocumentoCard({
         {/* Ficha */}
         <div className="w-14 flex-shrink-0">
           {documento.fichaGenerada
-            ? <span className="inline-flex items-center rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-400">Sí</span>
+            ? <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-emerald-400" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }}>Sí</span>
             : <span className="text-xs text-neutral-700">—</span>}
         </div>
 
@@ -254,11 +263,28 @@ export default function DocumentoCard({
   // ── Vista grilla (tarjeta) ───────────────────────────────────────────────────
   return (
     <div
-      className={`group relative flex flex-col rounded-xl border bg-neutral-900 p-4 transition-colors ${
-        modoSeleccion
-          ? `cursor-pointer ${seleccionado ? 'border-blue-500 bg-blue-950/20 ring-1 ring-blue-500/30' : 'border-neutral-700 hover:border-neutral-600'}`
-          : 'border-neutral-800 hover:border-neutral-700'
-      }`}
+      className="group relative flex flex-col rounded-xl p-4 transition-all duration-200"
+      style={{
+        background: seleccionado
+          ? 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(109,40,217,0.08))'
+          : 'linear-gradient(135deg, rgba(17,17,28,0.9), rgba(13,13,20,0.95))',
+        border: seleccionado
+          ? '1px solid rgba(99,102,241,0.4)'
+          : '1px solid rgba(255,255,255,0.06)',
+        cursor: modoSeleccion ? 'pointer' : undefined,
+      }}
+      onMouseEnter={(e) => {
+        if (!seleccionado) {
+          e.currentTarget.style.border = '1px solid rgba(139,92,246,0.2)'
+          e.currentTarget.style.boxShadow = '0 4px 24px rgba(109,40,217,0.1)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!seleccionado) {
+          e.currentTarget.style.border = '1px solid rgba(255,255,255,0.06)'
+          e.currentTarget.style.boxShadow = ''
+        }
+      }}
       onClick={modoSeleccion ? onToggleSeleccion : undefined}
     >
       {modoSeleccion && (
@@ -348,25 +374,40 @@ export default function DocumentoCard({
 
       {progreso && (
         <div className="mt-3 space-y-1">
-          <div className="h-1 w-full overflow-hidden rounded-full bg-neutral-800">
-            <div className="h-full rounded-full bg-blue-500 transition-all duration-300" style={{ width: `${(progreso.paso / progreso.total) * 100}%` }} />
+          <div className="h-1 w-full overflow-hidden rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${(progreso.paso / progreso.total) * 100}%`,
+                background: 'linear-gradient(90deg, #7c3aed, #06b6d4)',
+                boxShadow: '0 0 8px rgba(124,58,237,0.5)',
+              }}
+            />
           </div>
-          <p className="truncate text-xs text-neutral-500">{progreso.msg}</p>
+          <p className="truncate text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>{progreso.msg}</p>
         </div>
       )}
 
       {!progreso && (
         <div className="mt-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${estadoConfig.color}`}>
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${estadoConfig.color}`}
+              style={{ background: estadoConfig.bg, border: `1px solid ${estadoConfig.border}` }}
+            >
               {estadoConfig.label}
             </span>
             {documento.fichaGenerada && (
-              <span className="inline-flex items-center rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-400">Ficha</span>
+              <span
+                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-emerald-400"
+                style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }}
+              >
+                Ficha
+              </span>
             )}
           </div>
           {estado === 'indexado' && documento.fragmentos > 0 && (
-            <span className="text-xs text-neutral-600">{documento.fragmentos} frags.</span>
+            <span className="text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>{documento.fragmentos} frags.</span>
           )}
         </div>
       )}
@@ -376,7 +417,13 @@ export default function DocumentoCard({
       {documento.etiquetas.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
           {documento.etiquetas.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-400">{tag}</span>
+            <span
+              key={tag}
+              className="rounded-full px-2 py-0.5 text-xs"
+              style={{ background: 'rgba(139,92,246,0.1)', color: 'rgba(167,139,250,0.7)', border: '1px solid rgba(139,92,246,0.15)' }}
+            >
+              {tag}
+            </span>
           ))}
         </div>
       )}

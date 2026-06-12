@@ -6,7 +6,7 @@ import { X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import {
   BookOpen, FileText, MessageSquare, StickyNote, Quote,
   GitFork, FolderOpen, Brain, Users, Upload, Settings,
-  Library, Highlighter, Inbox, BarChart2, Coffee,
+  Library, Highlighter, Inbox, BarChart2, Coffee, BookMarked,
 } from 'lucide-react'
 
 const NAV_GROUPS = [
@@ -85,13 +85,13 @@ export default function Sidebar({ onClose, colapsada, onToggleColapsar }: Props)
             className="flex items-center gap-2 truncate"
           >
             <div
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-xs font-black text-white"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg"
               style={{
                 background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
                 boxShadow: '0 0 12px rgba(124,58,237,0.5), 0 0 24px rgba(6,182,212,0.2)',
               }}
             >
-              B
+              <BookMarked className="h-4 w-4 text-white" />
             </div>
             <span
               className="text-sm font-bold tracking-tight"
@@ -109,13 +109,13 @@ export default function Sidebar({ onClose, colapsada, onToggleColapsar }: Props)
         {colapsada && (
           <Link href="/dashboard" onClick={onClose} className="mx-auto flex items-center justify-center">
             <div
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black text-white"
+              className="flex h-7 w-7 items-center justify-center rounded-lg"
               style={{
                 background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
                 boxShadow: '0 0 10px rgba(124,58,237,0.45)',
               }}
             >
-              B
+              <BookMarked className="h-4 w-4 text-white" />
             </div>
           </Link>
         )}
