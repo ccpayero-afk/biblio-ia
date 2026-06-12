@@ -176,6 +176,13 @@ export default function DocumentoCard({
           </span>
         </div>
 
+        {/* Ficha */}
+        <div className="w-14 flex-shrink-0">
+          {documento.fichaGenerada
+            ? <span className="inline-flex items-center rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-400">Sí</span>
+            : <span className="text-xs text-neutral-700">—</span>}
+        </div>
+
         {/* Fragmentos */}
         <div className="w-16 flex-shrink-0 text-right text-xs text-neutral-600">
           {estado === 'indexado' && documento.fragmentos > 0 ? documento.fragmentos : <span className="text-neutral-700">—</span>}
@@ -350,11 +357,16 @@ export default function DocumentoCard({
 
       {!progreso && (
         <div className="mt-3 flex items-center justify-between gap-2">
-          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${estadoConfig.color}`}>
-            {estadoConfig.label}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${estadoConfig.color}`}>
+              {estadoConfig.label}
+            </span>
+            {documento.fichaGenerada && (
+              <span className="inline-flex items-center rounded-full bg-emerald-950 px-2 py-0.5 text-xs font-medium text-emerald-400">Ficha</span>
+            )}
+          </div>
           {estado === 'indexado' && documento.fragmentos > 0 && (
-            <span className="text-xs text-neutral-600">{documento.fragmentos} fragmentos</span>
+            <span className="text-xs text-neutral-600">{documento.fragmentos} frags.</span>
           )}
         </div>
       )}

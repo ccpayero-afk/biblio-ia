@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Nota, TipoNota, VinculoZettel, VinculoSugerido } from '@/types' // VinculoSugerido usado en Editor
 import {
   Plus, Search, X, Link2, Loader2, ChevronRight,
-  AlertTriangle, Sparkles, Check, RefreshCw, Zap, BookOpen, ArrowLeft,
+  AlertTriangle, Sparkles, Check, RefreshCw, Zap, BookOpen, ArrowLeft, Trash2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { generarIdZettel } from '@/lib/zettel-id'
@@ -687,6 +687,16 @@ export default function NotasClient() {
     await cargar()
   }
 
+  async function limpiarTodosVinculos() {
+    if (!confirm(`¿Eliminar TODOS los vínculos de las ${notas.length} notas? Esta acción no se puede deshacer.`)) return
+    try {
+      const res = await fetch('/api/notas/limpiar-vinculos', { method: 'POST' })
+      const data = await res.json() as { limpiadas?: number; error?: string }
+      if (res.ok) await cargar()
+      else alert(data.error ?? 'Error al limpiar vínculos')
+    } catch (e) { alert(String(e)) }
+  }
+
   async function vincularTodoConIA(soloSinVinculos: boolean) {
     if (vinculandoIA) return
     setVinculandoIA(true)
@@ -865,11 +875,10 @@ export default function NotasClient() {
                 : <Zap className="h-3.5 w-3.5" />}
             </button>
             {!vinculandoIA && (
-              <div className="pointer-events-none absolute right-0 top-9 z-50 hidden w-52 rounded-lg border border-neutral-700 bg-neutral-900 p-2.5 shadow-xl group-hover:block">
+              <div className="pointer-events-none absolute right-0 top-9 z-50 hidden w-56 rounded-lg border border-neutral-700 bg-neutral-900 p-2.5 shadow-xl group-hover:block">
                 <p className="mb-1 text-xs font-semibold text-purple-400">Vincular con IA</p>
                 <p className="text-xs text-neutral-500 leading-relaxed">
-                  Sugiere y aplica vínculos automáticos entre notas sin vínculos usando Gemini.
-                  Aplica sugerencias de confianza alta y media.
+                  Analiza todas las notas en una sola llamada y aplica los vínculos más relevantes.
                 </p>
                 <button
                   className="pointer-events-auto mt-2 block w-full rounded bg-neutral-800 py-1 text-center text-xs text-neutral-300 hover:bg-neutral-700"
@@ -877,6 +886,15 @@ export default function NotasClient() {
                 >
                   Procesar todas las notas
                 </button>
+                <div className="pointer-events-auto mt-2 border-t border-neutral-800 pt-2">
+                  <button
+                    className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-xs text-red-500 hover:bg-red-950/30"
+                    onClick={(e) => { e.stopPropagation(); limpiarTodosVinculos() }}
+                    disabled={notas.length === 0}
+                  >
+                    <Trash2 className="h-3 w-3" /> Eliminar todos los vínculos
+                  </button>
+                </div>
               </div>
             )}
           </div>

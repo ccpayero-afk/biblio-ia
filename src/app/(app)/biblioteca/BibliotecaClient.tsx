@@ -299,14 +299,20 @@ export default function BibliotecaClient() {
     setCargando(true)
     setErrorCarga(null)
     try {
-      const [resDocs, resCarpetas] = await Promise.all([
+      const [resDocs, resCarpetas, resFichas] = await Promise.all([
         fetch('/api/drive/pdfs'),
         fetch('/api/carpetas'),
+        fetch('/api/fichas'),
       ])
       const docs = await resDocs.json()
       const carps = await resCarpetas.json()
-      if (Array.isArray(docs)) setDocumentos(docs)
-      else setErrorCarga(docs?.error ?? 'Error al cargar documentos')
+      const fichaIds: unknown = await resFichas.json().catch(() => [])
+      if (Array.isArray(docs)) {
+        const fichaSet = new Set(Array.isArray(fichaIds) ? fichaIds as string[] : [])
+        setDocumentos(docs.map((d: Documento) => ({ ...d, fichaGenerada: d.fichaGenerada || fichaSet.has(d.id) })))
+      } else {
+        setErrorCarga(docs?.error ?? 'Error al cargar documentos')
+      }
       if (Array.isArray(carps)) setCarpetas(carps)
     } catch (e) {
       setErrorCarga(e instanceof Error ? e.message : 'Error de red')
@@ -980,6 +986,7 @@ export default function BibliotecaClient() {
                   <div className="w-40 flex-shrink-0">Autor</div>
                   <div className="w-32 flex-shrink-0">Carpeta</div>
                   <div className="w-24 flex-shrink-0">Estado</div>
+                  <div className="w-14 flex-shrink-0">Ficha</div>
                   <div className="w-16 flex-shrink-0 text-right">Frags.</div>
                   {!modoSeleccion && <div className="w-16 flex-shrink-0" />}
                 </div>
