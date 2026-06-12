@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Nota, TipoNota, VinculoZettel, VinculoSugerido } from '@/types'
 import {
   Plus, Search, X, Link2, Loader2, ChevronRight,
-  AlertTriangle, Sparkles, Check, ExternalLink, RefreshCw, Zap, BookOpen,
+  AlertTriangle, Sparkles, Check, RefreshCw, Zap, BookOpen, ArrowLeft,
 } from 'lucide-react'
 import Link from 'next/link'
 import { generarIdZettel } from '@/lib/zettel-id'
@@ -29,6 +29,21 @@ const TIPOS_VINCULO: { tipo: VinculoZettel['tipo']; label: string }[] = [
   { tipo: 'define', label: 'Define' },
   { tipo: 'ver_tambien', label: 'Ver también' },
 ]
+
+const VINCULO_COLOR: Record<VinculoZettel['tipo'], string> = {
+  complementa:        'text-blue-400 bg-blue-950/50 border-blue-800/40',
+  contradice:         'text-red-400 bg-red-950/50 border-red-800/40',
+  ejemplifica:        'text-amber-400 bg-amber-950/50 border-amber-800/40',
+  aplica_en:          'text-green-400 bg-green-950/50 border-green-800/40',
+  es_consecuencia_de: 'text-purple-400 bg-purple-950/50 border-purple-800/40',
+  cuestiona:          'text-orange-400 bg-orange-950/50 border-orange-800/40',
+  define:             'text-teal-400 bg-teal-950/50 border-teal-800/40',
+  ver_tambien:        'text-neutral-400 bg-neutral-800/60 border-neutral-700/40',
+}
+
+function vinculoLabel(tipo: VinculoZettel['tipo']) {
+  return TIPOS_VINCULO.find((t) => t.tipo === tipo)?.label ?? tipo.replace(/_/g, ' ')
+}
 
 function tipoBadge(tipo: TipoNota) {
   const cfg = TIPOS_ZETTEL.find((t) => t.tipo === tipo)
@@ -299,11 +314,15 @@ function NotaDetalle({
   todasLasNotas,
   onEditar,
   onEliminar,
+  onSeleccionarNota,
+  onFiltrarEtiqueta,
 }: {
   nota: Nota
   todasLasNotas: Nota[]
   onEditar: () => void
   onEliminar: () => void
+  onSeleccionarNota: (n: Nota) => void
+  onFiltrarEtiqueta: (e: string) => void
 }) {
   const [convertiendo, setConvirtiendo] = useState(false)
   const [sugerencia, setSugerencia] = useState<null | {
@@ -325,33 +344,50 @@ function NotaDetalle({
   }
 
   const esEfimera = nota.tipo === 'efimera' || nota.tipo === 'manual'
+  const vinculos = nota.vinculos ?? []
+
+  // Backlinks: notas que tienen un vínculo apuntando a esta nota
+  const backlinks = todasLasNotas.filter(
+    (n) => n.id !== nota.id && (n.vinculos ?? []).some((v) => v.notaDestinoId === nota.id)
+  )
+
+  // Etiquetas visibles (excluye tags de sistema internos)
+  const etiquetasUsuario = nota.etiquetas.filter(
+    (e) => e !== 'auto-ficha' && e !== 'auto-highlights'
+  )
+  const etiquetasSistema = nota.etiquetas.filter(
+    (e) => e === 'auto-ficha' || e === 'auto-highlights'
+  )
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigator.clipboard.writeText(`[[${nota.id}]]`)}
             title="Copiar [[ID]]"
-            className="font-mono text-xs text-neutral-500 hover:text-neutral-300"
+            className="font-mono text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
           >
             {nota.id}
           </button>
           {tipoBadge(nota.tipo)}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onEditar} className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-neutral-600">
+          <button onClick={onEditar} className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 hover:text-white transition-colors">
             Editar
           </button>
-          <button onClick={onEliminar} className="rounded-lg border border-red-900/50 px-3 py-1.5 text-xs text-red-500 hover:border-red-700">
+          <button onClick={onEliminar} className="rounded-lg border border-red-900/50 px-3 py-1.5 text-xs text-red-500 hover:border-red-600 hover:bg-red-950/20 transition-colors">
             Eliminar
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+        {/* Banner efímera */}
         {esEfimera && !sugerencia && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-orange-900/40 bg-orange-950/10 px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-orange-900/40 bg-orange-950/10 px-4 py-3">
             <div className="flex items-center gap-2 text-xs text-orange-400">
               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
               <span>Captura sin procesar. Convertila en permanente cuando estés list@.</span>
@@ -367,6 +403,7 @@ function NotaDetalle({
           </div>
         )}
 
+        {/* Sugerencia de conversión */}
         {sugerencia && (
           <div className="rounded-xl border border-green-900/40 bg-green-950/10 p-4 space-y-3">
             <p className="text-xs font-semibold text-green-400">Sugerencia de conversión</p>
@@ -402,51 +439,140 @@ function NotaDetalle({
           </div>
         )}
 
-        <h1 className="text-xl font-bold text-white">{nota.titulo}</h1>
-        <p className="whitespace-pre-wrap text-sm text-neutral-300">{nota.contenido}</p>
+        {/* Título y contenido */}
+        <div>
+          <h1 className="text-xl font-bold leading-snug text-white">{nota.titulo}</h1>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-neutral-300">{nota.contenido}</p>
+        </div>
 
-        {nota.etiquetas.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {nota.etiquetas.map((e) => (
-              <span key={e} className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-400">#{e}</span>
-            ))}
+        {/* Etiquetas del usuario */}
+        {etiquetasUsuario.length > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">Etiquetas</p>
+            <div className="flex flex-wrap gap-1.5">
+              {etiquetasUsuario.map((e) => (
+                <button
+                  key={e}
+                  onClick={() => onFiltrarEtiqueta(e)}
+                  title={`Filtrar por #${e}`}
+                  className="rounded-full border border-neutral-800 bg-neutral-900 px-2.5 py-1 text-xs text-neutral-400 transition-all hover:border-violet-700/50 hover:bg-violet-950/20 hover:text-violet-400"
+                >
+                  #{e}
+                </button>
+              ))}
+              {etiquetasSistema.map((e) => (
+                <span key={e} className="rounded-full border border-neutral-800/50 bg-neutral-900/50 px-2.5 py-1 text-xs text-neutral-600">
+                  #{e}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
-        {(nota.vinculos ?? []).length > 0 && (
+        {/* Vínculos SALIENTES */}
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+            Vínculos ({vinculos.length})
+          </p>
+          {vinculos.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-neutral-800 px-4 py-5 text-center">
+              <Link2 className="mx-auto h-5 w-5 text-neutral-700" />
+              <p className="mt-2 text-xs text-neutral-600">Sin vínculos todavía</p>
+              <p className="mt-0.5 text-xs text-neutral-700">
+                Editá la nota y usá <span className="text-neutral-500">Sugerir con IA</span> para descubrir conexiones automáticamente.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {vinculos.map((v, i) => {
+                const destino = todasLasNotas.find((n) => n.id === v.notaDestinoId)
+                const colores = VINCULO_COLOR[v.tipo] ?? VINCULO_COLOR.ver_tambien
+                const destCfg = destino ? TIPOS_ZETTEL.find((t) => t.tipo === destino.tipo) : null
+                return (
+                  <button
+                    key={i}
+                    onClick={() => destino && onSeleccionarNota(destino)}
+                    disabled={!destino}
+                    className="flex w-full items-start gap-3 rounded-xl border border-neutral-800 bg-neutral-900/50 p-3 text-left transition-all hover:border-neutral-700 hover:bg-neutral-900 group disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span className={`mt-px flex-shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${colores}`}>
+                      {vinculoLabel(v.tipo)}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium leading-snug text-neutral-200 group-hover:text-white">
+                        {destino?.titulo ?? v.notaDestinoId}
+                      </p>
+                      {destCfg && (
+                        <p className={`mt-0.5 text-xs ${destCfg.color.split(' ')[0]}`}>
+                          {destCfg.label}
+                        </p>
+                      )}
+                      {v.nota && (
+                        <p className="mt-1 text-xs leading-relaxed text-neutral-600">{v.nota}</p>
+                      )}
+                    </div>
+                    <ChevronRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-neutral-700 transition-transform group-hover:translate-x-0.5 group-hover:text-neutral-400" />
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Backlinks: notas que apuntan A ESTA */}
+        {backlinks.length > 0 && (
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
-              Vínculos ({(nota.vinculos ?? []).length})
+              Mencionada en ({backlinks.length})
             </p>
-            <div className="space-y-2">
-              {(nota.vinculos ?? []).map((v, i) => {
-                const destino = todasLasNotas.find((n) => n.id === v.notaDestinoId)
+            <div className="space-y-1.5">
+              {backlinks.map((bl) => {
+                const blCfg = TIPOS_ZETTEL.find((t) => t.tipo === bl.tipo)
+                const vinculo = (bl.vinculos ?? []).find((v) => v.notaDestinoId === nota.id)
+                const colores = vinculo ? (VINCULO_COLOR[vinculo.tipo] ?? VINCULO_COLOR.ver_tambien) : null
                 return (
-                  <div key={i} className="flex items-start gap-3 rounded-lg border border-neutral-800 bg-neutral-900/50 p-3">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-xs text-neutral-500">{v.tipo.replace(/_/g, ' ')} →</span>
-                      <p className="truncate text-sm text-neutral-200">{destino?.titulo ?? v.notaDestinoId}</p>
+                  <button
+                    key={bl.id}
+                    onClick={() => onSeleccionarNota(bl)}
+                    className="flex w-full items-start gap-3 rounded-xl border border-neutral-800/60 bg-neutral-900/30 p-3 text-left transition-all hover:border-neutral-700 hover:bg-neutral-900 group"
+                  >
+                    <ArrowLeft className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-neutral-700 group-hover:text-neutral-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium leading-snug text-neutral-300 group-hover:text-white">
+                        {bl.titulo}
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        {blCfg && (
+                          <span className={`text-xs ${blCfg.color.split(' ')[0]}`}>{blCfg.label}</span>
+                        )}
+                        {colores && vinculo && (
+                          <span className={`rounded-full border px-1.5 py-px text-xs ${colores}`}>
+                            {vinculoLabel(vinculo.tipo)}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <ExternalLink className="h-4 w-4 flex-shrink-0 text-neutral-700" />
-                  </div>
+                    <ChevronRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-neutral-700 group-hover:text-neutral-400" />
+                  </button>
                 )
               })}
             </div>
           </div>
         )}
 
+        {/* Origen del documento */}
         {(nota.documentoOrigenId ?? nota.documentoId) && (
-          <div className="rounded-lg border border-neutral-800 p-3">
+          <div className="rounded-xl border border-neutral-800/60 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-neutral-500">Origen</p>
+              <p className="text-xs font-medium text-neutral-600">Documento origen</p>
               <Link
                 href={`/lector/${nota.documentoOrigenId ?? nota.documentoId}${(nota.paginaOrigen ?? nota.pagina) ? `?pagina=${nota.paginaOrigen ?? nota.pagina}` : ''}`}
-                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-blue-400 hover:bg-blue-950/30 hover:text-blue-300"
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-blue-400 hover:bg-blue-950/30 hover:text-blue-300 transition-colors"
               >
                 <BookOpen className="h-3 w-3" /> Abrir en lector
               </Link>
             </div>
-            <p className="mt-1 text-xs text-neutral-500">
+            <p className="mt-1 text-xs text-neutral-600">
               {(nota.paginaOrigen ?? nota.pagina) ? `p. ${nota.paginaOrigen ?? nota.pagina}` : 'Sin página'}
             </p>
           </div>
@@ -590,6 +716,14 @@ export default function NotasClient() {
     acc[n.tipo] = (acc[n.tipo] ?? 0) + 1
     return acc
   }, {})
+
+  // Mapa de backlinks: cuántas notas apuntan a cada nota (para mostrar "centralidad")
+  const backlinksCount = new Map<string, number>()
+  for (const n of notas) {
+    for (const v of n.vinculos ?? []) {
+      backlinksCount.set(v.notaDestinoId, (backlinksCount.get(v.notaDestinoId) ?? 0) + 1)
+    }
+  }
   const sinVinculos = notas.filter((n) => (n.vinculos ?? []).length === 0 && n.tipo === 'permanente').length
 
   const notasFiltradas = notas.filter((n) => {
@@ -783,32 +917,47 @@ export default function NotasClient() {
           {notasFiltradas.map((n) => {
             const cfg = TIPOS_ZETTEL.find((t) => t.tipo === n.tipo)
             const isSelected = notaSel?.id === n.id
+            const salientes = (n.vinculos ?? []).length
+            const entrantes = backlinksCount.get(n.id) ?? 0
+            const etiquetas = n.etiquetas.filter((e) => e !== 'auto-ficha' && e !== 'auto-highlights')
             return (
               <button
                 key={n.id}
                 onClick={() => setNotaSel(n)}
                 className={`relative block w-full border-b border-neutral-800/50 pl-4 pr-3 py-3 text-left transition-colors hover:bg-neutral-900/80 ${isSelected ? 'bg-neutral-900' : ''}`}
               >
-                {/* Barra de color izquierda */}
+                {/* Barra de color según tipo */}
                 <div className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-full ${cfg?.barColor ?? 'bg-neutral-600'}`} />
 
                 {/* Título */}
                 <p className="line-clamp-2 text-sm font-medium leading-snug text-neutral-100">{n.titulo}</p>
 
-                {/* Meta row */}
-                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                {/* Etiquetas del usuario */}
+                {etiquetas.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {etiquetas.slice(0, 3).map((e) => (
+                      <span key={e} className="rounded-full border border-neutral-800 bg-neutral-900/80 px-1.5 py-px text-xs text-neutral-500">
+                        #{e}
+                      </span>
+                    ))}
+                    {etiquetas.length > 3 && (
+                      <span className="text-xs text-neutral-700">+{etiquetas.length - 3}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Meta: tipo + vínculos */}
+                <div className="mt-1.5 flex items-center gap-2">
                   <span className={`text-xs font-medium ${cfg?.color.split(' ')[0] ?? 'text-neutral-500'}`}>
                     {cfg?.label ?? n.tipo}
                   </span>
-                  {(n.vinculos ?? []).length > 0 && (
-                    <span className="flex items-center gap-0.5 text-xs text-neutral-600">
+                  {(salientes > 0 || entrantes > 0) && (
+                    <span className="flex items-center gap-1 text-xs text-neutral-600">
                       <Link2 className="h-2.5 w-2.5" />
-                      {(n.vinculos ?? []).length}
+                      {salientes > 0 && <span title="vínculos salientes">{salientes}↗</span>}
+                      {entrantes > 0 && <span title="backlinks" className="text-violet-600">{entrantes}↙</span>}
                     </span>
                   )}
-                  {n.etiquetas.filter((e) => e !== 'auto-ficha' && e !== 'concepto-clave').slice(0, 2).map((e) => (
-                    <span key={e} className="rounded-full bg-neutral-800 px-1.5 py-px text-xs text-neutral-500">#{e}</span>
-                  ))}
                 </div>
               </button>
             )
@@ -824,6 +973,17 @@ export default function NotasClient() {
             todasLasNotas={notas}
             onEditar={() => setEditando(notaSel)}
             onEliminar={() => eliminarNota(notaSel.id)}
+            onSeleccionarNota={(n) => {
+              setNotaSel(n)
+              // sincronizar filtros para que la nota aparezca en la lista
+              setBusqueda('')
+              setFiltroTipo('')
+              setFiltroEtiqueta('')
+            }}
+            onFiltrarEtiqueta={(e) => {
+              setFiltroEtiqueta(filtroEtiqueta === e ? '' : e)
+              setNotaSel(null)
+            }}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-center">
