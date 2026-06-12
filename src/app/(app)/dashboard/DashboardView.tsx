@@ -41,14 +41,17 @@ interface Props {
   nombre: string
   docCount: number
   indexados: number
+  fichaCount: number
+  notaCount: number
+  proyectoCount: number
 }
 
-export default function DashboardView({ nombre, docCount, indexados }: Props) {
+export default function DashboardView({ nombre, docCount, indexados, fichaCount, notaCount, proyectoCount }: Props) {
   const stats = [
-    { ...STAT_CARDS[0], valor: docCount, desc: `${indexados} indexado${indexados !== 1 ? 's' : ''}` },
-    { ...STAT_CARDS[1], valor: '—', desc: 'Ver fichas' },
-    { ...STAT_CARDS[2], valor: '—', desc: 'Ver notas' },
-    { ...STAT_CARDS[3], valor: '—', desc: 'Ver proyectos' },
+    { ...STAT_CARDS[0], valor: docCount,      desc: `${indexados} indexado${indexados !== 1 ? 's' : ''}` },
+    { ...STAT_CARDS[1], valor: fichaCount,     desc: fichaCount === 1 ? '1 ficha generada' : `${fichaCount} fichas generadas` },
+    { ...STAT_CARDS[2], valor: notaCount,      desc: notaCount === 1 ? '1 nota guardada' : `${notaCount} notas guardadas` },
+    { ...STAT_CARDS[3], valor: proyectoCount,  desc: proyectoCount === 1 ? '1 proyecto activo' : `${proyectoCount} proyectos` },
   ]
 
   return (
@@ -168,7 +171,7 @@ export default function DashboardView({ nombre, docCount, indexados }: Props) {
             </div>
             <p style={{
               fontSize: '1.9rem', fontWeight: 700, margin: '0 0 3px',
-              color: valor === '—' ? 'rgba(148,163,184,0.3)' : '#f1f5f9',
+              color: valor === 0 ? 'rgba(148,163,184,0.35)' : '#f1f5f9',
             }}>
               {valor}
             </p>
