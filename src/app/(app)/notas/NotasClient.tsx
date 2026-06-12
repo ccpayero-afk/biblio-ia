@@ -707,8 +707,12 @@ export default function NotasClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ soloSinVinculos }),
       })
-      const data = await res.json() as { aplicados?: number; conexiones?: number; notas?: number; error?: string }
-      if (!res.ok) {
+      const raw = await res.text()
+      let data: { aplicados?: number; conexiones?: number; notas?: number; error?: string } = {}
+      try { data = JSON.parse(raw) } catch {
+        data = { error: res.ok ? 'Respuesta inválida del servidor' : `Error ${res.status}: ${raw.slice(0, 120)}` }
+      }
+      if (!res.ok || data.error) {
         setProgresoVinc((p) => p ? { ...p, ultimoError: data.error ?? `Error ${res.status}` } : p)
       } else {
         setProgresoVinc((p) => p ? { ...p, nuevos: data.aplicados ?? 0 } : p)

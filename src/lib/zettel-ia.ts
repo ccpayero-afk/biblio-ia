@@ -6,28 +6,34 @@ export async function sugerirVinculosBatch(
   notas: Nota[],
   genAI: GoogleGenerativeAI
 ): Promise<Array<{ nota1Id: string; nota2Id: string; tipo: VinculoZettel['tipo']; razon: string }>> {
-  const elegibles = notas.filter((n) => n.tipo !== 'efimera')
+  // Ordenar: primero las que tienen menos vinculos (más necesitadas)
+  const elegibles = notas
+    .filter((n) => n.tipo !== 'efimera')
+    .sort((a, b) => (a.vinculos ?? []).length - (b.vinculos ?? []).length)
+    .slice(0, 50)  // máx 50 notas por batch para no exceder el timeout de Vercel
+
   if (elegibles.length < 2) return []
 
-  const max = Math.min(40, Math.ceil(elegibles.length * 0.25))
+  const maxConexiones = Math.min(30, elegibles.length)
 
   const listado = elegibles
-    .map((n) => `[${n.id}] ${n.titulo}\n  ${n.contenido.slice(0, 100).replace(/\n/g, ' ')}`)
+    .map((n) => `[${n.id}] ${n.titulo}\n  ${n.contenido.slice(0, 60).replace(/\n/g, ' ')}`)
     .join('\n')
 
-  const prompt = `Analizá estas notas de un Zettelkasten académico en ciencias sociales latinoamericanas.
-Encontrá las ${max} conexiones conceptuales más significativas entre ellas.
-Solo conexiones con relación real y concreta entre ideas. No inventes conexiones débiles.
+  const prompt = `Analizá estas notas de un Zettelkasten académico en ciencias sociales.
+Encontrá hasta ${maxConexiones} conexiones conceptuales significativas entre ellas.
+Solo conexiones con relación concreta y real. Si hay dudas, omitir.
 
 Tipos: complementa, contradice, ejemplifica, aplica_en, es_consecuencia_de, cuestiona, define, ver_tambien
 
-JSON sin texto adicional:
-{"conexiones":[{"nota1Id":"...","nota2Id":"...","tipo":"...","razon":"una oración"}]}
+Respondé SOLO con JSON válido, sin texto antes ni después:
+{"conexiones":[{"nota1Id":"...","nota2Id":"...","tipo":"...","razon":"una oración breve"}]}
 
 NOTAS:
 ${listado}`
 
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+  // gemini-1.5-flash: sin thinking tokens, respuesta rápida (~5s), apto para batches
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_FAST })
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   })
@@ -43,7 +49,7 @@ ${listado}`
     .filter((c: { nota1Id: string; nota2Id: string }) =>
       idSet.has(c.nota1Id) && idSet.has(c.nota2Id) && c.nota1Id !== c.nota2Id
     )
-    .slice(0, max)
+    .slice(0, maxConexiones)
 }
 
 export async function sugerirVinculos(
