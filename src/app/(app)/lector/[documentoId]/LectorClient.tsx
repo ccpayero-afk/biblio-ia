@@ -28,12 +28,25 @@ interface Seleccion {
   texto: string
   pagina: number
   rect: DOMRect
+  rects?: Array<{ x: number; y: number; width: number; height: number }>
 }
 
+// Legacy text-layer coloring (fallback for old highlights without rects)
 const COLOR_BG: Record<string, string> = {
   amarillo: '#fef08a',
   azul: '#93c5fd',
   rojo: '#fca5a5',
+  verde: '#86efac',
+  morado: '#d8b4fe',
+}
+
+// Overlay fill colors (mix-blend-mode: multiply for natural highlight look)
+const COLOR_FILL: Record<string, string> = {
+  amarillo: 'rgba(253,224,71,0.55)',
+  verde:    'rgba(74,222,128,0.45)',
+  azul:     'rgba(96,165,250,0.45)',
+  rojo:     'rgba(248,113,113,0.45)',
+  morado:   'rgba(192,132,252,0.45)',
 }
 
 const ZOOM_PRESETS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
@@ -186,17 +199,32 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
       const range = sel.getRangeAt(0)
       const rect = range.getBoundingClientRect()
       // Walk up DOM to find react-pdf Page element and its page number
+      let pageEl: HTMLElement | null = null
       let node: Element | null = range.startContainer.parentElement
       let pagina = paginaActualRef.current
       while (node) {
         if ((node as HTMLElement).classList?.contains('react-pdf__Page')) {
           const p = (node as HTMLElement).dataset.pageNumber
           if (p) pagina = parseInt(p)
+          pageEl = node as HTMLElement
           break
         }
         node = node.parentElement
       }
-      setSeleccion({ texto, pagina, rect })
+      // Capture normalized rects relative to the page (zoom-independent)
+      let rects: Array<{ x: number; y: number; width: number; height: number }> | undefined
+      if (pageEl) {
+        const pageRect = pageEl.getBoundingClientRect()
+        rects = Array.from(range.getClientRects())
+          .filter((r) => r.width > 2 && r.height > 2)
+          .map((r) => ({
+            x: (r.left - pageRect.left) / pageRect.width,
+            y: (r.top - pageRect.top) / pageRect.height,
+            width: r.width / pageRect.width,
+            height: r.height / pageRect.height,
+          }))
+      }
+      setSeleccion({ texto, pagina, rect, rects })
     }
     document.addEventListener('mouseup', handleMouseUp)
     return () => document.removeEventListener('mouseup', handleMouseUp)
@@ -304,6 +332,7 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
       texto: sel.texto,
       pagina: sel.pagina,
       posicion: { x: 0, y: 0, width: 0, height: 0 },
+      rects: sel.rects,
       color,
       creadoEn: new Date().toISOString(),
     }
@@ -315,12 +344,12 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
     })
   }
 
-  async function onResaltar() {
+  async function onResaltar(color: Highlight['color'] = 'amarillo') {
     if (!seleccion) return
     const sel = seleccion
     cerrarSeleccion()
     showToast('Texto resaltado ✓')
-    await guardarHighlight(sel, 'amarillo')
+    await guardarHighlight(sel, color)
   }
 
   async function onAnotar(nota: string) {
@@ -602,22 +631,46 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
                     key={pageNum}
                     ref={(el) => { pageRefs.current[pageNum - 1] = el }}
                     data-page={pageNum}
-                    className="shadow-2xl"
+                    className="relative shadow-2xl"
                     style={shouldRender ? undefined : { width: pageW, height: pageH, backgroundColor: 'white' }}
                   >
                     {shouldRender && (
-                      <Page
-                        pageNumber={pageNum}
-                        scale={zoom}
-                        renderTextLayer
-                        renderAnnotationLayer={false}
-                        onRenderSuccess={applyHighlightsToDOM}
-                        onLoadSuccess={
-                          pageNum === 1
-                            ? (page) => setNaturalPageWidth(page.getViewport({ scale: 1 }).width)
-                            : undefined
+                      <>
+                        <Page
+                          pageNumber={pageNum}
+                          scale={zoom}
+                          renderTextLayer
+                          renderAnnotationLayer={false}
+                          onRenderSuccess={applyHighlightsToDOM}
+                          onLoadSuccess={
+                            pageNum === 1
+                              ? (page) => setNaturalPageWidth(page.getViewport({ scale: 1 }).width)
+                              : undefined
+                          }
+                        />
+                        {/* Highlight overlay — positioned over canvas, below text layer */}
+                        {highlights
+                          .filter((h) => h.pagina === pageNum && h.rects?.length)
+                          .map((h) => (
+                            <div key={h.id} className="pointer-events-none absolute inset-0 overflow-hidden" style={{ zIndex: 1 }}>
+                              {h.rects!.map((r, i) => (
+                                <div
+                                  key={i}
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${r.x * 100}%`,
+                                    top: `${r.y * 100}%`,
+                                    width: `${r.width * 100}%`,
+                                    height: `${r.height * 100}%`,
+                                    backgroundColor: COLOR_FILL[h.color] ?? COLOR_FILL.amarillo,
+                                    mixBlendMode: 'multiply',
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          ))
                         }
-                      />
+                      </>
                     )}
                   </div>
                 )
@@ -659,7 +712,7 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
       {seleccion && (
         <SelectionPopover
           rect={seleccion.rect}
-          onHighlight={onResaltar}
+          onHighlight={(color) => onResaltar(color)}
           onAnotar={onAnotar}
           onCitar={() => { setModalCita(seleccion); cerrarSeleccion() }}
           onCerrar={cerrarSeleccion}

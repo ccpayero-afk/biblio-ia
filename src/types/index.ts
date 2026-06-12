@@ -45,7 +45,8 @@ export interface Highlight {
   texto: string
   pagina: number
   posicion: { x: number; y: number; width: number; height: number }
-  color: 'amarillo' | 'azul' | 'rojo'
+  rects?: Array<{ x: number; y: number; width: number; height: number }>
+  color: 'amarillo' | 'azul' | 'rojo' | 'verde' | 'morado'
   nota?: string
   creadoEn: string
 }
