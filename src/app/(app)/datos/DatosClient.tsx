@@ -56,7 +56,7 @@ function DatoCard({ dato, onEliminar }: { dato: Dato; onEliminar: () => void }) 
           {cfg.label}
         </span>
         {dato.año && (
-          <span className="text-xs text-neutral-600">{dato.año}</span>
+          <span className="text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>{dato.año}</span>
         )}
       </div>
 
@@ -67,7 +67,7 @@ function DatoCard({ dato, onEliminar }: { dato: Dato; onEliminar: () => void }) 
 
       {/* Contexto */}
       {dato.contexto && (
-        <p className="mt-2 text-sm leading-relaxed text-neutral-400">
+        <p className="mt-2 text-sm leading-relaxed" style={{ color: 'rgba(148,163,184,0.7)' }}>
           {dato.contexto}
         </p>
       )}
@@ -76,13 +76,16 @@ function DatoCard({ dato, onEliminar }: { dato: Dato; onEliminar: () => void }) 
       <div className="mt-3 flex items-end justify-between gap-3">
         <div className="min-w-0 space-y-0.5">
           {dato.autor && (
-            <p className="text-xs font-medium text-neutral-500">
+            <p className="text-xs font-medium" style={{ color: 'rgba(148,163,184,0.5)' }}>
               {dato.autor}{dato.año ? ` (${dato.año})` : ''}{dato.pagina ? `, p. ${dato.pagina}` : ''}
             </p>
           )}
           <Link
             href={`/lector/${dato.documentoId}?${dato.pagina ? `pagina=${dato.pagina}&` : ''}buscar=${encodeURIComponent(dato.valor.slice(0, 60))}`}
-            className="flex items-center gap-1 text-xs text-neutral-500 hover:text-blue-400 transition-colors"
+            className="flex items-center gap-1 text-xs transition-colors"
+            style={{ color: 'rgba(148,163,184,0.4)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#22d3ee' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
             title="Abrir en lector"
           >
             <BookMarked className="h-3 w-3 flex-shrink-0" />
@@ -94,14 +97,20 @@ function DatoCard({ dato, onEliminar }: { dato: Dato; onEliminar: () => void }) 
           <button
             onClick={copiar}
             title="Copiar dato"
-            className="flex items-center gap-1 rounded-lg border border-neutral-700 px-2 py-1 text-xs text-neutral-400 hover:border-neutral-600 hover:text-white"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs transition-all"
+            style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#a78bfa' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
           >
-            {copiado ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+            {copiado ? <Check className="h-3 w-3" style={{ color: '#34d399' }} /> : <Copy className="h-3 w-3" />}
             Copiar
           </button>
           <button
             onClick={onEliminar}
-            className="rounded-lg p-1.5 text-neutral-700 hover:text-red-400 transition-colors"
+            className="rounded-lg p-1.5 transition-colors"
+            style={{ color: 'rgba(148,163,184,0.3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.3)' }}
             title="Eliminar"
           >
             <Trash2 className="h-3.5 w-3.5" />

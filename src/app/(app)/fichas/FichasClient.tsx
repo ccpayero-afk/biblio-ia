@@ -96,8 +96,8 @@ function FichaDetalle({
       <div className="flex-1 overflow-y-auto px-6 py-5">
         {cargando && !ficha && (
           <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-neutral-600" />
-            <p className="mt-3 text-sm text-neutral-500">Generando ficha con IA…</p>
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'rgba(139,92,246,0.6)' }} />
+            <p className="mt-3 text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>Generando ficha con IA…</p>
           </div>
         )}
 
@@ -109,11 +109,19 @@ function FichaDetalle({
 
         {!ficha && !cargando && !error && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <BookOpen className="h-10 w-10 text-neutral-700" />
-            <p className="mt-4 text-sm text-neutral-500">Este documento no tiene ficha todavía.</p>
+            <div
+              className="flex h-14 w-14 items-center justify-center rounded-2xl mb-4"
+              style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}
+            >
+              <BookOpen className="h-7 w-7" style={{ color: 'rgba(139,92,246,0.5)' }} />
+            </div>
+            <p className="text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>Este documento no tiene ficha todavía.</p>
             <button
               onClick={onGenerar}
-              className="mt-4 flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500"
+              className="mt-4 flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition-all"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 14px rgba(124,58,237,0.3)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 22px rgba(124,58,237,0.5)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 14px rgba(124,58,237,0.3)' }}
             >
               <Sparkles className="h-4 w-4" /> Generar ficha
             </button>
@@ -223,27 +231,27 @@ function FichaDetalle({
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Aportes</h3>
                 <div className="space-y-2">
                   {ficha.aportes.teoricos && (
-                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-sm">
-                      <span className="text-xs font-medium text-violet-400 block mb-0.5">Teóricos</span>
-                      <span className="text-neutral-300">{ficha.aportes.teoricos}</span>
+                    <div className="rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+                      <span className="text-xs font-medium block mb-0.5" style={{ color: 'rgba(167,139,250,0.8)' }}>Teóricos</span>
+                      <span style={{ color: 'rgba(226,232,240,0.8)' }}>{ficha.aportes.teoricos}</span>
                     </div>
                   )}
                   {ficha.aportes.metodologicos && (
-                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-sm">
-                      <span className="text-xs font-medium text-blue-400 block mb-0.5">Metodológicos</span>
-                      <span className="text-neutral-300">{ficha.aportes.metodologicos}</span>
+                    <div className="rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.15)' }}>
+                      <span className="text-xs font-medium block mb-0.5" style={{ color: 'rgba(34,211,238,0.8)' }}>Metodológicos</span>
+                      <span style={{ color: 'rgba(226,232,240,0.8)' }}>{ficha.aportes.metodologicos}</span>
                     </div>
                   )}
                   {ficha.aportes.empiricos && (
-                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-sm">
-                      <span className="text-xs font-medium text-emerald-400 block mb-0.5">Empíricos</span>
-                      <span className="text-neutral-300">{ficha.aportes.empiricos}</span>
+                    <div className="rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.15)' }}>
+                      <span className="text-xs font-medium block mb-0.5" style={{ color: 'rgba(52,211,153,0.8)' }}>Empíricos</span>
+                      <span style={{ color: 'rgba(226,232,240,0.8)' }}>{ficha.aportes.empiricos}</span>
                     </div>
                   )}
                   {ficha.aportes.politicos && (
-                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-sm">
-                      <span className="text-xs font-medium text-amber-400 block mb-0.5">Político-sociales</span>
-                      <span className="text-neutral-300">{ficha.aportes.politicos}</span>
+                    <div className="rounded-lg px-3 py-2 text-sm" style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                      <span className="text-xs font-medium block mb-0.5" style={{ color: 'rgba(251,191,36,0.8)' }}>Político-sociales</span>
+                      <span style={{ color: 'rgba(226,232,240,0.8)' }}>{ficha.aportes.politicos}</span>
                     </div>
                   )}
                 </div>
@@ -281,7 +289,11 @@ function FichaDetalle({
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Palabras clave</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {(ficha.palabrasClave ?? []).map((k) => (
-                    <span key={k} className="flex items-center gap-1 rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-400">
+                    <span
+                      key={k}
+                      className="flex items-center gap-1 rounded-full px-2.5 py-1 text-xs"
+                      style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.18)', color: 'rgba(167,139,250,0.7)' }}
+                    >
                       <Tag className="h-3 w-3" />{k}
                     </span>
                   ))}

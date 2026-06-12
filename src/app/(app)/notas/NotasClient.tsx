@@ -375,7 +375,10 @@ function Editor({
           <button
             onClick={guardar}
             disabled={guardando}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 10px rgba(124,58,237,0.25)' }}
+            onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.boxShadow = '0 0 18px rgba(124,58,237,0.45)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 10px rgba(124,58,237,0.25)' }}
           >
             {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
             Guardar
@@ -387,6 +390,7 @@ function Editor({
 }
 
 // ─── Vista de detalle ─────────────────────────────────────────────────────────
+
 
 function NotaDetalle({
   nota,
@@ -1056,7 +1060,10 @@ export default function NotasClient() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => convertirLote(notasFiltradas, tipoConvLote)}
-                    className="flex-1 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:from-blue-500 hover:to-violet-500"
+                    className="flex-1 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-all"
+                    style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 8px rgba(124,58,237,0.25)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 14px rgba(124,58,237,0.45)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 8px rgba(124,58,237,0.25)' }}
                   >
                     Convertir
                   </button>
@@ -1117,7 +1124,10 @@ export default function NotasClient() {
           </div>
           <button
             onClick={() => setEditando({})}
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 shadow-sm shadow-violet-900/40"
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-white transition-all"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 10px rgba(124,58,237,0.3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 18px rgba(124,58,237,0.5)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 10px rgba(124,58,237,0.3)' }}
           >
             <Plus className="h-4 w-4 text-white" />
           </button>
@@ -1149,7 +1159,7 @@ export default function NotasClient() {
         <div className="flex-1 overflow-y-auto">
           {cargando && (
             <div className="flex items-center justify-center py-10">
-              <Loader2 className="h-5 w-5 animate-spin text-neutral-600" />
+              <Loader2 className="h-5 w-5 animate-spin" style={{ color: 'rgba(139,92,246,0.5)' }} />
             </div>
           )}
           {!cargando && notasFiltradas.length === 0 && (
