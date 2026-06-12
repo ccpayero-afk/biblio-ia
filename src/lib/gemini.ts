@@ -3,7 +3,6 @@ import { initUserDrive, readJSON, writeJSON, findFile } from './drive'
 import { ConfigUsuario } from '@/types'
 
 export const GEMINI_MODEL_GENERATION = 'gemini-2.5-flash'
-export const GEMINI_MODEL_FAST = 'gemini-1.5-flash'   // sin thinking — para tareas repetitivas y de bajo costo
 export const GEMINI_MODEL_EMBEDDING = 'gemini-embedding-2'
 
 // Cifrado AES-256-GCM usando Web Crypto API (compatible con Edge y Node)

@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { Nota, VinculoSugerido, VinculoZettel } from '@/types'
-import { GEMINI_MODEL_FAST, GEMINI_MODEL_GENERATION } from './gemini'
+import { GEMINI_MODEL_GENERATION } from './gemini'
 
 export async function sugerirVinculosBatch(
   notas: Nota[],
@@ -32,10 +32,13 @@ Respondé SOLO con JSON válido, sin texto antes ni después:
 NOTAS:
 ${listado}`
 
-  // gemini-1.5-flash: sin thinking tokens, respuesta rápida (~5s), apto para batches
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_FAST })
+  // thinkingBudget: 0 desactiva el reasoning interno de gemini-2.5-flash,
+  // evitando el consumo masivo de tokens y el timeout en Vercel
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as any,
   })
   const text = result.response.text().trim()
 
@@ -97,10 +100,11 @@ ${notaNueva.contenido.slice(0, 300)}
 CANDIDATAS:
 ${listaCandidatas}`
 
-  // gemini-1.5-flash: sin thinking, 1500 req/día en free tier (vs 250 de 2.5-flash)
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_FAST })
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as any,
   })
   const text = result.response.text().trim()
 
