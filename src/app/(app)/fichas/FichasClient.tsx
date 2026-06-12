@@ -19,9 +19,17 @@ type Filtro = 'todas' | 'con_ficha' | 'sin_ficha'
 function Sec({ titulo, texto }: { titulo: string; texto?: string | null }) {
   if (!texto?.trim()) return null
   return (
-    <div>
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">{titulo}</h3>
-      <p className="text-sm text-neutral-300 leading-relaxed">{texto}</p>
+    <div
+      className="rounded-xl p-4"
+      style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)' }}
+    >
+      <h3
+        className="mb-2 text-[10px] font-semibold uppercase tracking-widest"
+        style={{ color: 'rgba(139,92,246,0.6)' }}
+      >
+        {titulo}
+      </h3>
+      <p className="text-sm leading-relaxed" style={{ color: 'rgba(241,245,249,0.8)' }}>{texto}</p>
     </div>
   )
 }
@@ -44,16 +52,22 @@ function FichaDetalle({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 border-b border-neutral-800 px-6 py-4">
+      <div
+        className="flex items-start justify-between gap-4 px-6 py-4"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+      >
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-white leading-snug">{titulo}</h2>
           <div className="mt-0.5 flex items-center gap-3">
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm" style={{ color: 'rgba(148,163,184,0.6)' }}>
               {doc.autor || 'Autor desconocido'}{doc.año ? ` · ${doc.año}` : ''}
             </p>
             <Link
               href={`/lector/${doc.id}`}
-              className="flex items-center gap-1 text-xs text-neutral-600 hover:text-blue-400"
+              className="flex items-center gap-1 text-xs transition-colors"
+              style={{ color: 'rgba(99,102,241,0.6)' }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#818cf8')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'rgba(99,102,241,0.6)')}
             >
               <BookOpen className="h-3.5 w-3.5" /> Abrir PDF
             </Link>
@@ -62,7 +76,14 @@ function FichaDetalle({
         <button
           onClick={onGenerar}
           disabled={cargando}
-          className="flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 hover:text-white disabled:opacity-40"
+          className="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-40"
+          style={{
+            background: 'rgba(139,92,246,0.1)',
+            border: '1px solid rgba(139,92,246,0.25)',
+            color: '#a78bfa',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,92,246,0.2)' }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,92,246,0.1)' }}
         >
           {cargando
             ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -107,10 +128,16 @@ function FichaDetalle({
         {ficha && (
           <div className="space-y-6">
             {/* 1. Datos bibliográficos */}
-            <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Datos bibliográficos</p>
-              <p className="text-sm font-medium text-white">{shortName(doc.nombre)}</p>
-              <p className="text-sm text-neutral-400">{doc.autor || 'Autor desconocido'}{doc.año ? ` · ${doc.año}` : ''}</p>
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{
+                background: 'linear-gradient(135deg, rgba(109,40,217,0.12), rgba(6,182,212,0.06))',
+                border: '1px solid rgba(139,92,246,0.2)',
+              }}
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: 'rgba(139,92,246,0.6)' }}>Datos bibliográficos</p>
+              <p className="text-sm font-semibold text-white">{shortName(doc.nombre)}</p>
+              <p className="text-sm mt-0.5" style={{ color: 'rgba(148,163,184,0.6)' }}>{doc.autor || 'Autor desconocido'}{doc.año ? ` · ${doc.año}` : ''}</p>
             </div>
 
             {/* 2. Tesis central */}
@@ -150,12 +177,16 @@ function FichaDetalle({
             {/* 9. Conceptos clave */}
             {ficha.conceptosClave?.length > 0 && (
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Conceptos clave</h3>
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(139,92,246,0.6)' }}>Conceptos clave</h3>
                 <div className="space-y-2">
                   {ficha.conceptosClave.map((ck, i) => (
-                    <div key={i} className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-sm">
-                      <span className="font-medium text-blue-400">{ck.concepto}</span>
-                      {ck.definicion && <span className="ml-2 text-neutral-400">{ck.definicion}</span>}
+                    <div
+                      key={i}
+                      className="rounded-xl px-3 py-2 text-sm"
+                      style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.15)' }}
+                    >
+                      <span className="font-semibold" style={{ color: '#818cf8' }}>{ck.concepto}</span>
+                      {ck.definicion && <span className="ml-2" style={{ color: 'rgba(148,163,184,0.7)' }}>{ck.definicion}</span>}
                     </div>
                   ))}
                 </div>
@@ -222,12 +253,22 @@ function FichaDetalle({
             {/* 19. Citas textuales */}
             {ficha.citasDestacadas?.length > 0 && (
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Citas textuales relevantes</h3>
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(139,92,246,0.6)' }}>Citas textuales relevantes</h3>
                 <div className="space-y-2">
                   {ficha.citasDestacadas.map((c, i) => (
-                    <blockquote key={i} className="border-l-2 border-neutral-700 pl-3 text-sm text-neutral-300 italic">
+                    <blockquote
+                      key={i}
+                      className="rounded-r-xl pl-4 pr-3 py-3 text-sm italic"
+                      style={{
+                        borderLeft: '3px solid',
+                        borderImageSlice: 1,
+                        borderImage: 'linear-gradient(180deg, #7c3aed, #06b6d4) 1',
+                        background: 'rgba(255,255,255,0.02)',
+                        color: 'rgba(241,245,249,0.75)',
+                      }}
+                    >
                       &ldquo;{c.texto}&rdquo;
-                      <span className="ml-2 not-italic text-xs text-neutral-600">p.{c.pagina}</span>
+                      <span className="ml-2 not-italic text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>p.{c.pagina}</span>
                     </blockquote>
                   ))}
                 </div>
@@ -260,10 +301,18 @@ function FichaDetalle({
             {/* 24. Notas Zettelkasten */}
             {(ficha.notasZettelkasten?.length ?? 0) > 0 && (
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Notas Zettelkasten</h3>
+                <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(139,92,246,0.6)' }}>Notas Zettelkasten</h3>
                 <div className="space-y-2">
                   {(ficha.notasZettelkasten ?? []).map((n, i) => (
-                    <div key={i} className="rounded-lg border border-violet-900/40 bg-violet-950/20 px-3 py-2 text-sm text-neutral-300">
+                    <div
+                      key={i}
+                      className="rounded-xl px-3 py-2 text-sm"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(109,40,217,0.1), rgba(6,182,212,0.05))',
+                        border: '1px solid rgba(139,92,246,0.2)',
+                        color: 'rgba(241,245,249,0.8)',
+                      }}
+                    >
                       {n}
                     </div>
                   ))}
@@ -410,35 +459,45 @@ export default function FichasClient() {
   return (
     <div className="-m-4 md:-m-6 flex h-full overflow-hidden">
       {/* Panel izquierdo: filtros + lista */}
-      <div className="flex w-72 flex-shrink-0 flex-col border-r border-neutral-800">
+      <div
+        className="flex w-72 flex-shrink-0 flex-col"
+        style={{ borderRight: '1px solid rgba(255,255,255,0.05)' }}
+      >
         {/* Buscador */}
-        <div className="border-b border-neutral-800 p-3">
+        <div className="p-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-600" />
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'rgba(148,163,184,0.3)' }} />
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por título o autor…"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 py-1.5 pl-8 pr-3 text-xs text-neutral-300 placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
+              className="w-full rounded-lg py-1.5 pl-8 pr-3 text-xs placeholder:text-neutral-600 focus:outline-none"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                color: 'rgba(241,245,249,0.8)',
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)')}
+              onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}
             />
           </div>
         </div>
 
         {/* Filtros */}
-        <div className="flex border-b border-neutral-800 text-xs">
+        <div className="flex text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
           {([
             ['todas', `Todas (${docs.length})`],
-            ['con_ficha', `Con ficha (${conFicha})`],
-            ['sin_ficha', `Sin ficha (${sinFicha})`],
+            ['con_ficha', `Con (${conFicha})`],
+            ['sin_ficha', `Sin (${sinFicha})`],
           ] as [Filtro, string][]).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setFiltro(key)}
-              className={`flex-1 py-2 text-center transition-colors ${
-                filtro === key
-                  ? 'border-b-2 border-blue-500 text-blue-400'
-                  : 'text-neutral-500 hover:text-neutral-300'
-              }`}
+              className="flex-1 py-2 text-center transition-colors"
+              style={filtro === key
+                ? { color: '#a78bfa', borderBottom: '2px solid #7c3aed' }
+                : { color: 'rgba(148,163,184,0.4)' }
+              }
             >
               {label}
             </button>
@@ -448,7 +507,7 @@ export default function FichasClient() {
         {/* Lista */}
         <div className="flex-1 overflow-y-auto">
           {docsFiltrados.length === 0 && (
-            <p className="p-4 text-center text-xs text-neutral-600">Sin resultados</p>
+            <p className="p-4 text-center text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>Sin resultados</p>
           )}
           {docsFiltrados.map((doc) => {
             const tieneFicha = doc.fichaGenerada
@@ -458,20 +517,29 @@ export default function FichasClient() {
               <button
                 key={doc.id}
                 onClick={() => seleccionarDoc(doc.id)}
-                className={`block w-full border-b border-neutral-800/50 px-4 py-3 text-left transition-colors hover:bg-neutral-900 ${activo ? 'bg-neutral-900' : ''}`}
+                className="block w-full px-4 py-3 text-left transition-all"
+                style={{
+                  borderBottom: '1px solid rgba(255,255,255,0.03)',
+                  background: activo
+                    ? 'linear-gradient(90deg, rgba(109,40,217,0.15), rgba(30,58,138,0.08))'
+                    : undefined,
+                  boxShadow: activo ? 'inset 3px 0 0 #7c3aed' : undefined,
+                }}
+                onMouseEnter={(e) => { if (!activo) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.025)' }}
+                onMouseLeave={(e) => { if (!activo) (e.currentTarget as HTMLElement).style.background = '' }}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <p className="line-clamp-2 flex-1 text-xs font-medium text-neutral-200 leading-snug">
+                  <p className="line-clamp-2 flex-1 text-xs font-medium leading-snug" style={{ color: activo ? '#e2e8f0' : 'rgba(226,232,240,0.7)' }}>
                     {shortName(doc.nombre)}
                   </p>
                   {cargandoEsta
-                    ? <Loader2 className="mt-0.5 h-3 w-3 flex-shrink-0 animate-spin text-neutral-500" />
+                    ? <Loader2 className="mt-0.5 h-3 w-3 flex-shrink-0 animate-spin" style={{ color: 'rgba(148,163,184,0.4)' }} />
                     : tieneFicha
-                    ? <span className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-green-500" title="Con ficha" />
-                    : <span className="mt-0.5 h-2 w-2 flex-shrink-0 rounded-full bg-neutral-700" title="Sin ficha" />
+                    ? <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full" style={{ background: '#34d399', boxShadow: '0 0 6px rgba(52,211,153,0.6)' }} title="Con ficha" />
+                    : <span className="mt-1 h-2 w-2 flex-shrink-0 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }} title="Sin ficha" />
                   }
                 </div>
-                <p className="mt-0.5 truncate text-xs text-neutral-600">
+                <p className="mt-0.5 truncate text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>
                   {doc.autor || 'Sin autor'}{doc.año ? ` · ${doc.año}` : ''}
                 </p>
               </button>
@@ -491,10 +559,15 @@ export default function FichasClient() {
             onGenerar={() => generarFicha(docSelObj)}
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <ChevronRight className="h-10 w-10 text-neutral-800" />
-            <p className="mt-3 text-sm text-neutral-500">Seleccioná un documento</p>
-            <p className="mt-1 text-xs text-neutral-700">
+          <div className="flex h-full flex-col items-center justify-center text-center px-8">
+            <div
+              className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
+              style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.15)' }}
+            >
+              <FileText className="h-7 w-7" style={{ color: 'rgba(139,92,246,0.5)' }} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: 'rgba(241,245,249,0.6)' }}>Seleccioná un documento</p>
+            <p className="mt-1 text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>
               {conFicha} con ficha · {sinFicha} sin ficha
             </p>
           </div>

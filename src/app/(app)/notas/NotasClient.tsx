@@ -137,9 +137,22 @@ function Editor({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="flex h-full max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl border border-neutral-800 bg-neutral-950 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)' }}
+    >
+      <div
+        className="flex h-full max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl shadow-2xl"
+        style={{
+          background: 'linear-gradient(180deg, #0d0d1f 0%, #080810 100%)',
+          border: '1px solid rgba(139,92,246,0.2)',
+          boxShadow: '0 0 40px rgba(124,58,237,0.15), 0 25px 50px rgba(0,0,0,0.6)',
+        }}
+      >
+        <div
+          className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        >
           <div className="flex items-center gap-3">
             {nota.id ? (
               <button
@@ -154,7 +167,13 @@ function Editor({
             )}
             {tipoBadge(tipo)}
           </div>
-          <button onClick={onCerrar} className="rounded p-1 text-neutral-600 hover:text-white">
+          <button
+            onClick={onCerrar}
+            className="rounded-lg p-1.5 transition-colors"
+            style={{ color: 'rgba(148,163,184,0.5)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)'; e.currentTarget.style.background = '' }}
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -165,7 +184,13 @@ function Editor({
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
               placeholder="Título (una afirmación, no un tema)"
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-lg font-semibold text-white placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none"
+              className="w-full rounded-lg px-3 py-2 text-lg font-semibold text-white placeholder:text-neutral-600 focus:outline-none"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.boxShadow = '' }}
             />
             <div className="flex flex-wrap gap-2">
               {TIPOS_ZETTEL.map((t) => (
@@ -190,25 +215,44 @@ function Editor({
               onChange={(e) => setContenido(e.target.value)}
               placeholder="Escribí una sola idea. Si tenés más de una, creá otra nota."
               rows={10}
-              className="w-full resize-none rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none"
+              className="w-full resize-none rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 focus:outline-none"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.08)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.boxShadow = '' }}
             />
             <input
               value={etiquetas}
               onChange={(e) => setEtiquetas(e.target.value)}
               placeholder="Etiquetas separadas por coma: gramsci, hegemonía"
-              className="rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-300 placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none"
+              className="rounded-lg px-3 py-2 text-sm text-neutral-300 placeholder:text-neutral-600 focus:outline-none"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.07)',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}
             />
           </div>
 
           {/* Panel de vínculos */}
-          <div className="w-64 flex-shrink-0 overflow-y-auto border-l border-neutral-800 p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+          <div
+            className="w-64 flex-shrink-0 overflow-y-auto p-4"
+            style={{ borderLeft: '1px solid rgba(255,255,255,0.05)', background: 'rgba(5,5,12,0.5)' }}
+          >
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(139,92,246,0.7)' }}>
               Vínculos ({vinculos.length})
             </p>
             {vinculos.map((v, i) => {
               const destino = todasLasNotas.find((n) => n.id === v.notaDestinoId)
               return (
-                <div key={i} className="mb-2 rounded-lg border border-neutral-800 bg-neutral-900 p-2">
+                <div
+                  key={i}
+                  className="mb-2 rounded-lg p-2"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                >
                   <div className="flex items-start justify-between gap-1">
                     <div className="flex-1 min-w-0">
                       <span className="block text-xs font-medium text-neutral-500">{v.tipo.replace(/_/g, ' ')}</span>
@@ -230,7 +274,8 @@ function Editor({
                 <select
                   value={tipoVinculo}
                   onChange={(e) => setTipoVinculo(e.target.value as VinculoZettel['tipo'])}
-                  className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-300"
+                  className="w-full rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
                 >
                   {TIPOS_VINCULO.map((t) => (
                     <option key={t.tipo} value={t.tipo}>{t.label}</option>
@@ -240,25 +285,40 @@ function Editor({
                   value={buscarVinculo}
                   onChange={(e) => setBuscarVinculo(e.target.value)}
                   placeholder="Buscar nota..."
-                  className="w-full rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-300 placeholder:text-neutral-600 focus:outline-none"
+                  className="w-full rounded px-2 py-1 text-xs text-neutral-300 placeholder:text-neutral-600 focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
                 />
                 <div className="max-h-40 overflow-y-auto space-y-1">
                   {candidatas.slice(0, 10).map((n) => (
                     <button
                       key={n.id}
                       onClick={() => agregarVinculo(n)}
-                      className="block w-full truncate rounded px-2 py-1 text-left text-xs text-neutral-400 hover:bg-neutral-800 hover:text-white"
+                      className="block w-full truncate rounded px-2 py-1 text-left text-xs text-neutral-400 transition-colors"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '' }}
                     >
                       {n.titulo}
                     </button>
                   ))}
                 </div>
-                <button onClick={() => setMostrarBusqueda(false)} className="text-xs text-neutral-600 hover:text-neutral-400">Cancelar</button>
+                <button
+                  onClick={() => setMostrarBusqueda(false)}
+                  className="text-xs transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.4)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.8)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
+                >Cancelar</button>
               </div>
             ) : (
               <button
                 onClick={() => setMostrarBusqueda(true)}
-                className="mt-2 flex w-full items-center gap-1.5 rounded-lg border border-dashed border-neutral-700 px-2 py-1.5 text-xs text-neutral-500 hover:border-neutral-600 hover:text-neutral-300"
+                className="mt-2 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs transition-all"
+                style={{
+                  border: '1px dashed rgba(139,92,246,0.25)',
+                  color: 'rgba(148,163,184,0.5)',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.color = '#a78bfa'; e.currentTarget.style.background = 'rgba(139,92,246,0.06)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)'; e.currentTarget.style.background = '' }}
               >
                 <Link2 className="h-3.5 w-3.5" /> Agregar vínculo
               </button>
@@ -267,7 +327,13 @@ function Editor({
             <button
               onClick={buscarSugerencias}
               disabled={buscandoSugerencias || !contenido.trim()}
-              className="mt-2 flex w-full items-center gap-1.5 rounded-lg border border-neutral-700 px-2 py-1.5 text-xs text-neutral-400 hover:border-neutral-600 disabled:opacity-40"
+              className="mt-2 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs transition-all disabled:opacity-40"
+              style={{
+                border: '1px solid rgba(255,255,255,0.07)',
+                color: 'rgba(148,163,184,0.6)',
+              }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#a78bfa' } }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
             >
               {buscandoSugerencias ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               Sugerir con IA
@@ -275,13 +341,17 @@ function Editor({
 
             {sugerencias.length > 0 && (
               <div className="mt-3 space-y-2">
-                <p className="text-xs font-medium text-neutral-500">Sugeridas:</p>
+                <p className="text-xs font-medium" style={{ color: 'rgba(148,163,184,0.5)' }}>Sugeridas:</p>
                 {sugerencias.map((s) => (
-                  <div key={s.notaId} className="rounded-lg border border-blue-900/30 bg-blue-950/10 p-2">
+                  <div
+                    key={s.notaId}
+                    className="rounded-lg p-2"
+                    style={{ border: '1px solid rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.05)' }}
+                  >
                     <p className="truncate text-xs text-neutral-300">{s.notaTitulo}</p>
-                    <p className="text-xs text-blue-400">{s.tipoVinculo.replace(/_/g, ' ')}</p>
+                    <p className="text-xs" style={{ color: '#22d3ee' }}>{s.tipoVinculo.replace(/_/g, ' ')}</p>
                     <p className="mt-0.5 text-xs text-neutral-600 line-clamp-2">{s.razon}</p>
-                    <button onClick={() => agregarSugerida(s)} className="mt-1 flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300">
+                    <button onClick={() => agregarSugerida(s)} className="mt-1 flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300">
                       <Check className="h-3 w-3" /> Agregar
                     </button>
                   </div>
@@ -291,8 +361,17 @@ function Editor({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 border-t border-neutral-800 px-6 py-4">
-          <button onClick={onCerrar} className="rounded-lg px-4 py-2 text-sm text-neutral-400 hover:text-white">Cancelar</button>
+        <div
+          className="flex items-center justify-end gap-3 px-6 py-4"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <button
+            onClick={onCerrar}
+            className="rounded-lg px-4 py-2 text-sm transition-colors"
+            style={{ color: 'rgba(148,163,184,0.6)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
+          >Cancelar</button>
           <button
             onClick={guardar}
             disabled={guardando}
@@ -364,22 +443,40 @@ function NotaDetalle({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-neutral-800 px-6 py-3">
+      <div
+        className="flex items-center justify-between px-6 py-3"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+      >
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigator.clipboard.writeText(`[[${nota.id}]]`)}
             title="Copiar [[ID]]"
-            className="font-mono text-xs text-neutral-600 hover:text-neutral-400 transition-colors"
+            className="font-mono text-xs transition-colors"
+            style={{ color: 'rgba(148,163,184,0.3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(167,139,250,0.8)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.3)' }}
           >
             {nota.id}
           </button>
           {tipoBadge(nota.tipo)}
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onEditar} className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-neutral-500 hover:text-white transition-colors">
+          <button
+            onClick={onEditar}
+            className="rounded-lg px-3 py-1.5 text-xs transition-all"
+            style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(203,213,225,0.8)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(139,92,246,0.08)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(203,213,225,0.8)'; e.currentTarget.style.background = '' }}
+          >
             Editar
           </button>
-          <button onClick={onEliminar} className="rounded-lg border border-red-900/50 px-3 py-1.5 text-xs text-red-500 hover:border-red-600 hover:bg-red-950/20 transition-colors">
+          <button
+            onClick={onEliminar}
+            className="rounded-lg px-3 py-1.5 text-xs transition-all"
+            style={{ border: '1px solid rgba(239,68,68,0.2)', color: 'rgba(239,68,68,0.8)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(239,68,68,0.5)'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(239,68,68,0.2)'; e.currentTarget.style.background = '' }}
+          >
             Eliminar
           </button>
         </div>
@@ -389,15 +486,24 @@ function NotaDetalle({
 
         {/* Banner efímera */}
         {esEfimera && !sugerencia && (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-orange-900/40 bg-orange-950/10 px-4 py-3">
-            <div className="flex items-center gap-2 text-xs text-orange-400">
+          <div
+            className="flex items-center justify-between gap-3 rounded-xl px-4 py-3"
+            style={{
+              background: 'linear-gradient(135deg, rgba(251,146,60,0.08) 0%, rgba(245,158,11,0.05) 100%)',
+              border: '1px solid rgba(251,146,60,0.25)',
+            }}
+          >
+            <div className="flex items-center gap-2 text-xs" style={{ color: '#fb923c' }}>
               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
               <span>Captura sin procesar. Convertila en permanente cuando estés list@.</span>
             </div>
             <button
               onClick={convertir}
               disabled={convertiendo}
-              className="flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-orange-900/40 px-3 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-900/60"
+              className="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+              style={{ background: 'rgba(251,146,60,0.15)', color: '#fdba74', border: '1px solid rgba(251,146,60,0.2)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(251,146,60,0.25)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(251,146,60,0.15)' }}
             >
               {convertiendo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               Convertir
@@ -407,8 +513,14 @@ function NotaDetalle({
 
         {/* Sugerencia de conversión */}
         {sugerencia && (
-          <div className="rounded-xl border border-green-900/40 bg-green-950/10 p-4 space-y-3">
-            <p className="text-xs font-semibold text-green-400">Sugerencia de conversión</p>
+          <div
+            className="rounded-xl p-4 space-y-3"
+            style={{
+              background: 'linear-gradient(135deg, rgba(52,211,153,0.07) 0%, rgba(16,185,129,0.04) 100%)',
+              border: '1px solid rgba(52,211,153,0.2)',
+            }}
+          >
+            <p className="text-xs font-semibold" style={{ color: '#34d399' }}>Sugerencia de conversión</p>
             <div>
               <p className="text-xs text-neutral-500">Título sugerido</p>
               <p className="text-sm font-medium text-white">{sugerencia.titulo_sugerido}</p>
@@ -430,11 +542,20 @@ function NotaDetalle({
                   })
                   window.location.reload()
                 }}
-                className="rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600"
+                className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-all"
+                style={{ background: 'rgba(52,211,153,0.2)', border: '1px solid rgba(52,211,153,0.4)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(52,211,153,0.3)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(52,211,153,0.2)' }}
               >
                 Aceptar
               </button>
-              <button onClick={() => setSugerencia(null)} className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400">
+              <button
+                onClick={() => setSugerencia(null)}
+                className="rounded-lg px-3 py-1.5 text-xs transition-all"
+                style={{ border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.6)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
+              >
                 Descartar
               </button>
             </div>
@@ -450,20 +571,31 @@ function NotaDetalle({
         {/* Etiquetas del usuario */}
         {etiquetasUsuario.length > 0 && (
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">Etiquetas</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(139,92,246,0.5)' }}>Etiquetas</p>
             <div className="flex flex-wrap gap-1.5">
               {etiquetasUsuario.map((e) => (
                 <button
                   key={e}
                   onClick={() => onFiltrarEtiqueta(e)}
                   title={`Filtrar por #${e}`}
-                  className="rounded-full border border-neutral-800 bg-neutral-900 px-2.5 py-1 text-xs text-neutral-400 transition-all hover:border-violet-700/50 hover:bg-violet-950/20 hover:text-violet-400"
+                  className="rounded-full px-2.5 py-1 text-xs transition-all"
+                  style={{
+                    background: 'rgba(139,92,246,0.08)',
+                    border: '1px solid rgba(139,92,246,0.2)',
+                    color: 'rgba(167,139,250,0.7)',
+                  }}
+                  onMouseEnter={(e2) => { e2.currentTarget.style.background = 'rgba(139,92,246,0.16)'; e2.currentTarget.style.borderColor = 'rgba(139,92,246,0.45)'; e2.currentTarget.style.color = '#a78bfa' }}
+                  onMouseLeave={(e2) => { e2.currentTarget.style.background = 'rgba(139,92,246,0.08)'; e2.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; e2.currentTarget.style.color = 'rgba(167,139,250,0.7)' }}
                 >
                   #{e}
                 </button>
               ))}
               {etiquetasSistema.map((e) => (
-                <span key={e} className="rounded-full border border-neutral-800/50 bg-neutral-900/50 px-2.5 py-1 text-xs text-neutral-600">
+                <span
+                  key={e}
+                  className="rounded-full px-2.5 py-1 text-xs"
+                  style={{ border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(148,163,184,0.3)' }}
+                >
                   #{e}
                 </span>
               ))}
@@ -473,15 +605,18 @@ function NotaDetalle({
 
         {/* Vínculos SALIENTES */}
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(139,92,246,0.5)' }}>
             Vínculos ({vinculos.length})
           </p>
           {vinculos.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-neutral-800 px-4 py-5 text-center">
-              <Link2 className="mx-auto h-5 w-5 text-neutral-700" />
-              <p className="mt-2 text-xs text-neutral-600">Sin vínculos todavía</p>
-              <p className="mt-0.5 text-xs text-neutral-700">
-                Editá la nota y usá <span className="text-neutral-500">Sugerir con IA</span> para descubrir conexiones automáticamente.
+            <div
+              className="rounded-xl px-4 py-5 text-center"
+              style={{ border: '1px dashed rgba(139,92,246,0.2)' }}
+            >
+              <Link2 className="mx-auto h-5 w-5" style={{ color: 'rgba(139,92,246,0.3)' }} />
+              <p className="mt-2 text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>Sin vínculos todavía</p>
+              <p className="mt-0.5 text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>
+                Editá la nota y usá <span style={{ color: 'rgba(167,139,250,0.6)' }}>Sugerir con IA</span> para descubrir conexiones automáticamente.
               </p>
             </div>
           ) : (
@@ -495,7 +630,10 @@ function NotaDetalle({
                     key={i}
                     onClick={() => destino && onSeleccionarNota(destino)}
                     disabled={!destino}
-                    className="flex w-full items-start gap-3 rounded-xl border border-neutral-800 bg-neutral-900/50 p-3 text-left transition-all hover:border-neutral-700 hover:bg-neutral-900 group disabled:cursor-not-allowed disabled:opacity-50"
+                    className="group flex w-full items-start gap-3 rounded-xl p-3 text-left transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                    onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)' } }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}
                   >
                     <span className={`mt-px flex-shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${colores}`}>
                       {vinculoLabel(v.tipo)}
@@ -524,7 +662,7 @@ function NotaDetalle({
         {/* Backlinks: notas que apuntan A ESTA */}
         {backlinks.length > 0 && (
           <div>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(6,182,212,0.6)' }}>
               Mencionada en ({backlinks.length})
             </p>
             <div className="space-y-1.5">
@@ -536,7 +674,10 @@ function NotaDetalle({
                   <button
                     key={bl.id}
                     onClick={() => onSeleccionarNota(bl)}
-                    className="flex w-full items-start gap-3 rounded-xl border border-neutral-800/60 bg-neutral-900/30 p-3 text-left transition-all hover:border-neutral-700 hover:bg-neutral-900 group"
+                    className="group flex w-full items-start gap-3 rounded-xl p-3 text-left transition-all"
+                    style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.12)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(6,182,212,0.08)'; e.currentTarget.style.borderColor = 'rgba(6,182,212,0.25)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(6,182,212,0.04)'; e.currentTarget.style.borderColor = 'rgba(6,182,212,0.12)' }}
                   >
                     <ArrowLeft className="mt-1 h-3.5 w-3.5 flex-shrink-0 text-neutral-700 group-hover:text-neutral-500" />
                     <div className="min-w-0 flex-1">
@@ -564,9 +705,12 @@ function NotaDetalle({
 
         {/* Origen del documento */}
         {(nota.documentoOrigenId ?? nota.documentoId) && (
-          <div className="rounded-xl border border-neutral-800/60 p-3">
+          <div
+            className="rounded-xl p-3"
+            style={{ background: 'rgba(6,182,212,0.05)', border: '1px solid rgba(6,182,212,0.15)' }}
+          >
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-neutral-600">Documento origen</p>
+              <p className="text-xs font-medium" style={{ color: 'rgba(6,182,212,0.7)' }}>Documento origen</p>
               <Link
                 href={`/lector/${nota.documentoOrigenId ?? nota.documentoId}${(nota.paginaOrigen ?? nota.pagina) ? `?pagina=${nota.paginaOrigen ?? nota.pagina}` : ''}`}
                 className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-blue-400 hover:bg-blue-950/30 hover:text-blue-300 transition-colors"
@@ -583,9 +727,9 @@ function NotaDetalle({
         {/* Comentario personal */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600">Mis notas</p>
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(139,92,246,0.5)' }}>Mis notas</p>
             {guardandoComentario && (
-              <span className="text-xs text-neutral-600">Guardando…</span>
+              <span className="text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>Guardando…</span>
             )}
           </div>
           <textarea
@@ -603,7 +747,13 @@ function NotaDetalle({
             }}
             placeholder="Escribí tus reflexiones personales sobre esta nota…"
             rows={4}
-            className="w-full resize-none rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-300 placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none"
+            className="w-full resize-none rounded-lg px-3 py-2 text-sm text-neutral-300 placeholder:text-neutral-600 focus:outline-none"
+            style={{
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.07)',
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.08)' }}
+            onBlurCapture={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.boxShadow = '' }}
           />
         </div>
       </div>
@@ -758,45 +908,81 @@ export default function NotasClient() {
   return (
     <div className="-m-4 md:-m-6 flex h-full overflow-hidden">
       {/* Panel izquierdo: filtros */}
-      <div className="hidden w-48 flex-shrink-0 overflow-y-auto border-r border-neutral-800 bg-neutral-950 p-4 lg:flex lg:flex-col">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">Por tipo</p>
+      <div
+        className="hidden w-48 flex-shrink-0 overflow-y-auto p-4 lg:flex lg:flex-col"
+        style={{
+          background: 'rgba(5,5,12,0.95)',
+          borderRight: '1px solid rgba(255,255,255,0.05)',
+        }}
+      >
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(139,92,246,0.6)' }}>Por tipo</p>
         <button
           onClick={() => setFiltroTipo('')}
-          className={`mb-0.5 flex items-center justify-between rounded px-2 py-1.5 text-sm ${filtroTipo === '' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+          className="mb-0.5 flex items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-all"
+          style={filtroTipo === ''
+            ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.25), rgba(30,58,138,0.15))', color: '#fff', border: '1px solid rgba(139,92,246,0.15)' }
+            : { color: 'rgba(148,163,184,0.6)', border: '1px solid transparent' }
+          }
+          onMouseEnter={(e) => { if (filtroTipo !== '') { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(203,213,225,0.9)' } }}
+          onMouseLeave={(e) => { if (filtroTipo !== '') { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' } }}
         >
           <span>Todas</span>
-          <span className="text-xs text-neutral-600">{notas.length}</span>
+          <span className="text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>{notas.length}</span>
         </button>
-        {TIPOS_ZETTEL.map((t) => (
-          <div key={t.tipo} className="group relative">
-            <button
-              onClick={() => setFiltroTipo(filtroTipo === t.tipo ? '' : t.tipo)}
-              className={`mb-0.5 flex w-full items-center justify-between rounded px-2 py-1.5 text-sm ${filtroTipo === t.tipo ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
-            >
-              <span>{t.label}</span>
-              <span className="text-xs text-neutral-600">{conteosPorTipo[t.tipo] ?? 0}</span>
-            </button>
-            <div className="pointer-events-none absolute left-full top-0 z-50 ml-2 hidden w-52 rounded-lg border border-neutral-700 bg-neutral-900 p-2.5 shadow-xl group-hover:block">
-              <p className={`mb-1 text-xs font-semibold ${t.color.split(' ')[0]}`}>{t.label}</p>
-              <p className="text-xs leading-relaxed text-neutral-400">{t.desc}</p>
+        {TIPOS_ZETTEL.map((t) => {
+          const isActive = filtroTipo === t.tipo
+          return (
+            <div key={t.tipo} className="group relative">
+              <button
+                onClick={() => setFiltroTipo(isActive ? '' : t.tipo)}
+                className="mb-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-all"
+                style={isActive
+                  ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.25), rgba(30,58,138,0.15))', color: '#fff', border: '1px solid rgba(139,92,246,0.15)' }
+                  : { color: 'rgba(148,163,184,0.6)', border: '1px solid transparent' }
+                }
+                onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(203,213,225,0.9)' } }}
+                onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' } }}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${t.dotColor}`} />
+                  <span>{t.label}</span>
+                </div>
+                <span className="text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>{conteosPorTipo[t.tipo] ?? 0}</span>
+              </button>
+              <div
+                className="pointer-events-none absolute left-full top-0 z-50 ml-2 hidden w-52 rounded-lg p-2.5 shadow-xl group-hover:block"
+                style={{ background: 'rgba(12,12,26,0.95)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}
+              >
+                <p className={`mb-1 text-xs font-semibold ${t.color.split(' ')[0]}`}>{t.label}</p>
+                <p className="text-xs leading-relaxed" style={{ color: 'rgba(148,163,184,0.6)' }}>{t.desc}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {sinVinculos > 0 && (
-          <div className="mt-4 rounded-lg border border-yellow-900/40 bg-yellow-950/10 p-2">
-            <p className="text-xs text-yellow-500">⚠ {sinVinculos} permanente{sinVinculos !== 1 ? 's' : ''} sin vínculos</p>
+          <div
+            className="mt-4 rounded-lg p-2"
+            style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)' }}
+          >
+            <p className="text-xs" style={{ color: '#fbbf24' }}>⚠ {sinVinculos} permanente{sinVinculos !== 1 ? 's' : ''} sin vínculos</p>
           </div>
         )}
 
         {etiquetasUnicas.length > 0 && (
           <>
-            <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-neutral-600">Por etiqueta</p>
+            <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(139,92,246,0.6)' }}>Por etiqueta</p>
             {etiquetasUnicas.map((e) => (
               <button
                 key={e}
                 onClick={() => setFiltroEtiqueta(filtroEtiqueta === e ? '' : e)}
-                className={`mb-0.5 truncate rounded px-2 py-1 text-left text-xs ${filtroEtiqueta === e ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                className="mb-0.5 truncate rounded-lg px-2 py-1 text-left text-xs transition-all"
+                style={filtroEtiqueta === e
+                  ? { background: 'rgba(139,92,246,0.15)', color: '#a78bfa', border: '1px solid rgba(139,92,246,0.3)' }
+                  : { color: 'rgba(148,163,184,0.5)', border: '1px solid transparent' }
+                }
+                onMouseEnter={(e2) => { if (filtroEtiqueta !== e) { e2.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e2.currentTarget.style.color = 'rgba(203,213,225,0.8)' } }}
+                onMouseLeave={(e2) => { if (filtroEtiqueta !== e) { e2.currentTarget.style.background = ''; e2.currentTarget.style.color = 'rgba(148,163,184,0.5)' } }}
               >
                 #{e}
               </button>
@@ -806,15 +992,27 @@ export default function NotasClient() {
       </div>
 
       {/* Panel central: lista */}
-      <div className="flex w-72 flex-shrink-0 flex-col border-r border-neutral-800">
-        <div className="flex items-center gap-2 border-b border-neutral-800 p-3">
+      <div
+        className="flex w-72 flex-shrink-0 flex-col"
+        style={{ borderRight: '1px solid rgba(255,255,255,0.05)' }}
+      >
+        <div
+          className="flex items-center gap-2 p-3"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(5,5,12,0.6)' }}
+        >
           <div className="relative flex-1">
-            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-neutral-600" />
+            <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'rgba(148,163,184,0.3)' }} />
             <input
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar..."
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900 py-1.5 pl-7 pr-3 text-xs text-neutral-300 placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
+              className="w-full rounded-lg py-1.5 pl-7 pr-3 text-xs text-neutral-300 placeholder:text-neutral-600 focus:outline-none"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.07)',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}
             />
           </div>
           {/* Botón convertir lote */}
@@ -823,14 +1021,20 @@ export default function NotasClient() {
               onClick={() => setMostrarConvLote((v) => !v)}
               disabled={convirtiendo || notasFiltradas.length === 0}
               title="Convertir notas visibles en lote"
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-neutral-600 hover:text-white disabled:opacity-40"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-all disabled:opacity-40"
+              style={{ border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.5)' }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff' } }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
             >
               {convirtiendo
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 : <RefreshCw className="h-3.5 w-3.5" />}
             </button>
             {mostrarConvLote && (
-              <div className="absolute right-0 top-9 z-50 w-64 rounded-xl border border-neutral-700 bg-neutral-900 p-3 shadow-2xl">
+              <div
+                className="absolute right-0 top-9 z-50 w-64 rounded-xl p-3 shadow-2xl"
+                style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.25)', boxShadow: '0 16px 40px rgba(0,0,0,0.6)' }}
+              >
                 <p className="mb-2 text-xs font-semibold text-neutral-300">
                   Convertir {notasFiltradas.length} nota{notasFiltradas.length !== 1 ? 's' : ''} visibles a:
                 </p>
@@ -872,25 +1076,34 @@ export default function NotasClient() {
               onClick={() => vincularTodoConIA(true)}
               disabled={vinculandoIA || notas.length === 0}
               title="Vincular con IA (solo notas sin vínculos)"
-              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-purple-700 hover:text-purple-400 disabled:opacity-40"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-all disabled:opacity-40"
+              style={{ border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.5)' }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.color = '#a78bfa'; e.currentTarget.style.background = 'rgba(139,92,246,0.08)' } }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)'; e.currentTarget.style.background = '' }}
             >
               {vinculandoIA
                 ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 : <Zap className="h-3.5 w-3.5" />}
             </button>
             {!vinculandoIA && (
-              <div className="pointer-events-none absolute right-0 top-9 z-50 hidden w-56 rounded-lg border border-neutral-700 bg-neutral-900 p-2.5 shadow-xl group-hover:block">
-                <p className="mb-1 text-xs font-semibold text-purple-400">Vincular con IA</p>
-                <p className="text-xs text-neutral-500 leading-relaxed">
+              <div
+                className="pointer-events-none absolute right-0 top-9 z-50 hidden w-56 rounded-lg p-2.5 shadow-xl group-hover:block"
+                style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.25)', boxShadow: '0 12px 30px rgba(0,0,0,0.5)' }}
+              >
+                <p className="mb-1 text-xs font-semibold" style={{ color: '#a78bfa' }}>Vincular con IA</p>
+                <p className="text-xs leading-relaxed" style={{ color: 'rgba(148,163,184,0.5)' }}>
                   Analiza todas las notas en una sola llamada y aplica los vínculos más relevantes.
                 </p>
                 <button
-                  className="pointer-events-auto mt-2 block w-full rounded bg-neutral-800 py-1 text-center text-xs text-neutral-300 hover:bg-neutral-700"
+                  className="pointer-events-auto mt-2 block w-full rounded-lg py-1 text-center text-xs transition-all"
+                  style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(203,213,225,0.8)' }}
                   onClick={(e) => { e.stopPropagation(); vincularTodoConIA(false) }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.15)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)' }}
                 >
                   Procesar todas las notas
                 </button>
-                <div className="pointer-events-auto mt-2 border-t border-neutral-800 pt-2">
+                <div className="pointer-events-auto mt-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                   <button
                     className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-xs text-red-500 hover:bg-red-950/30"
                     onClick={(e) => { e.stopPropagation(); limpiarTodosVinculos() }}
@@ -912,13 +1125,13 @@ export default function NotasClient() {
 
         {/* Progreso de conversión en lote */}
         {progresoConv && (
-          <div className="border-b border-neutral-800 bg-blue-950/20 px-4 py-2 text-xs text-blue-400">
+          <div className="px-4 py-2 text-xs" style={{ background: 'rgba(6,182,212,0.07)', borderBottom: '1px solid rgba(6,182,212,0.15)', color: '#22d3ee' }}>
             Convirtiendo {progresoConv.actual}/{progresoConv.total}…
           </div>
         )}
         {/* Progreso de vinculación IA */}
         {progresoVinc && (
-          <div className="border-b border-neutral-800 bg-purple-950/20 px-4 py-2 text-xs text-purple-400">
+          <div className="px-4 py-2 text-xs" style={{ background: 'rgba(139,92,246,0.07)', borderBottom: '1px solid rgba(139,92,246,0.15)', color: '#a78bfa' }}>
             {progresoVinc.ultimoError ? (
               <span className="text-red-400" title={progresoVinc.ultimoError}>
                 Error: {progresoVinc.ultimoError.slice(0, 100)}
@@ -941,8 +1154,14 @@ export default function NotasClient() {
           )}
           {!cargando && notasFiltradas.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <p className="text-sm text-neutral-600">Sin notas</p>
-              <button onClick={() => setEditando({})} className="mt-3 text-xs text-blue-500 hover:text-blue-400">
+              <p className="text-sm" style={{ color: 'rgba(148,163,184,0.4)' }}>Sin notas</p>
+              <button
+                onClick={() => setEditando({})}
+                className="mt-3 text-xs transition-colors"
+                style={{ color: 'rgba(139,92,246,0.7)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#a78bfa' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(139,92,246,0.7)' }}
+              >
                 Crear primera nota
               </button>
             </div>
@@ -957,10 +1176,19 @@ export default function NotasClient() {
               <button
                 key={n.id}
                 onClick={() => setNotaSel(n)}
-                className={`relative block w-full border-b border-neutral-800/50 pl-4 pr-3 py-3 text-left transition-colors hover:bg-neutral-900/80 ${isSelected ? 'bg-neutral-900' : ''}`}
+                className="relative block w-full pl-4 pr-3 py-3 text-left transition-all"
+                style={{
+                  borderBottom: '1px solid rgba(255,255,255,0.04)',
+                  background: isSelected ? 'linear-gradient(90deg, rgba(109,40,217,0.12), rgba(30,58,138,0.08))' : '',
+                }}
+                onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+                onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = '' }}
               >
-                {/* Barra de color según tipo */}
-                <div className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-full ${cfg?.barColor ?? 'bg-neutral-600'}`} />
+                {/* Barra de color según tipo con glow */}
+                <div
+                  className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-full ${cfg?.barColor ?? 'bg-neutral-600'}`}
+                  style={isSelected ? { boxShadow: '0 0 8px currentColor' } : {}}
+                />
 
                 {/* Título */}
                 <p className="line-clamp-2 text-sm font-medium leading-snug text-neutral-100">{n.titulo}</p>
@@ -969,12 +1197,20 @@ export default function NotasClient() {
                 {etiquetas.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {etiquetas.slice(0, 3).map((e) => (
-                      <span key={e} className="rounded-full border border-neutral-800 bg-neutral-900/80 px-1.5 py-px text-xs text-neutral-500">
+                      <span
+                        key={e}
+                        className="rounded-full px-1.5 py-px text-xs"
+                        style={{
+                          background: 'rgba(139,92,246,0.08)',
+                          border: '1px solid rgba(139,92,246,0.15)',
+                          color: 'rgba(167,139,250,0.6)',
+                        }}
+                      >
                         #{e}
                       </span>
                     ))}
                     {etiquetas.length > 3 && (
-                      <span className="text-xs text-neutral-700">+{etiquetas.length - 3}</span>
+                      <span className="text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>+{etiquetas.length - 3}</span>
                     )}
                   </div>
                 )}
@@ -985,10 +1221,10 @@ export default function NotasClient() {
                     {cfg?.label ?? n.tipo}
                   </span>
                   {(salientes > 0 || entrantes > 0) && (
-                    <span className="flex items-center gap-1 text-xs text-neutral-600">
+                    <span className="flex items-center gap-1 text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
                       <Link2 className="h-2.5 w-2.5" />
                       {salientes > 0 && <span title="vínculos salientes">{salientes}↗</span>}
-                      {entrantes > 0 && <span title="backlinks" className="text-violet-600">{entrantes}↙</span>}
+                      {entrantes > 0 && <span title="backlinks" style={{ color: 'rgba(139,92,246,0.7)' }}>{entrantes}↙</span>}
                     </span>
                   )}
                 </div>
@@ -1020,12 +1256,27 @@ export default function NotasClient() {
             }}
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <ChevronRight className="h-10 w-10 text-neutral-800" />
-            <p className="mt-3 text-sm text-neutral-600">Seleccioná una nota</p>
+          <div className="flex h-full flex-col items-center justify-center text-center px-6">
+            <div
+              className="flex h-14 w-14 items-center justify-center rounded-2xl"
+              style={{
+                background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(6,182,212,0.08))',
+                border: '1px solid rgba(139,92,246,0.2)',
+                boxShadow: '0 0 24px rgba(124,58,237,0.1)',
+              }}
+            >
+              <ChevronRight className="h-7 w-7" style={{ color: 'rgba(139,92,246,0.6)' }} />
+            </div>
+            <p className="mt-4 text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>Seleccioná una nota para verla</p>
             <button
               onClick={() => setEditando({})}
-              className="mt-4 flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500"
+              className="mt-5 flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white transition-all"
+              style={{
+                background: 'linear-gradient(135deg, #7c3aed, #0891b2)',
+                boxShadow: '0 0 20px rgba(124,58,237,0.3)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 30px rgba(124,58,237,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 20px rgba(124,58,237,0.3)'; e.currentTarget.style.transform = '' }}
             >
               <Plus className="h-4 w-4" /> Nueva nota
             </button>
