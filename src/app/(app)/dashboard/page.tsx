@@ -56,13 +56,21 @@ const QUICK_LINKS = [
 export default async function DashboardPage() {
   const session = await auth()
   const accessToken = getAccessToken(session)
-  const estructura = await initUserDrive(accessToken)
-  const documentos = await listPDFs(accessToken, estructura.pdfsId)
-  const indexados = documentos.filter((d) => d.estado === 'indexado').length
   const nombre = session?.user?.name?.split(' ')[0] ?? 'Investigador'
 
+  let docCount = 0
+  let indexados = 0
+  try {
+    const estructura = await initUserDrive(accessToken)
+    const documentos = await listPDFs(accessToken, estructura.pdfsId)
+    docCount = documentos.length
+    indexados = documentos.filter((d) => d.estado === 'indexado').length
+  } catch {
+    // Drive API unavailable — show zeros gracefully
+  }
+
   const stats = [
-    { ...STAT_CARDS[0], valor: documentos.length, desc: `${indexados} indexado${indexados !== 1 ? 's' : ''}` },
+    { ...STAT_CARDS[0], valor: docCount, desc: `${indexados} indexado${indexados !== 1 ? 's' : ''}` },
     { ...STAT_CARDS[1], valor: '—', desc: 'Ver fichas' },
     { ...STAT_CARDS[2], valor: '—', desc: 'Ver notas' },
     { ...STAT_CARDS[3], valor: '—', desc: 'Ver proyectos' },
@@ -195,7 +203,7 @@ export default async function DashboardPage() {
         <ol className="space-y-3">
           {[
             { n: 1, texto: 'Configurá tu API key de Gemini en', link: '/configuracion', linkLabel: 'Configuración', done: false },
-            { n: 2, texto: 'Subí tus PDFs en', link: '/biblioteca', linkLabel: 'Biblioteca', done: documentos.length > 0 },
+            { n: 2, texto: 'Subí tus PDFs en', link: '/biblioteca', linkLabel: 'Biblioteca', done: docCount > 0 },
             { n: 3, texto: 'Indexá los documentos para habilitar la búsqueda semántica', link: null, linkLabel: null, done: indexados > 0 },
             { n: 4, texto: 'Consultá tu biblioteca en', link: '/consultar', linkLabel: 'Consultar', done: false },
           ].map(({ n, texto, link, linkLabel, done }) => (
