@@ -13,6 +13,8 @@ const COLOR_CLASS: Record<Highlight['color'], string> = {
   amarillo: 'border-l-amber-400',
   azul: 'border-l-blue-400',
   rojo: 'border-l-red-400',
+  verde: 'border-l-green-400',
+  morado: 'border-l-purple-400',
 }
 
 export default function PanelLateral({ highlights, citas, paginaActual }: Props) {
