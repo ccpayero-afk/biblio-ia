@@ -422,8 +422,11 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
 
         {/* ── Toolbar ── */}
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-neutral-800 bg-neutral-950 px-3">
-          <h2 className="flex-1 truncate text-xs text-neutral-400 md:text-sm md:text-neutral-300">
+        <div
+          className="flex h-12 shrink-0 items-center gap-2 px-3"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(3,3,8,0.95)' }}
+        >
+          <h2 className="flex-1 truncate text-xs md:text-sm" style={{ color: 'rgba(148,163,184,0.6)' }}>
             {documento.nombre.replace(/\.pdf$/i, '')}
           </h2>
 
@@ -433,7 +436,10 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
               onClick={() => irAPagina(paginaActual - 1)}
               disabled={paginaActual <= 1}
               title="Página anterior (←)"
-              className="rounded p-1 text-neutral-400 hover:text-white disabled:opacity-30"
+              className="rounded p-1 transition-colors disabled:opacity-30"
+              style={{ color: 'rgba(148,163,184,0.5)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -443,14 +449,18 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
               onChange={(e) => setInputPagina(e.target.value)}
               onBlur={() => irAPagina(parseInt(inputPagina) || 1)}
               onKeyDown={(e) => e.key === 'Enter' && irAPagina(parseInt(inputPagina) || 1)}
-              className="w-10 rounded border border-neutral-700 bg-neutral-800 px-1 py-0.5 text-center text-xs text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="w-10 rounded px-1 py-0.5 text-center text-xs text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none focus:outline-none"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
             />
-            <span className="text-xs text-neutral-500">/{numPages}</span>
+            <span className="text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>/{numPages}</span>
             <button
               onClick={() => irAPagina(paginaActual + 1)}
               disabled={paginaActual >= numPages}
               title="Página siguiente (→)"
-              className="rounded p-1 text-neutral-400 hover:text-white disabled:opacity-30"
+              className="rounded p-1 transition-colors disabled:opacity-30"
+              style={{ color: 'rgba(148,163,184,0.5)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -461,7 +471,10 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
             <button
               onClick={zoomOut}
               title="Reducir zoom (−)"
-              className="rounded p-1 text-neutral-400 hover:text-white"
+              className="rounded p-1 transition-colors"
+              style={{ color: 'rgba(148,163,184,0.5)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
             >
               <ZoomOut className="h-4 w-4" />
             </button>
@@ -472,7 +485,8 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
                 if (v === 'fit') setFitWidth()
                 else if (v !== 'custom') setZoom(parseFloat(v))
               }}
-              className="rounded border border-neutral-700 bg-neutral-800 px-1.5 py-0.5 text-xs text-white cursor-pointer"
+              className="rounded px-1.5 py-0.5 text-xs text-white cursor-pointer focus:outline-none"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)' }}
             >
               {selectValue === 'custom' && (
                 <option value="custom">{Math.round(zoom * 100)}%</option>
@@ -485,7 +499,10 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
             <button
               onClick={zoomIn}
               title="Aumentar zoom (+)"
-              className="rounded p-1 text-neutral-400 hover:text-white"
+              className="rounded p-1 transition-colors"
+              style={{ color: 'rgba(148,163,184,0.5)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
             >
               <ZoomIn className="h-4 w-4" />
             </button>
@@ -495,7 +512,10 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
           <button
             onClick={() => { setBuscadorAbierto((v) => !v); setTimeout(() => searchInputRef.current?.focus(), 50) }}
             title="Buscar en el documento (Ctrl+F)"
-            className={`rounded p-1 transition-colors ${buscadorAbierto ? 'text-blue-400' : 'text-neutral-400 hover:text-white'}`}
+            className="rounded p-1 transition-colors"
+            style={{ color: buscadorAbierto ? 'rgba(139,92,246,0.9)' : 'rgba(148,163,184,0.5)' }}
+            onMouseEnter={(e) => { if (!buscadorAbierto) e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { if (!buscadorAbierto) e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
           >
             <Search className="h-4 w-4" />
           </button>
@@ -504,7 +524,10 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
           <button
             onClick={toggleFullscreen}
             title={fullscreen ? 'Salir de pantalla completa (F)' : 'Pantalla completa (F)'}
-            className="rounded p-1 text-neutral-400 hover:text-white"
+            className="rounded p-1 transition-colors"
+            style={{ color: 'rgba(148,163,184,0.5)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
           >
             {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
@@ -515,7 +538,10 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
               onClick={procesarHighlights}
               disabled={procesandoHL}
               title="Procesar highlights del PDF original"
-              className="hidden items-center gap-1.5 rounded-lg border border-neutral-700 px-2 py-1 text-xs text-neutral-400 hover:border-neutral-500 hover:text-white disabled:opacity-40 sm:flex"
+              className="hidden items-center gap-1.5 rounded-lg px-2 py-1 text-xs transition-all disabled:opacity-40 sm:flex"
+              style={{ border: '1px solid rgba(139,92,246,0.25)', color: 'rgba(167,139,250,0.7)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)'; e.currentTarget.style.color = 'rgba(167,139,250,0.7)' }}
             >
               {procesandoHL ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               {procesandoHL ? 'Procesando…' : 'Highlights PDF'}
@@ -524,18 +550,19 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
             <button
               onClick={() => setHlResultado(null)}
               title={hlResultado.error}
-              className="hidden max-w-[200px] items-center gap-1 truncate rounded-lg border border-red-900 px-2 py-1 text-xs text-red-400 hover:border-red-700 sm:flex"
+              className="hidden max-w-[200px] items-center gap-1 truncate rounded-lg px-2 py-1 text-xs text-red-400 sm:flex"
+              style={{ border: '1px solid rgba(239,68,68,0.3)' }}
             >
               Error (clic para reintentar)
             </button>
           ) : (
             <span
               title={hlResultado.mensaje ?? `${hlResultado.citasCreadas} citas · ${hlResultado.notasCreadas} notas`}
-              className={`hidden items-center gap-1 rounded-lg border px-2 py-1 text-xs sm:flex ${
-                hlResultado.anotaciones === 0
-                  ? 'border-neutral-700 text-neutral-500'
-                  : 'border-green-900 text-green-400'
-              }`}
+              className="hidden items-center gap-1 rounded-lg px-2 py-1 text-xs sm:flex"
+              style={hlResultado.anotaciones === 0
+                ? { border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.4)' }
+                : { border: '1px solid rgba(52,211,153,0.3)', color: 'rgba(52,211,153,0.9)', background: 'rgba(52,211,153,0.06)' }
+              }
             >
               {hlResultado.anotaciones === 0 ? (
                 'Sin highlights'
@@ -549,9 +576,10 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
           <button
             onClick={() => setPanelAbierto((p) => !p)}
             title="Panel lateral"
-            className={`rounded p-1 transition-colors ${
-              panelAbierto ? 'text-blue-400' : 'text-neutral-400 hover:text-white'
-            }`}
+            className="rounded p-1 transition-colors"
+            style={{ color: panelAbierto ? 'rgba(139,92,246,0.9)' : 'rgba(148,163,184,0.5)' }}
+            onMouseEnter={(e) => { if (!panelAbierto) e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { if (!panelAbierto) e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
           >
             <PanelRight className="h-4 w-4" />
           </button>
@@ -564,9 +592,12 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
         >
           {/* Buscador superpuesto (Ctrl+F) */}
           {buscadorAbierto && (
-            <div className="absolute right-4 top-3 z-40 w-80 rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
+            <div
+              className="absolute right-4 top-3 z-40 w-80 rounded-xl shadow-2xl"
+              style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(12px)' }}
+            >
               <div className="flex items-center gap-2 p-2">
-                <Search className="h-4 w-4 shrink-0 text-neutral-500" />
+                <Search className="h-4 w-4 shrink-0" style={{ color: 'rgba(139,92,246,0.6)' }} />
                 <input
                   ref={searchInputRef}
                   value={queryBusqueda}
@@ -580,36 +611,44 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
                     }
                   }}
                   placeholder="Buscar en el documento…"
-                  className="flex-1 bg-transparent text-sm text-white placeholder-neutral-600 focus:outline-none"
+                  className="flex-1 bg-transparent text-sm text-white focus:outline-none"
+                  style={{ '::placeholder': { color: 'rgba(148,163,184,0.35)' } } as React.CSSProperties}
                 />
                 {queryBusqueda && (
-                  <span className="shrink-0 text-xs text-neutral-500">{resultadosBusq.length}</span>
+                  <span className="shrink-0 text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>{resultadosBusq.length}</span>
                 )}
                 <button
                   onClick={() => { setBuscadorAbierto(false); setQueryBusqueda(''); setResultadosBusq([]) }}
-                  className="shrink-0 text-neutral-500 hover:text-white"
+                  className="shrink-0 transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.4)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
               {resultadosBusq.length > 0 && (
-                <div className="max-h-60 overflow-y-auto border-t border-neutral-800 p-1">
+                <div className="max-h-60 overflow-y-auto p-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                   {resultadosBusq.map((r, i) => (
                     <button
                       key={i}
                       onClick={() => { setIndiceResultado(i); irAPagina(r.pagina) }}
-                      className={`flex w-full items-baseline gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
-                        i === indiceResultado ? 'bg-neutral-700' : 'hover:bg-neutral-800'
-                      }`}
+                      className="flex w-full items-baseline gap-2 rounded-lg px-2 py-1.5 text-left transition-colors"
+                      style={i === indiceResultado
+                        ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.25), rgba(30,58,138,0.15))', border: '1px solid rgba(139,92,246,0.15)' }
+                        : { border: '1px solid transparent' }
+                      }
+                      onMouseEnter={(e) => { if (i !== indiceResultado) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                      onMouseLeave={(e) => { if (i !== indiceResultado) e.currentTarget.style.background = '' }}
                     >
-                      <span className="shrink-0 text-xs font-semibold text-blue-400">p. {r.pagina}</span>
-                      <span className="truncate text-xs text-neutral-400">{r.contexto}</span>
+                      <span className="shrink-0 text-xs font-semibold" style={{ color: 'rgba(139,92,246,0.8)' }}>p. {r.pagina}</span>
+                      <span className="truncate text-xs" style={{ color: 'rgba(148,163,184,0.6)' }}>{r.contexto}</span>
                     </button>
                   ))}
                 </div>
               )}
               {queryBusqueda && resultadosBusq.length === 0 && (
-                <p className="border-t border-neutral-800 px-3 py-2 text-xs text-neutral-600">
+                <p className="px-3 py-2 text-xs" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', color: 'rgba(148,163,184,0.35)' }}>
                   {Object.keys(textosPaginas).length === 0
                     ? 'Sin texto guardado. Reindexá el documento para activar la búsqueda.'
                     : 'Sin resultados.'}
@@ -704,7 +743,10 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
 
       {/* ── Toast ── */}
       {toast && (
-        <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-neutral-800 px-4 py-2 text-sm text-white shadow-xl border border-neutral-700">
+        <div
+          className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg px-4 py-2 text-sm text-white shadow-xl"
+          style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.25)', backdropFilter: 'blur(12px)' }}
+        >
           {toast}
         </div>
       )}

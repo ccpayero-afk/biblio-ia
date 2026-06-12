@@ -245,7 +245,10 @@ function ForceGraphSVG({
         const n = nodesRef.current.find(x => x.id === hovered)
         if (!n) return null
         return (
-          <div className="pointer-events-none absolute left-4 top-4 max-w-xs rounded-lg border border-neutral-700 bg-neutral-900/95 px-3 py-2 shadow-xl backdrop-blur-sm">
+          <div
+            className="pointer-events-none absolute left-4 top-4 max-w-xs rounded-xl px-3 py-2 shadow-2xl"
+            style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(12px)' }}
+          >
             <p className="text-xs font-medium" style={{ color: n.color }}>{n.tipo}</p>
             <p className="mt-0.5 text-sm text-white leading-snug">{n.label}</p>
           </div>
@@ -254,9 +257,16 @@ function ForceGraphSVG({
 
       {/* Zoom controls */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-1">
-        <button onClick={() => zoomBy(1.5)} className="flex h-8 w-8 items-center justify-center rounded border border-neutral-700 bg-neutral-900/80 text-neutral-300 hover:text-white text-sm font-bold">+</button>
-        <button onClick={resetZoom} className="flex h-8 w-8 items-center justify-center rounded border border-neutral-700 bg-neutral-900/80 text-xs text-neutral-400 hover:text-white">⌂</button>
-        <button onClick={() => zoomBy(0.67)} className="flex h-8 w-8 items-center justify-center rounded border border-neutral-700 bg-neutral-900/80 text-neutral-300 hover:text-white text-sm font-bold">−</button>
+        {[{ label: '+', fn: () => zoomBy(1.5) }, { label: '⌂', fn: resetZoom }, { label: '−', fn: () => zoomBy(0.67) }].map(({ label, fn }) => (
+          <button
+            key={label}
+            onClick={fn}
+            className="flex h-8 w-8 items-center justify-center rounded text-sm font-bold transition-all"
+            style={{ background: 'rgba(10,10,22,0.9)', border: '1px solid rgba(139,92,246,0.2)', color: 'rgba(148,163,184,0.6)', backdropFilter: 'blur(8px)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
+          >{label}</button>
+        ))}
       </div>
     </div>
   )
@@ -390,15 +400,21 @@ export default function GrafoClient() {
 
   if (cargando) return (
     <div className="flex items-center justify-center py-20">
-      <Loader2 className="h-6 w-6 animate-spin text-neutral-600" />
+      <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'rgba(139,92,246,0.6)' }} />
     </div>
   )
 
   if (errorMsg) return (
     <div className="flex flex-col items-center py-20 text-center">
-      <AlertCircle className="h-10 w-10 text-red-700" />
+      <AlertCircle className="h-10 w-10" style={{ color: 'rgba(239,68,68,0.6)' }} />
       <p className="mt-4 text-sm text-red-400">{errorMsg}</p>
-      <button onClick={() => cargar()} className="mt-4 text-xs text-neutral-500 hover:text-neutral-300">Reintentar</button>
+      <button
+        onClick={() => cargar()}
+        className="mt-4 text-xs transition-colors"
+        style={{ color: 'rgba(148,163,184,0.4)' }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
+      >Reintentar</button>
     </div>
   )
 
@@ -406,29 +422,48 @@ export default function GrafoClient() {
 
   if (sinDatos) return (
     <div className="flex flex-col items-center justify-center py-20 text-center max-w-sm mx-auto">
-      <GitFork className="h-12 w-12 text-neutral-700" />
-      <h2 className="mt-4 text-lg font-semibold text-white">Grafo vacío</h2>
+      <div
+        className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
+        style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06))', border: '1px solid rgba(139,92,246,0.2)' }}
+      >
+        <GitFork className="h-8 w-8" style={{ color: 'rgba(139,92,246,0.6)' }} />
+      </div>
+      <h2 className="text-lg font-semibold text-white">Grafo vacío</h2>
       {modo === 'bibliografico' ? (
         <>
-          <p className="mt-2 text-sm text-neutral-500">Necesitás tener documentos indexados en Biblioteca.</p>
-          <button onClick={() => cargar(true)} className="mt-4 flex items-center gap-2 rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-neutral-600">
+          <p className="mt-2 text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>Necesitás tener documentos indexados en Biblioteca.</p>
+          <button
+            onClick={() => cargar(true)}
+            className="mt-4 flex items-center gap-2 rounded-xl px-4 py-2 text-sm transition-all"
+            style={{ border: '1px solid rgba(139,92,246,0.3)', color: 'rgba(148,163,184,0.7)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'; e.currentTarget.style.color = 'rgba(148,163,184,0.7)' }}
+          >
             <RefreshCw className="h-4 w-4" /> Construir grafo
           </button>
         </>
       ) : tiposActivos.size === 0 ? (
         <>
-          <p className="mt-2 text-sm text-neutral-500">Todos los filtros están desactivados.</p>
-          <button onClick={() => toggleTodos(true)} className="mt-3 text-xs text-blue-400 hover:text-blue-300">Activar todos</button>
+          <p className="mt-2 text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>Todos los filtros están desactivados.</p>
+          <button
+            onClick={() => toggleTodos(true)}
+            className="mt-3 text-xs hover:underline"
+            style={{ color: 'rgba(139,92,246,0.8)' }}
+          >Activar todos</button>
         </>
       ) : (
         <>
-          <p className="mt-2 text-sm text-neutral-500">
+          <p className="mt-2 text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>
             {notas.length === 0 && citas.length === 0
               ? 'No hay notas ni citas. Procesá highlights en Biblioteca o creá notas en la sección Notas.'
               : `${notas.length} notas y ${citas.length} citas cargadas, pero ninguna visible con los filtros activos.`}
           </p>
           {notas.length > 0 && (
-            <button onClick={() => toggleTodos(true)} className="mt-3 text-xs text-blue-400 hover:text-blue-300">Mostrar todos los tipos</button>
+            <button
+              onClick={() => toggleTodos(true)}
+              className="mt-3 text-xs hover:underline"
+              style={{ color: 'rgba(139,92,246,0.8)' }}
+            >Mostrar todos los tipos</button>
           )}
         </>
       )}
@@ -444,29 +479,33 @@ export default function GrafoClient() {
   return (
     <div className="-m-4 md:-m-6 flex flex-col" style={{ height: dimensiones.height + 52 }}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-2.5 gap-4 flex-shrink-0">
-        <div className="flex rounded-lg border border-neutral-700 p-0.5">
-          <button
-            onClick={() => setModo('bibliografico')}
-            className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs transition-colors ${modo === 'bibliografico' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-          >
-            <BookOpen className="h-3.5 w-3.5" /> Bibliográfico
-          </button>
-          <button
-            onClick={() => setModo('zettelkasten')}
-            className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs transition-colors ${modo === 'zettelkasten' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-          >
-            <Network className="h-3.5 w-3.5" /> Zettelkasten
-          </button>
+      <div className="flex items-center justify-between px-4 py-2.5 gap-4 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="flex rounded-lg p-0.5" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+          {(['bibliografico', 'zettelkasten'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setModo(m)}
+              className="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs transition-all"
+              style={modo === m
+                ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.3), rgba(30,58,138,0.2))', color: '#fff', border: '1px solid rgba(139,92,246,0.25)' }
+                : { color: 'rgba(148,163,184,0.5)', border: '1px solid transparent' }
+              }
+            >
+              {m === 'bibliografico' ? <><BookOpen className="h-3.5 w-3.5" /> Bibliográfico</> : <><Network className="h-3.5 w-3.5" /> Zettelkasten</>}
+            </button>
+          ))}
         </div>
 
-        <p className="text-xs text-neutral-600">
+        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
           {graphData.nodes.length} nodos · {graphData.links.length} conexiones
         </p>
 
         <button
           onClick={() => cargar(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-neutral-600"
+          className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs transition-all"
+          style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#fff' }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
         >
           <RefreshCw className="h-3.5 w-3.5" /> Reconstruir
         </button>
@@ -475,32 +514,51 @@ export default function GrafoClient() {
       <div className="flex flex-1 overflow-hidden">
         {/* Panel filtros Zettelkasten */}
         {modo === 'zettelkasten' && (
-          <div className="w-44 flex-shrink-0 overflow-y-auto border-r border-neutral-800 bg-neutral-950 p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">Filtros</p>
+          <div
+            className="w-44 flex-shrink-0 overflow-y-auto p-3"
+            style={{ borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(5,5,12,0.8)' }}
+          >
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.4)' }}>Filtros</p>
             <div className="mb-3 flex gap-1">
-              <button onClick={() => toggleTodos(true)} className="flex-1 rounded py-1 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-white">Todos</button>
-              <button onClick={() => toggleTodos(false)} className="flex-1 rounded py-1 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-white">Ninguno</button>
+              <button
+                onClick={() => toggleTodos(true)}
+                className="flex-1 rounded py-1 text-xs transition-all"
+                style={{ color: 'rgba(148,163,184,0.5)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
+              >Todos</button>
+              <button
+                onClick={() => toggleTodos(false)}
+                className="flex-1 rounded py-1 text-xs transition-all"
+                style={{ color: 'rgba(148,163,184,0.5)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
+              >Ninguno</button>
             </div>
             <div className="space-y-1">
               {TIPOS_FILTRO.map(t => (
                 <button
                   key={t.key}
                   onClick={() => toggleTipo(t.key)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${tiposActivos.has(t.key) ? 'bg-neutral-800 text-white' : 'text-neutral-600 hover:text-neutral-400'}`}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-all"
+                  style={tiposActivos.has(t.key)
+                    ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.15), rgba(30,58,138,0.1))', color: '#fff', border: '1px solid rgba(139,92,246,0.15)' }
+                    : { color: 'rgba(148,163,184,0.4)', border: '1px solid transparent' }
+                  }
                 >
-                  <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: tiposActivos.has(t.key) ? t.color : '#374151' }} />
+                  <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: tiposActivos.has(t.key) ? t.color : 'rgba(55,65,81,0.6)' }} />
                   <span className="flex-1 text-left">{t.label}</span>
-                  <span className="text-neutral-600">{conteoPorTipo[t.key] ?? 0}</span>
+                  <span style={{ color: 'rgba(148,163,184,0.35)' }}>{conteoPorTipo[t.key] ?? 0}</span>
                 </button>
               ))}
             </div>
             <div className="mt-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">Vínculos</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.4)' }}>Vínculos</p>
               <div className="space-y-1">
                 {Object.entries(COLOR_VINCULO).map(([tipo, color]) => (
                   <div key={tipo} className="flex items-center gap-1.5">
                     <span className="h-1 w-4 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                    <span className="text-xs text-neutral-600">{tipo.replace(/_/g, ' ')}</span>
+                    <span className="text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>{tipo.replace(/_/g, ' ')}</span>
                   </div>
                 ))}
               </div>
@@ -524,42 +582,72 @@ export default function GrafoClient() {
 
         {/* Panel detalle */}
         {nodoSel && (
-          <div className="w-64 flex-shrink-0 overflow-y-auto border-l border-neutral-800 bg-neutral-900 p-4">
-            <button onClick={() => setNodoSel(null)} className="mb-3 text-xs text-neutral-600 hover:text-neutral-400">✕ Cerrar</button>
+          <div
+            className="w-64 flex-shrink-0 overflow-y-auto p-4"
+            style={{ borderLeft: '1px solid rgba(255,255,255,0.05)', background: 'rgba(5,5,12,0.9)' }}
+          >
+            <button
+              onClick={() => setNodoSel(null)}
+              className="mb-3 text-xs transition-colors"
+              style={{ color: 'rgba(148,163,184,0.4)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
+            >✕ Cerrar</button>
 
             {notaSelObj && modo === 'zettelkasten' && (
               <>
-                <div className="mb-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium" style={{ color: COLOR_TIPO_NOTA[nodoSel.tipo] ?? '#888', backgroundColor: `${COLOR_TIPO_NOTA[nodoSel.tipo] ?? '#888'}22` }}>
+                <div
+                  className="mb-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+                  style={{ color: COLOR_TIPO_NOTA[nodoSel.tipo] ?? '#888', backgroundColor: `${COLOR_TIPO_NOTA[nodoSel.tipo] ?? '#888'}22`, border: `1px solid ${COLOR_TIPO_NOTA[nodoSel.tipo] ?? '#888'}44` }}
+                >
                   {nodoSel.tipo}
                 </div>
                 <p className="text-sm font-medium text-white leading-snug">{notaSelObj.titulo}</p>
-                <p className="mt-2 text-xs text-neutral-400 line-clamp-5 whitespace-pre-wrap leading-relaxed">{notaSelObj.contenido}</p>
+                <p className="mt-2 text-xs line-clamp-5 whitespace-pre-wrap leading-relaxed" style={{ color: 'rgba(148,163,184,0.5)' }}>{notaSelObj.contenido}</p>
                 {notaSelObj.etiquetas.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
-                    {notaSelObj.etiquetas.map(e => <span key={e} className="rounded-full bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-500">#{e}</span>)}
+                    {notaSelObj.etiquetas.map(e => (
+                      <span
+                        key={e}
+                        className="rounded-full px-1.5 py-0.5 text-xs"
+                        style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: 'rgba(167,139,250,0.7)' }}
+                      >#{e}</span>
+                    ))}
                   </div>
                 )}
-                <p className="mt-2 text-xs text-neutral-600">{(notaSelObj.vinculos ?? []).length} vínculos</p>
+                <p className="mt-2 text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>{(notaSelObj.vinculos ?? []).length} vínculos</p>
               </>
             )}
 
             {citaSelObj && (
               <>
-                <div className="mb-2 inline-block rounded-full bg-amber-900/30 px-2 py-0.5 text-xs font-medium text-amber-400">Cita</div>
-                <blockquote className="border-l-2 border-amber-800 pl-3 text-sm text-neutral-300 italic leading-relaxed">"{citaSelObj.texto}"</blockquote>
-                <p className="mt-2 text-xs text-neutral-500">{citaSelObj.autor} ({citaSelObj.año}, p.{citaSelObj.pagina})</p>
-                <p className="mt-1 text-xs text-neutral-600 truncate">{citaSelObj.documentoNombre}</p>
+                <div
+                  className="mb-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+                  style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: 'rgba(245,158,11,0.9)' }}
+                >Cita</div>
+                <blockquote
+                  className="pl-3 text-sm italic leading-relaxed"
+                  style={{ borderLeft: '2px solid rgba(245,158,11,0.4)', color: 'rgba(203,213,225,0.75)' }}
+                >&ldquo;{citaSelObj.texto}&rdquo;</blockquote>
+                <p className="mt-2 text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>{citaSelObj.autor} ({citaSelObj.año}, p.{citaSelObj.pagina})</p>
+                <p className="mt-1 text-xs truncate" style={{ color: 'rgba(148,163,184,0.35)' }}>{citaSelObj.documentoNombre}</p>
               </>
             )}
 
             {nodoBiblioSel && modo === 'bibliografico' && (
               <>
-                <span className={`rounded-full px-2 py-0.5 text-xs ${nodoBiblioSel.tipo === 'documento' ? 'bg-blue-900/40 text-blue-400' : nodoBiblioSel.tipo === 'autor' ? 'bg-amber-900/40 text-amber-400' : 'bg-emerald-900/40 text-emerald-400'}`}>
-                  {nodoBiblioSel.tipo}
-                </span>
+                <span
+                  className="rounded-full px-2 py-0.5 text-xs"
+                  style={nodoBiblioSel.tipo === 'documento'
+                    ? { background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)', color: 'rgba(96,165,250,0.9)' }
+                    : nodoBiblioSel.tipo === 'autor'
+                    ? { background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', color: 'rgba(245,158,11,0.9)' }
+                    : { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: 'rgba(52,211,153,0.9)' }
+                  }
+                >{nodoBiblioSel.tipo}</span>
                 <p className="mt-2 text-sm font-medium text-white">{nodoBiblioSel.label}</p>
-                <p className="mt-1 text-xs text-neutral-500">Peso: {nodoBiblioSel.peso}</p>
-                <p className="mt-1 text-xs text-neutral-500">
+                <p className="mt-1 text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Peso: {nodoBiblioSel.peso}</p>
+                <p className="mt-1 text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
                   Conexiones: {(grafo?.aristas ?? []).filter(a => a.source === nodoBiblioSel.id || a.target === nodoBiblioSel.id).length}
                 </p>
               </>

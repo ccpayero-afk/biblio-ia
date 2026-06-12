@@ -34,56 +34,75 @@ export default function CitaModal({ seleccion, documento, onGuardar, onCerrar }:
   const previewAPA = `${apellido} (${documento.año || 's.f.'}, p. ${seleccion.pagina})`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-neutral-800 bg-neutral-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-neutral-800 p-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)' }}>
+      <div
+        className="w-full max-w-lg rounded-2xl shadow-2xl"
+        style={{ background: 'rgba(8,8,20,0.98)', border: '1px solid rgba(139,92,246,0.25)' }}
+      >
+        <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <h2 className="text-sm font-medium text-white">Guardar cita</h2>
-          <button onClick={onCerrar} className="text-neutral-500 hover:text-neutral-300">
+          <button
+            onClick={onCerrar}
+            className="transition-colors"
+            style={{ color: 'rgba(148,163,184,0.5)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="space-y-4 p-5">
           {/* Texto seleccionado */}
-          <div className="rounded-lg border border-neutral-700 bg-neutral-800 p-3">
-            <p className="line-clamp-4 font-[family-name:var(--font-lora)] text-sm italic text-neutral-200">
-              "{seleccion.texto}"
+          <div
+            className="rounded-lg p-3"
+            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderLeft: '2px solid rgba(248,113,113,0.4)' }}
+          >
+            <p className="line-clamp-4 font-[family-name:var(--font-lora)] text-sm italic" style={{ color: 'rgba(226,232,240,0.85)' }}>
+              &ldquo;{seleccion.texto}&rdquo;
             </p>
-            <p className="mt-2 text-xs text-neutral-500">
+            <p className="mt-2 text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>
               {documento.autor} · p. {seleccion.pagina}
             </p>
           </div>
 
           {/* Preview formato */}
-          <div className="rounded-lg bg-neutral-800/50 px-3 py-2">
-            <p className="text-xs text-neutral-500">APA: <span className="text-neutral-300">{previewAPA}</span></p>
+          <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <p className="text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>
+              APA: <span style={{ color: 'rgba(226,232,240,0.7)' }}>{previewAPA}</span>
+            </p>
           </div>
 
           {/* Nota propia */}
           <div>
-            <label className="mb-1 block text-xs text-neutral-400">Nota propia (opcional)</label>
+            <label className="mb-1 block text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Nota propia (opcional)</label>
             <textarea
               value={notaPropia}
               onChange={(e) => setNotaPropia(e.target.value)}
               rows={2}
               placeholder="¿Por qué guardás esta cita? ¿Cómo la vas a usar?"
-              className="w-full resize-none rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-600 focus:border-blue-500 focus:outline-none"
+              className="w-full resize-none rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
             />
           </div>
 
           {/* Etiquetas */}
           <div>
-            <label className="mb-2 block text-xs text-neutral-400">Etiquetas</label>
+            <label className="mb-2 block text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Etiquetas</label>
             <div className="flex flex-wrap gap-2">
               {ETIQUETAS.map((tag) => (
                 <button
                   key={tag}
                   onClick={() => toggleEtiqueta(tag)}
-                  className={`rounded-full px-3 py-1 text-xs transition-colors ${
-                    etiquetas.includes(tag)
-                      ? 'bg-red-700/60 text-red-300'
-                      : 'border border-neutral-700 text-neutral-400 hover:border-neutral-600'
-                  }`}
+                  className="rounded-full px-3 py-1 text-xs transition-all"
+                  style={etiquetas.includes(tag)
+                    ? { background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.4)', color: 'rgba(167,139,250,0.9)' }
+                    : { background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.5)' }
+                  }
+                  onMouseEnter={(e) => { if (!etiquetas.includes(tag)) { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'; e.currentTarget.style.color = 'rgba(167,139,250,0.7)' } }}
+                  onMouseLeave={(e) => { if (!etiquetas.includes(tag)) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' } }}
                 >
                   {tag}
                 </button>
@@ -92,17 +111,23 @@ export default function CitaModal({ seleccion, documento, onGuardar, onCerrar }:
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-neutral-800 p-5">
+        <div className="flex justify-end gap-2 p-5" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <button
             onClick={onCerrar}
-            className="rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300 hover:border-neutral-600"
+            className="rounded-lg px-4 py-2 text-sm transition-colors"
+            style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
           >
             Cancelar
           </button>
           <button
             onClick={handleGuardar}
             disabled={guardando}
-            className="rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 10px rgba(124,58,237,0.25)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 18px rgba(124,58,237,0.45)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 10px rgba(124,58,237,0.25)' }}
           >
             {guardando ? 'Guardando…' : 'Guardar cita'}
           </button>
