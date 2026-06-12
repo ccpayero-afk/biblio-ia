@@ -942,8 +942,8 @@ export default function BibliotecaClient() {
 
               {menuHerramientas && (
                 <div
-                  className="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-xl shadow-2xl"
-                  style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(12px)' }}
+                  className="absolute right-0 top-full z-30 mt-1 w-72 overflow-y-auto rounded-xl shadow-2xl"
+                  style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(12px)', maxHeight: 'calc(100vh - 140px)' }}
                 >
                   <div className="p-1.5 space-y-0.5">
                     {/* Indexar pendientes */}
@@ -1104,7 +1104,7 @@ export default function BibliotecaClient() {
                       <RefreshCw className={`h-4 w-4 flex-shrink-0 text-orange-400 ${sincronizandoZotero ? 'animate-spin' : ''}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white">{sincronizandoZotero ? 'Sincronizando…' : 'Sincronizar con Zotero'}</p>
-                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>Empuja la Biblioteca a tu librería Zotero</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>Solo metadatos — sin archivos, sin consumir almacenamiento</p>
                       </div>
                     </button>
                   </div>
