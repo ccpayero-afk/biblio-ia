@@ -7,14 +7,34 @@ export async function sugerirVinculos(
   todasLasNotas: Nota[],
   genAI: GoogleGenerativeAI
 ): Promise<VinculoSugerido[]> {
-  const candidatas = todasLasNotas
+  const elegibles = todasLasNotas
     .filter((n) => n.id !== notaNueva.id && n.tipo !== 'efimera' && n.tipo !== 'manual')
-    .slice(0, 50)
 
-  if (candidatas.length === 0) return []
+  if (elegibles.length === 0) return []
+
+  // Pre-filtrar por relevancia de keywords para reducir tokens enviados a la IA.
+  // Extraemos palabras significativas (>4 chars) del título + contenido de la nota nueva.
+  const palabrasRef = new Set(
+    `${notaNueva.titulo} ${notaNueva.contenido}`
+      .toLowerCase()
+      .split(/\W+/)
+      .filter((w) => w.length > 4)
+  )
+
+  const scored = elegibles.map((n) => {
+    const texto = `${n.titulo} ${n.contenido}`.toLowerCase()
+    const matches = [...palabrasRef].filter((p) => texto.includes(p)).length
+    return { n, matches }
+  })
+
+  // Top 30 más relevantes por keywords; si hay menos de 5 matches, completar hasta 30 con el resto
+  const candidatas = scored
+    .sort((a, b) => b.matches - a.matches)
+    .slice(0, 30)
+    .map((s) => s.n)
 
   const listaNotas = candidatas
-    .map((n) => `ID: ${n.id}\nTítulo: ${n.titulo}\nContenido: ${n.contenido.slice(0, 200)}`)
+    .map((n) => `ID: ${n.id}\nTítulo: ${n.titulo}\nContenido: ${n.contenido.slice(0, 150)}`)
     .join('\n---\n')
 
   const prompt = `Sos un asistente de investigación académica especializado en ciencias sociales latinoamericanas.

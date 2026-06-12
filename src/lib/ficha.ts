@@ -13,10 +13,15 @@ export async function generateFicha(
   const genAI = await getGeminiClient(accessToken)
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
 
-  const muestra = fragmentos
-    .filter((f) => f.documentoId === documentoId)
-    .slice(0, 25)
-    .map((f) => `[p.${f.pagina}] ${f.texto}`)
+  const todos = fragmentos.filter((f) => f.documentoId === documentoId)
+  // Toma 20 fragmentos distribuidos uniformemente a lo largo del documento
+  // (no los primeros 20, que solo cubren la intro)
+  const N = 20
+  const muestra = todos.length <= N
+    ? todos
+    : Array.from({ length: N }, (_, i) => todos[Math.floor(i * (todos.length - 1) / (N - 1))])
+  const muestraTexto = muestra
+    .map((f) => `[p.${f.pagina}] ${f.texto.slice(0, 600)}`)  // 600 chars ≈ 150 palabras por fragmento
     .join('\n\n')
 
   const titulo = documentoNombre.replace(/\.pdf$/i, '')
@@ -24,8 +29,8 @@ export async function generateFicha(
 
 DOCUMENTO: "${titulo}" por ${autor || 'Autor desconocido'} (${año || 's.f.'})
 
-FRAGMENTOS SELECCIONADOS:
-${muestra}
+FRAGMENTOS SELECCIONADOS (distribuidos a lo largo del documento, ${muestra.length} de ${todos.length} total):
+${muestraTexto}
 
 Respondé ÚNICAMENTE con un objeto JSON puro (sin markdown, sin \`\`\`json) con esta estructura exacta:
 {
