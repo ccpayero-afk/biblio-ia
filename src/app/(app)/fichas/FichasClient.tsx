@@ -81,7 +81,7 @@ function FichaDetalle({
             </p>
             <button
               onClick={onGenerar}
-              className="mt-4 flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+              className="mt-4 flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500"
             >
               <Sparkles className="h-4 w-4" /> Generar ficha
             </button>

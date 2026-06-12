@@ -286,7 +286,7 @@ export default function ImportarCarpetaModal({ onCerrar, onTerminado }: Props) {
               </div>
               <button
                 onClick={() => inputRef.current?.click()}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500"
               >
                 <Upload className="h-4 w-4" /> Seleccionar carpeta
               </button>
@@ -379,7 +379,7 @@ export default function ImportarCarpetaModal({ onCerrar, onTerminado }: Props) {
                 <button
                   onClick={iniciarImportacion}
                   disabled={totalPDFs === 0}
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500 disabled:opacity-40"
                 >
                   <Upload className="h-4 w-4" />
                   Importar {totalPDFs} PDF{totalPDFs !== 1 ? 's' : ''}

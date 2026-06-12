@@ -177,7 +177,7 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
         <button
           onClick={procesarSeleccionados}
           disabled={seleccionados.size === 0 || procesando}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+          className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500 disabled:opacity-40"
         >
           {procesando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {procesando ? 'Procesando…' : 'Procesar seleccionados'}

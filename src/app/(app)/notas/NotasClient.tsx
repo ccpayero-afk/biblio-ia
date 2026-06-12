@@ -281,7 +281,7 @@ function Editor({
           <button
             onClick={guardar}
             disabled={guardando}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
           >
             {guardando && <Loader2 className="h-4 w-4 animate-spin" />}
             Guardar
@@ -703,7 +703,7 @@ export default function NotasClient() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => convertirLote(notasFiltradas, tipoConvLote)}
-                    className="flex-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+                    className="flex-1 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:from-blue-500 hover:to-violet-500"
                   >
                     Convertir
                   </button>
@@ -747,7 +747,7 @@ export default function NotasClient() {
           </div>
           <button
             onClick={() => setEditando({})}
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-500"
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 shadow-sm shadow-violet-900/40"
           >
             <Plus className="h-4 w-4 text-white" />
           </button>
@@ -831,7 +831,7 @@ export default function NotasClient() {
             <p className="mt-3 text-sm text-neutral-600">Seleccioná una nota</p>
             <button
               onClick={() => setEditando({})}
-              className="mt-4 flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+              className="mt-4 flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500"
             >
               <Plus className="h-4 w-4" /> Nueva nota
             </button>

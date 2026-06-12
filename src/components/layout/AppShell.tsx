@@ -40,7 +40,7 @@ export default function AppShell({ children, user, apiKeyConfigurada }: Props) {
   }, [])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-neutral-950">
+    <div className="flex h-screen overflow-hidden bg-[#0a0a12]">
       {/* Overlay mobile */}
       {sidebarAbierto && (
         <div

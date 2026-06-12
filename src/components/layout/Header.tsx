@@ -23,7 +23,7 @@ export default function Header({ user, apiKeyConfigurada, onMenuClick }: HeaderP
           </Link>
         </div>
       )}
-      <header className="flex h-14 items-center justify-between border-b border-neutral-800 bg-neutral-950 px-4">
+      <header className="flex h-14 items-center justify-between border-b border-violet-900/30 bg-neutral-950 px-4">
         {/* Hamburger — only on mobile */}
         <button
           onClick={onMenuClick}
@@ -51,7 +51,7 @@ export default function Header({ user, apiKeyConfigurada, onMenuClick }: HeaderP
               className="rounded-full"
             />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-700 text-xs font-medium text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-violet-600 text-xs font-bold text-white shadow-lg shadow-violet-900/40">
               {user.name?.[0]?.toUpperCase() ?? '?'}
             </div>
           )}

@@ -9,21 +9,21 @@ import {
 } from 'lucide-react'
 
 const NAV_ITEMS = [
-  { href: '/biblioteca',                  label: 'Biblioteca',       icon: Library },
-  { href: '/biblioteca/procesar-highlights', label: 'Highlights PDF', icon: Highlighter },
-  { href: '/lector',                      label: 'Lector',           icon: BookOpen },
-  { href: '/consultar',                   label: 'Consultar',        icon: MessageSquare },
-  { href: '/fichas',                      label: 'Fichas',           icon: FileText },
-  { href: '/notas',                       label: 'Notas',            icon: StickyNote },
-  { href: '/bandeja',                     label: 'Bandeja',          icon: Inbox },
-  { href: '/citas',                       label: 'Citas',            icon: Quote },
-  { href: '/datos',                       label: 'Datos',            icon: BarChart2 },
-  { href: '/grafo',                       label: 'Grafo',            icon: GitFork },
-  { href: '/proyectos',                   label: 'Proyectos',        icon: FolderOpen },
-  { href: '/inteligencia',                label: 'Inteligencia',     icon: Brain },
-  { href: '/interlocutor',                label: 'Interlocutor',     icon: Users },
-  { href: '/importar',                    label: 'Importar',         icon: Upload },
-  { href: '/configuracion',               label: 'Configuración',    icon: Settings },
+  { href: '/biblioteca',                     label: 'Biblioteca',       icon: Library },
+  { href: '/biblioteca/procesar-highlights', label: 'Highlights PDF',   icon: Highlighter },
+  { href: '/lector',                         label: 'Lector',           icon: BookOpen },
+  { href: '/consultar',                      label: 'Consultar',        icon: MessageSquare },
+  { href: '/fichas',                         label: 'Fichas',           icon: FileText },
+  { href: '/notas',                          label: 'Notas',            icon: StickyNote },
+  { href: '/bandeja',                        label: 'Bandeja',          icon: Inbox },
+  { href: '/citas',                          label: 'Citas',            icon: Quote },
+  { href: '/datos',                          label: 'Datos',            icon: BarChart2 },
+  { href: '/grafo',                          label: 'Grafo',            icon: GitFork },
+  { href: '/proyectos',                      label: 'Proyectos',        icon: FolderOpen },
+  { href: '/inteligencia',                   label: 'Inteligencia',     icon: Brain },
+  { href: '/interlocutor',                   label: 'Interlocutor',     icon: Users },
+  { href: '/importar',                       label: 'Importar',         icon: Upload },
+  { href: '/configuracion',                  label: 'Configuración',    icon: Settings },
 ]
 
 interface Props {
@@ -37,26 +37,25 @@ export default function Sidebar({ onClose, colapsada, onToggleColapsar }: Props)
 
   return (
     <aside
-      className="flex h-full flex-col border-r border-neutral-800 bg-neutral-950 transition-[width] duration-200"
+      className="flex h-full flex-col border-r border-violet-900/30 bg-neutral-950 transition-[width] duration-200"
       style={{ width: colapsada ? 56 : 224 }}
     >
       {/* Header */}
-      <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-neutral-800 px-3">
+      <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-violet-900/30 px-3">
         {!colapsada && (
           <Link
             href="/dashboard"
-            className="truncate text-base font-semibold tracking-tight text-white"
+            className="truncate text-base font-bold tracking-tight bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent"
             onClick={onClose}
           >
             BiblioIA
           </Link>
         )}
         <div className={`flex items-center gap-1 ${colapsada ? 'w-full justify-center' : 'flex-shrink-0'}`}>
-          {/* Collapse toggle — desktop only */}
           {onToggleColapsar && (
             <button
               onClick={onToggleColapsar}
-              className="hidden rounded p-1 text-neutral-500 hover:text-white md:block"
+              className="hidden rounded p-1 text-neutral-600 hover:text-violet-400 md:block transition-colors"
               title={colapsada ? 'Expandir menú' : 'Colapsar menú'}
             >
               {colapsada
@@ -64,9 +63,8 @@ export default function Sidebar({ onClose, colapsada, onToggleColapsar }: Props)
                 : <PanelLeftClose className="h-4 w-4" />}
             </button>
           )}
-          {/* Mobile close */}
           {onClose && !colapsada && (
-            <button onClick={onClose} className="rounded p-1 text-neutral-500 hover:text-white md:hidden">
+            <button onClick={onClose} className="rounded p-1 text-neutral-600 hover:text-white md:hidden">
               <X className="h-5 w-5" />
             </button>
           )}
@@ -87,22 +85,33 @@ export default function Sidebar({ onClose, colapsada, onToggleColapsar }: Props)
               href={href}
               onClick={onClose}
               title={colapsada ? label : undefined}
-              className={`flex items-center text-sm transition-colors ${
+              className={`relative flex items-center text-sm transition-all ${
                 colapsada
                   ? 'justify-center px-0 py-3'
                   : 'gap-3 px-4 py-2.5'
               } ${
                 active
-                  ? 'bg-neutral-800 text-white'
-                  : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'
+                  ? 'bg-gradient-to-r from-violet-950/70 to-blue-950/50 text-white'
+                  : 'text-neutral-500 hover:bg-blue-950/30 hover:text-blue-200'
               }`}
             >
-              <Icon className="h-4 w-4 flex-shrink-0" />
+              {/* Barra izquierda activa */}
+              {active && (
+                <span className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-gradient-to-b from-blue-400 to-violet-500" />
+              )}
+              <Icon className={`h-4 w-4 flex-shrink-0 transition-colors ${active ? 'text-violet-400' : ''}`} />
               {!colapsada && <span className="truncate">{label}</span>}
             </Link>
           )
         })}
       </nav>
+
+      {/* Footer sutil */}
+      {!colapsada && (
+        <div className="flex-shrink-0 border-t border-violet-900/20 px-4 py-3">
+          <p className="text-xs text-neutral-700">v2 · biblio-ia</p>
+        </div>
+      )}
     </aside>
   )
 }
