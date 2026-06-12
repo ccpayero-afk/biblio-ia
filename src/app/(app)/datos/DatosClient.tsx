@@ -186,27 +186,39 @@ export default function DatosClient() {
     <div className="flex h-full flex-col overflow-hidden -m-4 md:-m-6">
 
       {/* Header */}
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-neutral-800 bg-neutral-950 px-6 py-4">
+      <div
+        className="flex flex-shrink-0 items-center justify-between px-6 py-4"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(3,3,8,0.8)' }}
+      >
         <div>
           <h1 className="text-lg font-semibold text-white">Banco de datos</h1>
-          <p className="mt-0.5 text-xs text-neutral-500">
+          <p className="mt-0.5 text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
             {datos.length} datos · {tematicasPresentes.length} temáticas
           </p>
         </div>
         <div className="relative" ref={exportRef}>
           <button
             onClick={() => setMenuExport((v) => !v)}
-            className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-300 hover:border-neutral-500 hover:text-white"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition-all"
+            style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(203,213,225,0.7)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(203,213,225,0.7)' }}
           >
             <Download className="h-4 w-4" />
             Exportar
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
           {menuExport && (
-            <div className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl border border-neutral-700 bg-neutral-900 py-1.5 shadow-2xl">
+            <div
+              className="absolute right-0 top-full z-20 mt-1 w-44 rounded-xl py-1.5 shadow-2xl"
+              style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 16px 40px rgba(0,0,0,0.6)' }}
+            >
               <button
                 onClick={exportarMarkdown}
-                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-neutral-300 hover:bg-neutral-800"
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm transition-colors"
+                style={{ color: 'rgba(203,213,225,0.7)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(203,213,225,0.7)' }}
               >
                 <Download className="h-3.5 w-3.5" /> Markdown
               </button>
@@ -216,28 +228,45 @@ export default function DatosClient() {
       </div>
 
       {/* Buscador */}
-      <div className="flex-shrink-0 border-b border-neutral-800 bg-neutral-950 px-6 py-3">
+      <div
+        className="flex-shrink-0 px-6 py-3"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(3,3,8,0.5)' }}
+      >
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-600" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'rgba(148,163,184,0.3)' }} />
           <input
             value={filtro}
             onChange={(e) => setFiltro(e.target.value)}
             placeholder="Buscar por valor, contexto, autor o documento…"
-            className="w-full rounded-xl border border-neutral-800 bg-neutral-900 py-2.5 pl-9 pr-4 text-sm text-white placeholder-neutral-600 focus:border-neutral-600 focus:outline-none"
+            className="w-full rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder-neutral-600 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}
           />
           {filtro && (
-            <button onClick={() => setFiltro('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-600 hover:text-neutral-300">
+            <button
+              onClick={() => setFiltro('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+              style={{ color: 'rgba(148,163,184,0.4)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
+            >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
         {filtroTematica && (
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-xs text-neutral-500">Temática:</span>
+            <span className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Temática:</span>
             <span className={`rounded-full border px-2 py-0.5 text-xs font-medium ${getTematica(filtroTematica).bg} ${getTematica(filtroTematica).color}`}>
               {getTematica(filtroTematica).label}
             </span>
-            <button onClick={() => setFiltroTematica(null)} className="text-neutral-600 hover:text-neutral-300">
+            <button
+              onClick={() => setFiltroTematica(null)}
+              style={{ color: 'rgba(148,163,184,0.4)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
+            >
               <X className="h-3 w-3" />
             </button>
           </div>
@@ -249,27 +278,43 @@ export default function DatosClient() {
 
         {/* Sidebar temáticas */}
         {tematicasPresentes.length > 1 && (
-          <div className="hidden w-52 flex-shrink-0 overflow-y-auto border-r border-neutral-800 bg-neutral-950/50 p-3 lg:block">
-            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-neutral-600">Temáticas</p>
+          <div
+            className="hidden w-52 flex-shrink-0 overflow-y-auto p-3 lg:block"
+            style={{ borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(5,5,12,0.8)' }}
+          >
+            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(139,92,246,0.6)' }}>Temáticas</p>
             <button
               onClick={() => setFiltroTematica(null)}
-              className={`mb-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs transition-colors ${!filtroTematica ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+              className="mb-0.5 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs transition-all"
+              style={!filtroTematica
+                ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.25), rgba(30,58,138,0.15))', color: '#fff', border: '1px solid rgba(139,92,246,0.15)' }
+                : { color: 'rgba(148,163,184,0.6)', border: '1px solid transparent' }
+              }
+              onMouseEnter={(e) => { if (filtroTematica) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(203,213,225,0.9)' } }}
+              onMouseLeave={(e) => { if (filtroTematica) { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' } }}
             >
               <span>Todas</span>
-              <span className="text-neutral-600">{datos.length}</span>
+              <span style={{ color: 'rgba(148,163,184,0.4)' }}>{datos.length}</span>
             </button>
             {tematicasPresentes.map((t) => {
               const cfg = getTematica(t)
               const count = datos.filter((d) => d.tematica === t).length
+              const isActive = filtroTematica === t
               return (
                 <button
                   key={t}
-                  onClick={() => setFiltroTematica(filtroTematica === t ? null : t)}
-                  className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors ${filtroTematica === t ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
+                  onClick={() => setFiltroTematica(isActive ? null : t)}
+                  className="mb-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-all"
+                  style={isActive
+                    ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.25), rgba(30,58,138,0.15))', color: '#fff', border: '1px solid rgba(139,92,246,0.15)' }
+                    : { color: 'rgba(148,163,184,0.6)', border: '1px solid transparent' }
+                  }
+                  onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(203,213,225,0.9)' } }}
+                  onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' } }}
                 >
                   <span className={`h-2 w-2 flex-shrink-0 rounded-full ${cfg.dot}`} />
                   <span className="flex-1 text-left">{cfg.label}</span>
-                  <span className="flex-shrink-0 text-neutral-600">{count}</span>
+                  <span style={{ color: 'rgba(148,163,184,0.4)' }}>{count}</span>
                 </button>
               )
             })}
@@ -280,16 +325,21 @@ export default function DatosClient() {
         <div className="flex-1 overflow-y-auto">
           {cargando ? (
             <div className="flex items-center justify-center py-20">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-700 border-t-blue-500" />
+              <div className="h-6 w-6 animate-spin rounded-full" style={{ border: '2px solid rgba(139,92,246,0.2)', borderTopColor: '#a78bfa' }} />
             </div>
           ) : datosFiltrados.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center">
-              <BarChart2 className="h-12 w-12 text-neutral-800" />
-              <p className="mt-4 text-sm font-medium text-neutral-500">
+              <div
+                className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
+                style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06))', border: '1px solid rgba(139,92,246,0.2)' }}
+              >
+                <BarChart2 className="h-8 w-8" style={{ color: 'rgba(139,92,246,0.5)' }} />
+              </div>
+              <p className="text-sm font-medium" style={{ color: 'rgba(148,163,184,0.5)' }}>
                 {filtro || filtroTematica ? 'Sin resultados para esa búsqueda.' : 'No hay datos estadísticos guardados.'}
               </p>
               {!filtro && !filtroTematica && (
-                <p className="mt-1 text-xs text-neutral-700">
+                <p className="mt-1 text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>
                   Usá el pipeline "Procesar biblioteca" para extraer datos de las fichas.
                 </p>
               )}
