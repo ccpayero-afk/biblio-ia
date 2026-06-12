@@ -62,30 +62,29 @@ Contenido: ${notaNueva.contenido.slice(0, 600)}
 Notas existentes:
 ${listaNotas}`
 
-  try {
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never,
-    })
-    const text = result.response.text().trim()
-    const jsonStr = text.startsWith('{') ? text : text.slice(text.indexOf('{'))
-    const parsed = JSON.parse(jsonStr)
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+  })
+  const text = result.response.text().trim()
 
-    return (parsed.sugerencias ?? [])
-      .map((s: { notaId: string; tipoVinculo: VinculoZettel['tipo']; razon: string; confianza: 'alta' | 'media' | 'baja' }) => {
-        const nota = candidatas.find((n) => n.id === s.notaId)
-        return {
-          notaId: s.notaId,
-          notaTitulo: nota?.titulo ?? s.notaId,
-          tipoVinculo: s.tipoVinculo,
-          razon: s.razon,
-          confianza: s.confianza,
-        }
-      })
-  } catch {
-    return []
-  }
+  // Handle plain JSON or markdown code block: ```json {...} ```
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) return []
+
+  const parsed = JSON.parse(jsonMatch[0])
+  return (parsed.sugerencias ?? [])
+    .map((s: { notaId: string; tipoVinculo: VinculoZettel['tipo']; razon: string; confianza: 'alta' | 'media' | 'baja' }) => {
+      const notaRef = candidatas.find((n) => n.id === s.notaId)
+      return {
+        notaId: s.notaId,
+        notaTitulo: notaRef?.titulo ?? s.notaId,
+        tipoVinculo: s.tipoVinculo,
+        razon: s.razon,
+        confianza: s.confianza,
+      }
+    })
+    .filter((s: { notaId: string }) => s.notaId && candidatas.some((n) => n.id === s.notaId))
 }
 
 export async function convertirNota(

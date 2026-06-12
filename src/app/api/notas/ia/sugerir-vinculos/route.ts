@@ -6,6 +6,8 @@ import { sugerirVinculos } from '@/lib/zettel-ia'
 import { Nota } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const maxDuration = 60
+
 const NOMBRE = 'notas.json'
 
 // POST — body: { nota } — devuelve sugerencias de vínculos IA

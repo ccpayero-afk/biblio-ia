@@ -597,7 +597,7 @@ export default function NotasClient() {
   const [convirtiendo, setConvirtiendo] = useState(false)
   const [progresoConv, setProgresoConv] = useState<{ actual: number; total: number } | null>(null)
   const [vinculandoIA, setVinculandoIA] = useState(false)
-  const [progresoVinc, setProgresoVinc] = useState<{ actual: number; total: number; nuevos: number } | null>(null)
+  const [progresoVinc, setProgresoVinc] = useState<{ actual: number; total: number; nuevos: number; ultimoError?: string } | null>(null)
   const convRef = useRef<HTMLDivElement>(null)
 
   const cargar = useCallback(async () => {
@@ -678,6 +678,11 @@ export default function NotasClient() {
         if (res.status === 429) {
           await new Promise((r) => setTimeout(r, 60000))
           i--
+          continue
+        }
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({})) as { error?: string }
+          setProgresoVinc((p) => p ? { ...p, ultimoError: errData.error ?? `Error ${res.status}` } : p)
           continue
         }
         const sugerencias: VinculoSugerido[] = await res.json()
@@ -897,6 +902,11 @@ export default function NotasClient() {
         {progresoVinc && (
           <div className="border-b border-neutral-800 bg-purple-950/20 px-4 py-2 text-xs text-purple-400">
             Vinculando {progresoVinc.actual}/{progresoVinc.total}… · {progresoVinc.nuevos} nuevos vínculos
+            {progresoVinc.ultimoError && (
+              <span className="ml-2 text-red-400" title={progresoVinc.ultimoError}>
+                · Error: {progresoVinc.ultimoError.slice(0, 80)}
+              </span>
+            )}
           </div>
         )}
 
