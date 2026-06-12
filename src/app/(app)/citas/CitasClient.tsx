@@ -43,7 +43,7 @@ function CitaCard({ cita, accentColor, onEliminar }: { cita: Cita; accentColor: 
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-medium text-neutral-400">{cita.formatoAPA}</p>
           <Link
-            href={`/lector/${cita.documentoId}?pagina=${cita.pagina}`}
+            href={`/lector/${cita.documentoId}?pagina=${cita.pagina}&buscar=${encodeURIComponent(cita.texto.slice(0, 80))}`}
             className="flex items-center gap-1 text-xs text-neutral-600 hover:text-blue-400 transition-colors"
           >
             <BookMarked className="h-3 w-3 flex-shrink-0" />

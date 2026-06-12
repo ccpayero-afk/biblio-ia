@@ -21,6 +21,7 @@ interface Props {
   documento: Documento
   pdfUrl: string
   initialPage?: number
+  initialSearch?: string
 }
 
 interface Seleccion {
@@ -38,7 +39,7 @@ const COLOR_BG: Record<string, string> = {
 const ZOOM_PRESETS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
 const RENDER_WINDOW = 3
 
-export default function LectorClient({ documento, pdfUrl, initialPage = 1 }: Props) {
+export default function LectorClient({ documento, pdfUrl, initialPage = 1, initialSearch }: Props) {
   const [numPages, setNumPages] = useState(0)
   const [paginaActual, setPaginaActual] = useState(initialPage)
   const [zoom, setZoom] = useState(1.2)
@@ -86,12 +87,24 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1 }: Pro
     }
   }, [anchoContenedor, naturalPageWidth, fitApplied])
 
-  // Scroll to initialPage once PDF is loaded
+  // Scroll to initialPage once PDF is loaded, then find text if requested
   useEffect(() => {
-    if (numPages > 0 && initialPage > 1) {
-      const target = pageRefs.current[initialPage - 1]
-      if (target) {
-        setTimeout(() => target.scrollIntoView({ behavior: 'instant', block: 'start' }), 300)
+    if (numPages > 0) {
+      if (initialPage > 1) {
+        const target = pageRefs.current[initialPage - 1]
+        if (target) {
+          setTimeout(() => {
+            target.scrollIntoView({ behavior: 'instant', block: 'start' })
+            if (initialSearch) {
+              // Give the text layer time to render before searching
+              setTimeout(() => window.find(initialSearch, false, false, true, false, false, false), 600)
+            }
+          }, 300)
+          return
+        }
+      }
+      if (initialSearch) {
+        setTimeout(() => window.find(initialSearch, false, false, true, false, false, false), 900)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -81,11 +81,12 @@ function DatoCard({ dato, onEliminar }: { dato: Dato; onEliminar: () => void }) 
             </p>
           )}
           <Link
-            href={`/lector/${dato.documentoId}${dato.pagina ? `?pagina=${dato.pagina}` : ''}`}
-            className="flex items-center gap-1 text-xs text-neutral-700 hover:text-blue-400 transition-colors"
+            href={`/lector/${dato.documentoId}?${dato.pagina ? `pagina=${dato.pagina}&` : ''}buscar=${encodeURIComponent(dato.valor.slice(0, 60))}`}
+            className="flex items-center gap-1 text-xs text-neutral-500 hover:text-blue-400 transition-colors"
+            title="Abrir en lector"
           >
             <BookMarked className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{dato.documentoNombre.replace(/\.pdf$/i, '')}</span>
+            <span className="truncate">{dato.documentoNombre.replace(/\.pdf$/i, '')}{dato.pagina ? ` · p. ${dato.pagina}` : ''}</span>
           </Link>
         </div>
 

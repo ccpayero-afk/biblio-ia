@@ -9,10 +9,10 @@ export default async function LectorPage({
   searchParams,
 }: {
   params: Promise<{ documentoId: string }>
-  searchParams: Promise<{ pagina?: string }>
+  searchParams: Promise<{ pagina?: string; buscar?: string }>
 }) {
   const { documentoId } = await params
-  const { pagina } = await searchParams
+  const { pagina, buscar } = await searchParams
   const session = await auth()
   const accessToken = getAccessToken(session)
 
@@ -24,5 +24,5 @@ export default async function LectorPage({
   const pdfUrl = `/api/drive/pdf/${documentoId}`
   const initialPage = parseInt(pagina ?? '1') || 1
 
-  return <LectorClient documento={documento} pdfUrl={pdfUrl} initialPage={initialPage} />
+  return <LectorClient documento={documento} pdfUrl={pdfUrl} initialPage={initialPage} initialSearch={buscar} />
 }
