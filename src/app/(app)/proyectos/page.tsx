@@ -1,5 +1,5 @@
-import ProyectosClient from './ProyectosClient'
+import TutorClient from './TutorClient'
 
-export default function ProyectosPage() {
-  return <ProyectosClient />
+export default function TutorPage() {
+  return <TutorClient />
 }
