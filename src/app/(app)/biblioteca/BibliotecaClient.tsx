@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch, ScanText, Wand2, Settings2 } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch, ScanText, Wand2, Settings2, Download } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
@@ -282,6 +282,65 @@ function MoverModal({
       </div>
     </div>
   )
+}
+
+// ─── Export helpers ───────────────────────────────────────────────────────────
+
+function bibtexKey(d: Documento): string {
+  const apellido = (d.autor?.split(',')[0]?.trim() ?? 'Autor').replace(/[^a-zA-Z]/g, '')
+  const palabra  = (d.titulo ?? d.nombre).split(/\s+/)[0].replace(/[^a-zA-Z]/g, '')
+  return `${apellido}${d.año ?? 'XXXX'}${palabra}`
+}
+
+function generarBibTeX(docs: Documento[]): string {
+  return docs.map((d) => {
+    const tipo = d.tipo === 'libro' ? '@book' : d.tipo === 'capitulo' ? '@incollection' : d.tipo === 'tesis' ? '@phdthesis' : '@article'
+    const campos: string[] = []
+    if (d.autor)     campos.push(`  author    = {${d.autor}}`)
+    if (d.titulo)    campos.push(`  title     = {${d.titulo}}`)
+    else             campos.push(`  title     = {${d.nombre.replace(/\.pdf$/i, '')}}`)
+    if (d.revista)   campos.push(`  journal   = {${d.revista}}`)
+    if (d.editorial) campos.push(`  publisher = {${d.editorial}}`)
+    if (d.año)       campos.push(`  year      = {${d.año}}`)
+    if (d.volumen)   campos.push(`  volume    = {${d.volumen}}`)
+    if (d.numero)    campos.push(`  number    = {${d.numero}}`)
+    if (d.paginas)   campos.push(`  pages     = {${d.paginas}}`)
+    if (d.doi)       campos.push(`  doi       = {${d.doi}}`)
+    if (d.isbn)      campos.push(`  isbn      = {${d.isbn}}`)
+    if (d.url)       campos.push(`  url       = {${d.url}}`)
+    return `${tipo}{${bibtexKey(d)},\n${campos.join(',\n')}\n}`
+  }).join('\n\n')
+}
+
+function formatearAutorAPA(autorStr: string): string {
+  const autores = autorStr.split(';').map((a) => a.trim()).filter(Boolean)
+  if (autores.length === 0) return ''
+  if (autores.length === 1) return autores[0]
+  if (autores.length === 2) return `${autores[0]}, & ${autores[1]}`
+  return `${autores.slice(0, -1).join(', ')}, & ${autores[autores.length - 1]}`
+}
+
+function generarAPA(docs: Documento[]): string {
+  return docs.map((d) => {
+    const autor   = d.autor ? formatearAutorAPA(d.autor) : 'Autor desconocido'
+    const año     = d.año ? `(${d.año}).` : '(s.f.).'
+    const titulo  = d.titulo ?? d.nombre.replace(/\.pdf$/i, '')
+    const fuente  = d.revista
+      ? `${d.revista}${d.volumen ? `, ${d.volumen}` : ''}${d.numero ? `(${d.numero})` : ''}${d.paginas ? `, ${d.paginas}` : ''}.`
+      : d.editorial ? `${d.editorial}.` : ''
+    const enlace  = d.doi ? `https://doi.org/${d.doi}` : (d.url ?? '')
+    return [autor, año, `${titulo}.`, fuente, enlace].filter(Boolean).join(' ')
+  }).join('\n\n')
+}
+
+function descargar(contenido: string, nombre: string) {
+  const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = nombre
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -979,6 +1038,38 @@ export default function BibliotecaClient() {
                         <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>Subir varios PDFs desde carpeta local</p>
                       </div>
                     </button>
+
+                    <div className="my-1" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} />
+
+                    {/* Exportar BibTeX */}
+                    <button
+                      onClick={() => { setMenuHerramientas(false); descargar(generarBibTeX(documentosFiltrados), 'biblioteca.bib') }}
+                      disabled={documentosFiltrados.length === 0}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors disabled:opacity-40"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
+                    >
+                      <Download className="h-4 w-4 flex-shrink-0 text-emerald-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">Exportar BibTeX</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>{documentosFiltrados.length} ref. → .bib (Zotero, Mendeley…)</p>
+                      </div>
+                    </button>
+
+                    {/* Exportar APA */}
+                    <button
+                      onClick={() => { setMenuHerramientas(false); descargar(generarAPA(documentosFiltrados), 'referencias-apa.txt') }}
+                      disabled={documentosFiltrados.length === 0}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors disabled:opacity-40"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
+                    >
+                      <Download className="h-4 w-4 flex-shrink-0 text-sky-400" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">Exportar APA 7</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>{documentosFiltrados.length} ref. → .txt</p>
+                      </div>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1226,6 +1317,24 @@ export default function BibliotecaClient() {
           onGuardar={(datos) => guardarMetadatos(editando.id, datos)}
           onActualizar={async () => {
             const docId = editando.id
+            // Intentar CrossRef si hay DOI
+            if (editando.doi?.trim()) {
+              try {
+                const cr = await fetch(`/api/crossref?doi=${encodeURIComponent(editando.doi.trim())}`)
+                const crData = await cr.json()
+                if (!crData.error) {
+                  await fetch(`/api/drive/metadata/${docId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(crData),
+                  })
+                  cargar()
+                  setEditando(null)
+                  return
+                }
+              } catch { /* caer al PDF si CrossRef falla */ }
+            }
+            // Fallback: extraer desde el PDF
             const res = await fetch(`/api/metadatos/${docId}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
