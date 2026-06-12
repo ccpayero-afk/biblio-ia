@@ -5,27 +5,55 @@ import { usePathname } from 'next/navigation'
 import { X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import {
   BookOpen, FileText, MessageSquare, StickyNote, Quote,
-  GitFork, FolderOpen, Brain, Users, Upload, Settings, Library, Highlighter, Inbox, BarChart2, Coffee,
+  GitFork, FolderOpen, Brain, Users, Upload, Settings,
+  Library, Highlighter, Inbox, BarChart2, Coffee,
 } from 'lucide-react'
 
-const NAV_ITEMS = [
-  { href: '/sala-lectura',                   label: 'Sala de Lectura',  icon: Coffee },
-  { href: '/biblioteca',                     label: 'Biblioteca',       icon: Library },
-  { href: '/biblioteca/procesar-highlights', label: 'Highlights PDF',   icon: Highlighter },
-  { href: '/lector',                         label: 'Lector',           icon: BookOpen },
-  { href: '/consultar',                      label: 'Consultar',        icon: MessageSquare },
-  { href: '/fichas',                         label: 'Fichas',           icon: FileText },
-  { href: '/notas',                          label: 'Notas',            icon: StickyNote },
-  { href: '/bandeja',                        label: 'Bandeja',          icon: Inbox },
-  { href: '/citas',                          label: 'Citas',            icon: Quote },
-  { href: '/datos',                          label: 'Datos',            icon: BarChart2 },
-  { href: '/grafo',                          label: 'Grafo',            icon: GitFork },
-  { href: '/proyectos',                      label: 'Proyectos',        icon: FolderOpen },
-  { href: '/inteligencia',                   label: 'Inteligencia',     icon: Brain },
-  { href: '/interlocutor',                   label: 'Interlocutor',     icon: Users },
-  { href: '/importar',                       label: 'Importar',         icon: Upload },
-  { href: '/configuracion',                  label: 'Configuración',    icon: Settings },
+const NAV_GROUPS = [
+  {
+    label: 'Lectura',
+    items: [
+      { href: '/sala-lectura',                   label: 'Sala de Lectura',  icon: Coffee },
+      { href: '/biblioteca',                     label: 'Biblioteca',       icon: Library },
+      { href: '/biblioteca/procesar-highlights', label: 'Highlights PDF',   icon: Highlighter },
+      { href: '/lector',                         label: 'Lector',           icon: BookOpen },
+    ],
+  },
+  {
+    label: 'Análisis',
+    items: [
+      { href: '/consultar',   label: 'Consultar',   icon: MessageSquare },
+      { href: '/fichas',      label: 'Fichas',       icon: FileText },
+      { href: '/notas',       label: 'Notas',        icon: StickyNote },
+      { href: '/bandeja',     label: 'Bandeja',      icon: Inbox },
+      { href: '/citas',       label: 'Citas',        icon: Quote },
+      { href: '/datos',       label: 'Datos',        icon: BarChart2 },
+    ],
+  },
+  {
+    label: 'Investigación',
+    items: [
+      { href: '/grafo',         label: 'Grafo',         icon: GitFork },
+      { href: '/proyectos',     label: 'Proyectos',     icon: FolderOpen },
+      { href: '/inteligencia',  label: 'Inteligencia',  icon: Brain },
+      { href: '/interlocutor',  label: 'Interlocutor',  icon: Users },
+    ],
+  },
+  {
+    label: 'Sistema',
+    items: [
+      { href: '/importar',      label: 'Importar',      icon: Upload },
+      { href: '/configuracion', label: 'Configuración', icon: Settings },
+    ],
+  },
 ]
+
+function isActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true
+  if (href === '/lector') return pathname.startsWith('/lector/')
+  if (href === '/biblioteca' && pathname.startsWith('/biblioteca/')) return false
+  return pathname.startsWith(href + '/')
+}
 
 interface Props {
   onClose?: () => void
@@ -38,81 +66,197 @@ export default function Sidebar({ onClose, colapsada, onToggleColapsar }: Props)
 
   return (
     <aside
-      className="flex h-full flex-col border-r border-violet-900/30 bg-neutral-950 transition-[width] duration-200"
-      style={{ width: colapsada ? 56 : 224 }}
+      className="flex h-full flex-col transition-[width] duration-200"
+      style={{
+        width: colapsada ? 56 : 224,
+        background: 'linear-gradient(180deg, #0c0c1a 0%, #080812 50%, #06060f 100%)',
+        borderRight: '1px solid rgba(255,255,255,0.05)',
+      }}
     >
-      {/* Header */}
-      <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-violet-900/30 px-3">
+      {/* Header / Logo */}
+      <div
+        className="flex h-14 flex-shrink-0 items-center justify-between px-3"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+      >
         {!colapsada && (
           <Link
             href="/dashboard"
-            className="truncate text-base font-bold tracking-tight bg-gradient-to-r from-blue-400 to-violet-400 bg-clip-text text-transparent"
             onClick={onClose}
+            className="flex items-center gap-2 truncate"
           >
-            BiblioIA
+            <div
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg text-xs font-black text-white"
+              style={{
+                background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+                boxShadow: '0 0 12px rgba(124,58,237,0.5), 0 0 24px rgba(6,182,212,0.2)',
+              }}
+            >
+              B
+            </div>
+            <span
+              className="text-sm font-bold tracking-tight"
+              style={{
+                background: 'linear-gradient(90deg, #a78bfa, #67e8f9)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              BiblioIA
+            </span>
           </Link>
         )}
-        <div className={`flex items-center gap-1 ${colapsada ? 'w-full justify-center' : 'flex-shrink-0'}`}>
+
+        {colapsada && (
+          <Link href="/dashboard" onClick={onClose} className="mx-auto flex items-center justify-center">
+            <div
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black text-white"
+              style={{
+                background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+                boxShadow: '0 0 10px rgba(124,58,237,0.45)',
+              }}
+            >
+              B
+            </div>
+          </Link>
+        )}
+
+        <div className={`flex items-center gap-1 ${colapsada ? 'hidden' : 'flex-shrink-0'}`}>
           {onToggleColapsar && (
             <button
               onClick={onToggleColapsar}
-              className="hidden rounded p-1 text-neutral-600 hover:text-violet-400 md:block transition-colors"
+              className="hidden rounded-md p-1.5 text-neutral-600 transition-colors hover:text-neutral-300 md:block"
+              style={{ background: 'transparent' }}
               title={colapsada ? 'Expandir menú' : 'Colapsar menú'}
             >
               {colapsada
-                ? <PanelLeftOpen className="h-4 w-4" />
-                : <PanelLeftClose className="h-4 w-4" />}
+                ? <PanelLeftOpen className="h-3.5 w-3.5" />
+                : <PanelLeftClose className="h-3.5 w-3.5" />}
             </button>
           )}
-          {onClose && !colapsada && (
-            <button onClick={onClose} className="rounded p-1 text-neutral-600 hover:text-white md:hidden">
-              <X className="h-5 w-5" />
+          {onClose && (
+            <button onClick={onClose} className="rounded-md p-1.5 text-neutral-600 hover:text-white md:hidden">
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
+
       </div>
 
-      {/* Nav items */}
-      <nav className="flex-1 overflow-y-auto py-2">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active =
-            pathname === href ||
-            (href !== '/lector' && pathname.startsWith(href + '/')) ||
-            (href === '/lector' && pathname.startsWith('/lector/'))
+      {/* Nav groups */}
+      <nav className="flex-1 overflow-y-auto py-3 space-y-1">
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={gi} className={gi > 0 ? 'pt-2' : ''}>
+            {/* Group label */}
+            {!colapsada && (
+              <p
+                className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-widest"
+                style={{ color: 'rgba(139,92,246,0.5)' }}
+              >
+                {group.label}
+              </p>
+            )}
+            {colapsada && gi > 0 && (
+              <div
+                className="mx-3 mb-2 h-px"
+                style={{ background: 'linear-gradient(90deg, transparent, rgba(124,58,237,0.25), transparent)' }}
+              />
+            )}
 
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={onClose}
-              title={colapsada ? label : undefined}
-              className={`relative flex items-center text-sm transition-all ${
-                colapsada
-                  ? 'justify-center px-0 py-3'
-                  : 'gap-3 px-4 py-2.5'
-              } ${
-                active
-                  ? 'bg-gradient-to-r from-violet-950/70 to-blue-950/50 text-white'
-                  : 'text-neutral-500 hover:bg-blue-950/30 hover:text-blue-200'
-              }`}
-            >
-              {/* Barra izquierda activa */}
-              {active && (
-                <span className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-gradient-to-b from-blue-400 to-violet-500" />
-              )}
-              <Icon className={`h-4 w-4 flex-shrink-0 transition-colors ${active ? 'text-violet-400' : ''}`} />
-              {!colapsada && <span className="truncate">{label}</span>}
-            </Link>
-          )
-        })}
+            {group.items.map(({ href, label, icon: Icon }) => {
+              const active = isActive(pathname, href)
+
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={onClose}
+                  title={colapsada ? label : undefined}
+                  className={`relative flex items-center text-[13px] transition-all duration-150 ${
+                    colapsada
+                      ? 'mx-1 justify-center rounded-lg px-0 py-2.5'
+                      : 'mx-2 gap-3 rounded-lg px-3 py-2'
+                  }`}
+                  style={
+                    active
+                      ? {
+                          background: 'linear-gradient(90deg, rgba(109,40,217,0.25) 0%, rgba(30,58,138,0.15) 100%)',
+                          boxShadow: 'inset 0 0 0 1px rgba(139,92,246,0.15)',
+                          color: '#fff',
+                        }
+                      : { color: 'rgba(148,163,184,0.7)' }
+                  }
+                  onMouseEnter={(e) => {
+                    if (!active) {
+                      const el = e.currentTarget
+                      el.style.background = 'rgba(255,255,255,0.04)'
+                      el.style.color = 'rgba(203,213,225,0.9)'
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!active) {
+                      const el = e.currentTarget
+                      el.style.background = ''
+                      el.style.color = 'rgba(148,163,184,0.7)'
+                    }
+                  }}
+                >
+                  {/* Left glow bar */}
+                  {active && (
+                    <span
+                      className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full"
+                      style={{
+                        background: 'linear-gradient(180deg, #a78bfa, #22d3ee)',
+                        boxShadow: '0 0 8px rgba(167,139,250,0.8), 0 0 16px rgba(167,139,250,0.4)',
+                      }}
+                    />
+                  )}
+
+                  <Icon
+                    className="h-4 w-4 flex-shrink-0 transition-colors"
+                    style={
+                      active
+                        ? { color: '#a78bfa', filter: 'drop-shadow(0 0 4px rgba(167,139,250,0.6))' }
+                        : {}
+                    }
+                  />
+                  {!colapsada && (
+                    <span className="truncate font-medium">{label}</span>
+                  )}
+                </Link>
+              )
+            })}
+          </div>
+        ))}
       </nav>
 
-      {/* Footer sutil */}
-      {!colapsada && (
-        <div className="flex-shrink-0 border-t border-violet-900/20 px-4 py-3">
-          <p className="text-xs text-neutral-700">v2 · biblio-ia</p>
-        </div>
-      )}
+      {/* Footer */}
+      <div
+        className="flex-shrink-0 px-2 py-3"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}
+      >
+        {colapsada ? (
+          onToggleColapsar && (
+            <button
+              onClick={onToggleColapsar}
+              className="flex w-full items-center justify-center rounded-lg p-1.5 text-neutral-600 transition-colors hover:text-neutral-300"
+              title="Expandir menú"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </button>
+          )
+        ) : (
+          <p
+            className="px-2 text-[10px] font-medium"
+            style={{
+              background: 'linear-gradient(90deg, rgba(139,92,246,0.5), rgba(6,182,212,0.4))',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            v2 · BiblioIA
+          </p>
+        )}
+      </div>
     </aside>
   )
 }

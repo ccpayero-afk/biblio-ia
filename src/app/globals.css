@@ -1,17 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --bg:        #0A0A0F;
-  --surface-1: #111118;
-  --surface-2: #18181F;
-  --surface-3: #23232D;
-  --border:    #2F2F3A;
-  --border-subtle: #1F1F28;
-  --text-primary:   #F8FAFC;
+  --bg:        #030308;
+  --surface-1: #0d0d18;
+  --surface-2: #13131f;
+  --surface-3: #1a1a2a;
+  --border:    rgba(255,255,255,0.06);
+  --border-subtle: rgba(255,255,255,0.03);
+  --text-primary:   #F1F5F9;
   --text-secondary: #94A3B8;
   --text-muted:     #475569;
   --brand:       #7C3AED;
   --brand-light: #8B5CF6;
+  --cyan:        #06B6D4;
+  --glow-violet: rgba(124,58,237,0.35);
+  --glow-cyan:   rgba(6,182,212,0.25);
 }
 
 @theme inline {
@@ -27,12 +30,48 @@ body {
   font-family: var(--font-geist), system-ui, sans-serif;
 }
 
-/* Scrollbar fino premium */
+/* Scrollbar con acento violeta */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: rgba(124,58,237,0.3) transparent;
 }
 *::-webkit-scrollbar { width: 4px; height: 4px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-*::-webkit-scrollbar-thumb:hover { background: #3F3F4A; }
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, rgba(124,58,237,0.4), rgba(6,182,212,0.3));
+  border-radius: 2px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, rgba(139,92,246,0.6), rgba(6,182,212,0.5));
+}
+
+/* Selección */
+::selection {
+  background: rgba(124,58,237,0.35);
+  color: #fff;
+}
+
+/* Gradient border utility */
+.gradient-border {
+  position: relative;
+  background-clip: padding-box;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(124,58,237,0.5), rgba(6,182,212,0.3));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Glow animations */
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+.animate-glow { animation: pulse-glow 3s ease-in-out infinite; }

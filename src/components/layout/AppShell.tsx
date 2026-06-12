@@ -16,7 +16,6 @@ export default function AppShell({ children, user, apiKeyConfigurada }: Props) {
   const [navColapsada, setNavColapsada] = useState(false)
   const pathname = usePathname()
 
-  // Persistir preferencia de colapso
   useEffect(() => {
     const saved = localStorage.getItem('nav-colapsada')
     if (saved === 'true') setNavColapsada(true)
@@ -29,10 +28,8 @@ export default function AppShell({ children, user, apiKeyConfigurada }: Props) {
     })
   }
 
-  // Cerrar drawer móvil al navegar
   useEffect(() => { setSidebarAbierto(false) }, [pathname])
 
-  // Cerrar drawer al hacer resize a desktop
   useEffect(() => {
     const handler = () => { if (window.innerWidth >= 768) setSidebarAbierto(false) }
     window.addEventListener('resize', handler)
@@ -40,16 +37,34 @@ export default function AppShell({ children, user, apiKeyConfigurada }: Props) {
   }, [])
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#0a0a12]">
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+
+      {/* Ambient gradient blobs — fondo decorativo */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div
+          className="absolute -top-32 left-1/4 h-[500px] w-[600px] rounded-full animate-glow"
+          style={{ background: 'radial-gradient(ellipse, rgba(109,40,217,0.12) 0%, transparent 70%)', filter: 'blur(40px)' }}
+        />
+        <div
+          className="absolute bottom-0 right-0 h-[400px] w-[500px] rounded-full animate-glow"
+          style={{ background: 'radial-gradient(ellipse, rgba(6,182,212,0.07) 0%, transparent 70%)', filter: 'blur(40px)', animationDelay: '1.5s' }}
+        />
+        <div
+          className="absolute top-1/2 -left-20 h-[300px] w-[300px] rounded-full animate-glow"
+          style={{ background: 'radial-gradient(ellipse, rgba(99,102,241,0.08) 0%, transparent 70%)', filter: 'blur(40px)', animationDelay: '3s' }}
+        />
+      </div>
+
       {/* Overlay mobile */}
       {sidebarAbierto && (
         <div
-          className="fixed inset-0 z-20 bg-black/60 md:hidden"
+          className="fixed inset-0 z-20 md:hidden"
+          style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
           onClick={() => setSidebarAbierto(false)}
         />
       )}
 
-      {/* Sidebar — drawer en mobile, estático en desktop */}
+      {/* Sidebar */}
       <div className={`
         fixed inset-y-0 left-0 z-30 transition-transform duration-200 md:static md:translate-x-0
         ${sidebarAbierto ? 'translate-x-0' : '-translate-x-full'}
@@ -62,7 +77,7 @@ export default function AppShell({ children, user, apiKeyConfigurada }: Props) {
       </div>
 
       {/* Área principal */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header
           user={user}
           apiKeyConfigurada={apiKeyConfigurada}
