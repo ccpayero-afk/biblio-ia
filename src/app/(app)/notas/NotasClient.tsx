@@ -324,6 +324,8 @@ function NotaDetalle({
   onSeleccionarNota: (n: Nota) => void
   onFiltrarEtiqueta: (e: string) => void
 }) {
+  const [comentario, setComentario] = useState(nota.comentarioPersonal ?? '')
+  const [guardandoComentario, setGuardandoComentario] = useState(false)
   const [convertiendo, setConvirtiendo] = useState(false)
   const [sugerencia, setSugerencia] = useState<null | {
     titulo_sugerido: string
@@ -577,6 +579,33 @@ function NotaDetalle({
             </p>
           </div>
         )}
+
+        {/* Comentario personal */}
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600">Mis notas</p>
+            {guardandoComentario && (
+              <span className="text-xs text-neutral-600">Guardando…</span>
+            )}
+          </div>
+          <textarea
+            value={comentario}
+            onChange={(e) => setComentario(e.target.value)}
+            onBlur={async () => {
+              if (comentario === (nota.comentarioPersonal ?? '')) return
+              setGuardandoComentario(true)
+              await fetch(`/api/notas/${nota.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ comentarioPersonal: comentario }),
+              })
+              setGuardandoComentario(false)
+            }}
+            placeholder="Escribí tus reflexiones personales sobre esta nota…"
+            rows={4}
+            className="w-full resize-none rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-sm text-neutral-300 placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none"
+          />
+        </div>
       </div>
     </div>
   )
@@ -979,6 +1008,7 @@ export default function NotasClient() {
       <div className="flex flex-1 flex-col overflow-hidden">
         {notaSel ? (
           <NotaDetalle
+            key={notaSel.id}
             nota={notaSel}
             todasLasNotas={notas}
             onEditar={() => setEditando(notaSel)}

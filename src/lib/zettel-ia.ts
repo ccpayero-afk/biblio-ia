@@ -97,32 +97,68 @@ export async function convertirNota(
   etiquetas_sugeridas: string[]
   razon_titulo: string
 }> {
-  const prompt = `Sos un asistente que ayuda a transformar notas de lectura en notas permanentes de conocimiento propio.
+  const prompt = `[Contexto de investigación]
+Estoy construyendo un Zettelkasten académico en ciencias sociales latinoamericanas. Trabajo con fuentes teóricas y empíricas, y mi objetivo es construir pensamiento propio a partir de la literatura.
 
-Una nota permanente Zettelkasten:
-- Formula una sola idea como afirmación propia del investigador, no como resumen del texto
-- Usa primera persona: "Considero que..." / "En mi lectura de..." / "La tensión entre X e Y se resuelve si..."
-- Es autónoma: se entiende sin haber leído el texto de origen
-- Es breve: máximo 3 párrafos
+[Tu rol]
+Sos un asistente de investigación especializado en ciencias sociales. Tu tarea es ayudarme a transformar una nota efímera (captura rápida de lectura) en una nota permanente Zettelkasten de alta calidad.
 
-Tomá esta nota de lectura y proponé su versión como nota permanente.
-También proponé: un título como afirmación (no como tema), etiquetas relevantes, y el tipo más apropiado.
+[Criterios para la nota permanente]
+1. Formula UNA SOLA idea como afirmación propia del investigador
+2. Primera persona reflexiva: "Considero que...", "Interpreto que...", "La tensión entre X e Y..."
+3. Es autónoma: se entiende sin leer la fuente original
+4. Establece conexiones explícitas con otras ideas (aunque sean hipotéticas)
+5. Identifica la tensión teórica o empírica que resuelve o abre
+6. Usa lenguaje académico preciso pero fluido
+7. Máximo 4 párrafos de desarrollo
+8. El título es una AFIRMACIÓN, no un tema
 
-Respondé ÚNICAMENTE en JSON válido sin texto adicional:
-{
-  "titulo_sugerido": "...",
-  "contenido_sugerido": "...",
-  "tipo_sugerido": "permanente|estructura|proyecto",
-  "etiquetas_sugeridas": ["..."],
-  "razon_titulo": "..."
-}
+[Estructura del output]
+Respondé ÚNICAMENTE con el siguiente formato markdown, sin texto adicional antes ni después:
 
-Nota de lectura original:
-${contenidoEfimero.slice(0, 1000)}`
+# Título
+[Título como afirmación]
+
+# Idea principal
+[Un párrafo de 2-3 oraciones que formula la idea atómica]
+
+# Importancia teórica
+[Por qué esta idea importa en el debate académico]
+
+# Reflexión analítica
+[Tu lectura crítica: tensiones, matices, lo que esta idea abre o cierra]
+
+# Posibles conexiones
+- [[concepto o autor]]
+- [[concepto o autor]]
+(al menos 3)
+
+# Aplicación para investigación
+[Cómo usarías esta idea en tu propia investigación]
+
+# Referencia
+[Autor, año, p. X]
+
+Nota efímera a transformar:
+${contenidoEfimero.slice(0, 1500)}`
 
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
   const result = await model.generateContent(prompt)
-  const text = result.response.text().trim()
-  const jsonStr = text.startsWith('{') ? text : text.slice(text.indexOf('{'))
-  return JSON.parse(jsonStr)
+  const contenido = result.response.text().trim()
+
+  const tituloMatch = contenido.match(/^#\s*Título\s*\n+(.+)/m)
+  const titulo_sugerido = tituloMatch ? tituloMatch[1].trim() : 'Nota permanente'
+
+  const conexionesMatch = contenido.match(/# Posibles conexiones([\s\S]*?)(?=\n#|$)/)
+  const etiquetas_sugeridas = conexionesMatch
+    ? [...conexionesMatch[1].matchAll(/\[\[(.+?)\]\]/g)].map((m) => m[1].toLowerCase().replace(/\s+/g, '-'))
+    : []
+
+  return {
+    titulo_sugerido,
+    contenido_sugerido: contenido,
+    tipo_sugerido: 'permanente',
+    etiquetas_sugeridas,
+    razon_titulo: 'Generado con método Zettelkasten',
+  }
 }

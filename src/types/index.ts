@@ -110,6 +110,7 @@ export interface Nota {
   etiquetas: string[]
   creadaEn: string
   actualizadaEn: string
+  comentarioPersonal?: string
   // legado — algunos de estos campos existían antes del Zettelkasten
   documentoId?: string
   pagina?: number
