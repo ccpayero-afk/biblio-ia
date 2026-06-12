@@ -381,7 +381,7 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
       texto: modalCita.texto,
       pagina: modalCita.pagina,
       documentoId: documento.id,
-      documentoNombre: documento.nombre,
+      documentoNombre: documento.titulo ?? documento.nombre,
       autor: documento.autor,
       año: documento.año,
       ...datos,

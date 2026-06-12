@@ -5,6 +5,14 @@ import { Quote, Trash2, Download, Search, BookMarked, Copy, Check, ChevronDown, 
 import Link from 'next/link'
 import { Cita } from '@/types'
 
+function norm(str: string): string {
+  return (str ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
+function limpiarNombre(nombre: string): string {
+  return nombre.replace(/\.pdf$/i, '').replace(/\//g, ' · ').trim()
+}
+
 // Colores de acento que se rotan por documento
 const ACCENTS = [
   'border-blue-500',
@@ -64,7 +72,7 @@ function CitaCard({ cita, accentColor, onEliminar }: { cita: Cita; accentColor: 
             onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
           >
             <BookMarked className="h-3 w-3 flex-shrink-0" />
-            <span className="truncate">{cita.documentoNombre.replace(/\.pdf$/i, '')} · p.&nbsp;{cita.pagina}</span>
+            <span className="truncate">{limpiarNombre(cita.documentoNombre)} · p.&nbsp;{cita.pagina}</span>
           </Link>
         </div>
 
@@ -150,11 +158,12 @@ export default function CitasClient() {
   const citasFiltradas = citas.filter((c) => {
     if (filtroDoc && c.documentoId !== filtroDoc) return false
     if (!filtro) return true
-    const q = filtro.toLowerCase()
+    const q = norm(filtro)
     return (
-      c.texto.toLowerCase().includes(q) ||
-      c.autor.toLowerCase().includes(q) ||
-      c.documentoNombre.toLowerCase().includes(q)
+      norm(c.texto).includes(q) ||
+      norm(c.autor).includes(q) ||
+      norm(c.documentoNombre).includes(q) ||
+      norm(c.notaPropia ?? '').includes(q)
     )
   })
 
@@ -267,7 +276,7 @@ export default function CitasClient() {
               className="rounded-full px-2 py-0.5 text-xs"
               style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#a78bfa' }}
             >
-              {citas.find((c) => c.documentoId === filtroDoc)?.documentoNombre.replace(/\.pdf$/i, '') ?? filtroDoc}
+              {limpiarNombre(citas.find((c) => c.documentoId === filtroDoc)?.documentoNombre ?? filtroDoc)}
             </span>
             <button
               onClick={() => setFiltroDoc(null)}
@@ -308,7 +317,7 @@ export default function CitasClient() {
             {uniqueDocs.map((docId) => {
               const primera = citas.find((c) => c.documentoId === docId)
               const count = citas.filter((c) => c.documentoId === docId).length
-              const nombre = (primera?.documentoNombre ?? docId).replace(/\.pdf$/i, '')
+              const nombre = limpiarNombre(primera?.documentoNombre ?? docId)
               const isActive = filtroDoc === docId
               return (
                 <button
@@ -359,7 +368,7 @@ export default function CitasClient() {
                 if (!docCitas?.length) return null
                 const primera = docCitas[0]
                 const accentCls = docColorMap[docId] ?? ACCENTS[0]
-                const nombre = primera.documentoNombre.replace(/\.pdf$/i, '')
+                const nombre = limpiarNombre(primera.documentoNombre)
 
                 return (
                   <div key={docId}>

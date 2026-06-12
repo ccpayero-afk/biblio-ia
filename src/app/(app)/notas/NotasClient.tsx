@@ -895,15 +895,19 @@ export default function NotasClient() {
   }
   const sinVinculos = notas.filter((n) => (n.vinculos ?? []).length === 0 && n.tipo === 'permanente').length
 
+  function norm(str: string): string {
+    return (str ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  }
+
   const notasFiltradas = notas.filter((n) => {
     if (filtroTipo && n.tipo !== filtroTipo) return false
     if (filtroEtiqueta && !n.etiquetas.includes(filtroEtiqueta)) return false
     if (busqueda) {
-      const q = busqueda.toLowerCase()
+      const q = norm(busqueda)
       return (
-        n.titulo.toLowerCase().includes(q) ||
-        n.contenido.toLowerCase().includes(q) ||
-        n.etiquetas.some((e) => e.toLowerCase().includes(q))
+        norm(n.titulo).includes(q) ||
+        norm(n.contenido).includes(q) ||
+        n.etiquetas.some((e) => norm(e).includes(q))
       )
     }
     return true
