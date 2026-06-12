@@ -51,13 +51,22 @@ function ListaPDFs({
   )
 
   return (
-    <div className="flex h-full flex-col border-r border-neutral-800">
+    <div
+      className="flex h-full flex-col"
+      style={{ borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(5,5,12,0.95)' }}
+    >
       {/* Upload */}
-      <div className="border-b border-neutral-800 p-3 space-y-2">
+      <div className="p-3 space-y-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <button
           onClick={() => inputRef.current?.click()}
           disabled={subiendo}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-neutral-700 py-2.5 text-xs text-neutral-400 hover:border-violet-600 hover:text-violet-400 disabled:opacity-50 transition-colors"
+          className="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-xs transition-all disabled:opacity-50"
+          style={{
+            border: '1px dashed rgba(139,92,246,0.3)',
+            color: 'rgba(148,163,184,0.6)',
+          }}
+          onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)'; e.currentTarget.style.color = '#a78bfa'; e.currentTarget.style.background = 'rgba(139,92,246,0.06)' } }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)'; e.currentTarget.style.background = '' }}
         >
           {subiendo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
           {subiendo ? 'Subiendo…' : 'Subir PDF para leer'}
@@ -75,12 +84,15 @@ function ListaPDFs({
         />
         {/* Buscador */}
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-neutral-600" />
+          <Search className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2" style={{ color: 'rgba(148,163,184,0.3)' }} />
           <input
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar…"
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900 py-1.5 pl-7 pr-3 text-xs text-neutral-300 placeholder:text-neutral-600 focus:border-neutral-600 focus:outline-none"
+            className="w-full rounded-lg py-1.5 pl-7 pr-3 text-xs text-neutral-300 placeholder:text-neutral-600 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}
           />
         </div>
       </div>
@@ -89,35 +101,53 @@ function ListaPDFs({
       <div className="flex-1 overflow-y-auto">
         {docs.length === 0 && !subiendo && (
           <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-            <BookOpen className="h-8 w-8 text-neutral-700 mb-3" />
-            <p className="text-xs text-neutral-500">Subí PDFs que querés leer</p>
-            <p className="text-xs text-neutral-700 mt-1">Aparecerán acá hasta que los pases a Biblioteca</p>
+            <div
+              className="flex h-12 w-12 items-center justify-center rounded-xl mb-3"
+              style={{
+                background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06))',
+                border: '1px solid rgba(139,92,246,0.2)',
+              }}
+            >
+              <BookOpen className="h-6 w-6" style={{ color: 'rgba(139,92,246,0.6)' }} />
+            </div>
+            <p className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Subí PDFs que querés leer</p>
+            <p className="text-xs mt-1" style={{ color: 'rgba(148,163,184,0.3)' }}>Aparecerán acá hasta que los pases a Biblioteca</p>
           </div>
         )}
-        {docsFiltrados.map((doc) => (
-          <button
-            key={doc.id}
-            onClick={() => onSeleccionar(doc.id)}
-            className={`block w-full border-b border-neutral-800/50 px-4 py-3 text-left transition-colors hover:bg-neutral-900 ${docSelId === doc.id ? 'bg-neutral-900' : ''}`}
-          >
-            <div className="flex items-start justify-between gap-2">
-              <p className="line-clamp-2 flex-1 text-xs font-medium text-neutral-200 leading-snug">
-                {shortName(doc.nombre)}
+        {docsFiltrados.map((doc) => {
+          const isSel = docSelId === doc.id
+          return (
+            <button
+              key={doc.id}
+              onClick={() => onSeleccionar(doc.id)}
+              className="block w-full px-4 py-3 text-left transition-all"
+              style={{
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                background: isSel ? 'linear-gradient(90deg, rgba(109,40,217,0.15), rgba(30,58,138,0.08))' : '',
+              }}
+              onMouseEnter={(e) => { if (!isSel) e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}
+              onMouseLeave={(e) => { if (!isSel) e.currentTarget.style.background = '' }}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="line-clamp-2 flex-1 text-xs font-medium leading-snug" style={{ color: isSel ? '#f1f5f9' : 'rgba(203,213,225,0.8)' }}>
+                  {shortName(doc.nombre)}
+                </p>
+                <span
+                  className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${doc.estado === 'indexado' ? 'bg-emerald-500' : 'bg-neutral-700'}`}
+                  title={doc.estado === 'indexado' ? 'Indexado' : 'Sin indexar'}
+                  style={doc.estado === 'indexado' ? { boxShadow: '0 0 6px rgba(52,211,153,0.5)' } : {}}
+                />
+              </div>
+              <p className="mt-0.5 truncate text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
+                {doc.autor || 'Sin autor'}{doc.año ? ` · ${doc.año}` : ''}
               </p>
-              <span
-                className={`mt-1 h-2 w-2 flex-shrink-0 rounded-full ${doc.estado === 'indexado' ? 'bg-emerald-500' : 'bg-neutral-700'}`}
-                title={doc.estado === 'indexado' ? 'Indexado' : 'Sin indexar'}
-              />
-            </div>
-            <p className="mt-0.5 truncate text-xs text-neutral-600">
-              {doc.autor || 'Sin autor'}{doc.año ? ` · ${doc.año}` : ''}
-            </p>
-          </button>
-        ))}
+            </button>
+          )
+        })}
       </div>
 
-      <div className="border-t border-neutral-800 px-4 py-2">
-        <p className="text-xs text-neutral-700">{docs.length} PDF{docs.length !== 1 ? 's' : ''} por leer</p>
+      <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>{docs.length} PDF{docs.length !== 1 ? 's' : ''} por leer</p>
       </div>
     </div>
   )
@@ -246,9 +276,24 @@ function PanelHerramientas({
   if (movido) {
     return (
       <div className="flex h-full flex-col items-center justify-center text-center">
-        <Check className="h-10 w-10 text-emerald-500 mb-3" />
-        <p className="text-sm text-neutral-300 font-medium">Movido a Biblioteca</p>
-        <Link href="/biblioteca" className="mt-3 text-xs text-blue-400 hover:underline">Ir a Biblioteca →</Link>
+        <div
+          className="flex h-14 w-14 items-center justify-center rounded-2xl mb-4"
+          style={{
+            background: 'linear-gradient(135deg, rgba(52,211,153,0.15), rgba(16,185,129,0.08))',
+            border: '1px solid rgba(52,211,153,0.3)',
+            boxShadow: '0 0 24px rgba(52,211,153,0.15)',
+          }}
+        >
+          <Check className="h-7 w-7" style={{ color: '#34d399' }} />
+        </div>
+        <p className="text-sm font-medium text-white">Movido a Biblioteca</p>
+        <Link
+          href="/biblioteca"
+          className="mt-3 text-xs transition-colors"
+          style={{ color: 'rgba(6,182,212,0.7)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#22d3ee' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(6,182,212,0.7)' }}
+        >Ir a Biblioteca →</Link>
       </div>
     )
   }
@@ -256,7 +301,10 @@ function PanelHerramientas({
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Header del documento */}
-      <div className="flex items-start justify-between gap-4 border-b border-neutral-800 px-6 py-4">
+      <div
+        className="flex items-start justify-between gap-4 px-6 py-4"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+      >
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-semibold text-white leading-snug line-clamp-2">
             {shortName(doc.nombre)}
@@ -267,34 +315,52 @@ function PanelHerramientas({
                 value={meta.autor}
                 onChange={(e) => setMeta((p) => ({ ...p, autor: e.target.value }))}
                 placeholder="Autor"
-                className="flex-1 rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-violet-600"
+                className="flex-1 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
               />
               <input
                 value={meta.año}
                 onChange={(e) => setMeta((p) => ({ ...p, año: e.target.value }))}
                 placeholder="Año"
-                className="w-20 rounded border border-neutral-700 bg-neutral-900 px-2 py-1 text-xs text-neutral-300 focus:outline-none focus:border-violet-600"
+                className="w-20 rounded px-2 py-1 text-xs text-neutral-300 focus:outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
               />
               <button
                 onClick={guardarMeta}
                 disabled={guardandoMeta}
-                className="rounded bg-violet-700 px-2 py-1 text-xs text-white hover:bg-violet-600 disabled:opacity-50"
+                className="rounded px-2 py-1 text-xs text-white transition-all disabled:opacity-50"
+                style={{ background: 'rgba(124,58,237,0.4)', border: '1px solid rgba(139,92,246,0.4)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(124,58,237,0.6)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(124,58,237,0.4)' }}
               >
                 {guardandoMeta ? '…' : 'Guardar'}
               </button>
-              <button onClick={() => setEditandoMeta(false)} className="text-neutral-600 hover:text-neutral-400">
+              <button
+                onClick={() => setEditandoMeta(false)}
+                className="transition-colors"
+                style={{ color: 'rgba(148,163,184,0.4)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
           ) : (
             <div className="mt-0.5 flex items-center gap-2">
-              <p className="text-sm text-neutral-500">
+              <p className="text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>
                 {doc.autor || 'Sin autor'}{doc.año ? ` · ${doc.año}` : ''}
               </p>
               <button
                 onClick={() => { setMeta({ autor: doc.autor || '', año: doc.año || '' }); setEditandoMeta(true) }}
-                className="text-neutral-700 hover:text-neutral-400"
+                className="transition-colors"
                 title="Editar metadatos"
+                style={{ color: 'rgba(148,163,184,0.3)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(167,139,250,0.8)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.3)' }}
               >
                 <Pencil className="h-3 w-3" />
               </button>
@@ -302,7 +368,13 @@ function PanelHerramientas({
           )}
         </div>
         <div className="flex flex-shrink-0 items-center gap-2">
-          <span className={`text-xs px-2 py-0.5 rounded-full ${indexDone ? 'bg-emerald-950 text-emerald-400' : 'bg-neutral-800 text-neutral-500'}`}>
+          <span
+            className="text-xs px-2 py-0.5 rounded-full"
+            style={indexDone
+              ? { background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.3)', color: '#34d399' }
+              : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.4)' }
+            }
+          >
             {indexDone ? 'Indexado' : 'Sin indexar'}
           </span>
         </div>
@@ -315,50 +387,65 @@ function PanelHerramientas({
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/lector/${doc.id}`}
-            className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-blue-600 hover:text-blue-400 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all"
+            style={{ border: '1px solid rgba(6,182,212,0.2)', color: 'rgba(34,211,238,0.7)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(6,182,212,0.5)'; e.currentTarget.style.color = '#22d3ee'; e.currentTarget.style.background = 'rgba(6,182,212,0.07)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(6,182,212,0.2)'; e.currentTarget.style.color = 'rgba(34,211,238,0.7)'; e.currentTarget.style.background = '' }}
           >
             <Eye className="h-3.5 w-3.5" /> Abrir lector
           </Link>
           <Link
             href={`/fichas`}
-            className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-violet-600 hover:text-violet-400 transition-colors"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all"
+            style={{ border: '1px solid rgba(139,92,246,0.2)', color: 'rgba(167,139,250,0.7)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.color = '#a78bfa'; e.currentTarget.style.background = 'rgba(139,92,246,0.07)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; e.currentTarget.style.color = 'rgba(167,139,250,0.7)'; e.currentTarget.style.background = '' }}
           >
             <FileText className="h-3.5 w-3.5" /> Ir a Fichas
           </Link>
         </div>
 
         {/* Indexación */}
-        <Section titulo="1. Indexar documento" icono={<ArrowRight className="h-4 w-4 text-neutral-600" />}>
-          <p className="text-xs text-neutral-500 mb-3">
+        <Section titulo="1. Indexar documento" icono={<ArrowRight className="h-4 w-4" style={{ color: 'rgba(52,211,153,0.7)' }} />}>
+          <p className="text-xs mb-3" style={{ color: 'rgba(148,163,184,0.5)' }}>
             Indexá el texto para habilitar la Guía de Lectura, extracción de notas y generación de fichas.
           </p>
           {indexMsg && (
-            <p className={`mb-2 text-xs ${indexMsg.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>
+            <p className={`mb-2 text-xs ${indexMsg.startsWith('Error') ? 'text-red-400' : ''}`} style={!indexMsg.startsWith('Error') ? { color: '#34d399' } : {}}>
               {indexMsg}
             </p>
           )}
           <button
             onClick={indexar}
             disabled={indexando || indexDone}
-            className="flex items-center gap-2 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-emerald-600 hover:text-emerald-400 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition-all disabled:opacity-40"
+            style={indexDone
+              ? { border: '1px solid rgba(52,211,153,0.3)', color: '#34d399', background: 'rgba(52,211,153,0.07)' }
+              : { border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(203,213,225,0.7)' }
+            }
+            onMouseEnter={(e) => { if (!e.currentTarget.disabled && !indexDone) { e.currentTarget.style.borderColor = 'rgba(52,211,153,0.4)'; e.currentTarget.style.color = '#34d399'; e.currentTarget.style.background = 'rgba(52,211,153,0.07)' } }}
+            onMouseLeave={(e) => { if (!indexDone) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(203,213,225,0.7)'; e.currentTarget.style.background = '' } }}
           >
             {indexando
               ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
               : indexDone
-              ? <Check className="h-3.5 w-3.5 text-emerald-500" />
+              ? <Check className="h-3.5 w-3.5" />
               : <RefreshCw className="h-3.5 w-3.5" />}
             {indexando ? 'Indexando…' : indexDone ? 'Ya indexado' : 'Indexar'}
           </button>
         </Section>
 
         {/* Guía de Lectura */}
-        <Section titulo="2. Guía de Lectura" icono={<BookOpen className="h-4 w-4 text-violet-500" />}>
-          <p className="text-xs text-neutral-500 mb-3">
+        <Section titulo="2. Guía de Lectura" icono={<BookOpen className="h-4 w-4" style={{ color: '#a78bfa' }} />}>
+          <p className="text-xs mb-3" style={{ color: 'rgba(148,163,184,0.5)' }}>
             La IA genera una orientación para abordar el texto: contexto, preguntas guía, conceptos a rastrear y estrategia de lectura.
           </p>
 
           {guiaError && (
-            <div className="mb-3 rounded-lg border border-red-900/50 bg-red-950/20 px-3 py-2 text-xs text-red-400">
+            <div
+              className="mb-3 rounded-lg px-3 py-2 text-xs"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }}
+            >
               {guiaError}
             </div>
           )}
@@ -366,28 +453,37 @@ function PanelHerramientas({
           <button
             onClick={generarGuia}
             disabled={generandoGuia}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-violet-700 to-blue-700 px-3 py-1.5 text-xs font-medium text-white hover:from-violet-600 hover:to-blue-600 disabled:opacity-40 transition-colors mb-4"
+            className="mb-4 flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-all disabled:opacity-40"
+            style={{
+              background: 'linear-gradient(135deg, #7c3aed, #0891b2)',
+              boxShadow: '0 0 16px rgba(124,58,237,0.3)',
+            }}
+            onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.boxShadow = '0 0 24px rgba(124,58,237,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(124,58,237,0.3)'; e.currentTarget.style.transform = '' }}
           >
             {generandoGuia ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             {guiaLocal ? 'Regenerar guía' : 'Generar guía de lectura'}
           </button>
 
           {guiaLocal && (
-            <div className="space-y-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
+            <div
+              className="space-y-4 rounded-xl p-4"
+              style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}
+            >
               {guiaLocal.orientacionGeneral && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">Orientación general</p>
-                  <p className="text-sm text-neutral-300 leading-relaxed">{guiaLocal.orientacionGeneral}</p>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(139,92,246,0.7)' }}>Orientación general</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(241,245,249,0.8)' }}>{guiaLocal.orientacionGeneral}</p>
                 </div>
               )}
 
               {guiaLocal.preguntasGuia?.length > 0 && (
                 <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Preguntas guía</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(139,92,246,0.7)' }}>Preguntas guía</p>
                   <ul className="space-y-1.5">
                     {guiaLocal.preguntasGuia.map((q, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-neutral-300">
-                        <span className="text-violet-400 flex-shrink-0">?</span>{q}
+                      <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(241,245,249,0.75)' }}>
+                        <span className="flex-shrink-0 font-bold" style={{ color: '#a78bfa' }}>?</span>{q}
                       </li>
                     ))}
                   </ul>
@@ -396,10 +492,18 @@ function PanelHerramientas({
 
               {guiaLocal.conceptosARastrear?.length > 0 && (
                 <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Conceptos a rastrear</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(6,182,212,0.7)' }}>Conceptos a rastrear</p>
                   <div className="flex flex-wrap gap-1.5">
                     {guiaLocal.conceptosARastrear.map((c, i) => (
-                      <span key={i} className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-400">{c}</span>
+                      <span
+                        key={i}
+                        className="rounded-full px-2.5 py-1 text-xs"
+                        style={{
+                          background: 'rgba(6,182,212,0.08)',
+                          border: '1px solid rgba(6,182,212,0.2)',
+                          color: 'rgba(34,211,238,0.8)',
+                        }}
+                      >{c}</span>
                     ))}
                   </div>
                 </div>
@@ -407,21 +511,21 @@ function PanelHerramientas({
 
               {guiaLocal.estrategiaLectura && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">Estrategia de lectura</p>
-                  <p className="text-sm text-neutral-300 leading-relaxed">{guiaLocal.estrategiaLectura}</p>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(139,92,246,0.7)' }}>Estrategia de lectura</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(241,245,249,0.8)' }}>{guiaLocal.estrategiaLectura}</p>
                 </div>
               )}
 
               {guiaLocal.conexionesPosibes && (
                 <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">Conexiones posibles</p>
-                  <p className="text-sm text-neutral-300 leading-relaxed">{guiaLocal.conexionesPosibes}</p>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(139,92,246,0.7)' }}>Conexiones posibles</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(241,245,249,0.8)' }}>{guiaLocal.conexionesPosibes}</p>
                 </div>
               )}
 
               {guiaLocal.checklistPostLectura?.length > 0 && (
                 <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Checklist post-lectura</p>
+                  <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest" style={{ color: 'rgba(52,211,153,0.7)' }}>Checklist post-lectura</p>
                   <ul className="space-y-1.5">
                     {guiaLocal.checklistPostLectura.map((item, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
@@ -431,14 +535,14 @@ function PanelHerramientas({
                         >
                           <CheckSquare className={`h-4 w-4 ${checklist[i] ? 'text-emerald-500' : 'text-neutral-700'}`} />
                         </button>
-                        <span className={checklist[i] ? 'text-neutral-600 line-through' : 'text-neutral-300'}>{item}</span>
+                        <span style={checklist[i] ? { color: 'rgba(148,163,184,0.3)', textDecoration: 'line-through' } : { color: 'rgba(241,245,249,0.75)' }}>{item}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              <p className="text-xs text-neutral-700 pt-1">
+              <p className="text-xs pt-1" style={{ color: 'rgba(148,163,184,0.3)' }}>
                 Generada {new Date(guiaLocal.generadaEn).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
               </p>
             </div>
@@ -446,12 +550,12 @@ function PanelHerramientas({
         </Section>
 
         {/* Extraer notas */}
-        <Section titulo="3. Extraer notas Zettelkasten" icono={<StickyNote className="h-4 w-4 text-amber-500" />}>
-          <p className="text-xs text-neutral-500 mb-3">
+        <Section titulo="3. Extraer notas Zettelkasten" icono={<StickyNote className="h-4 w-4" style={{ color: '#fbbf24' }} />}>
+          <p className="text-xs mb-3" style={{ color: 'rgba(148,163,184,0.5)' }}>
             La IA extrae entre 5 y 8 notas permanentes Zettelkasten del documento y las agrega a tu sección de Notas.
           </p>
           {notasMsg && (
-            <p className={`mb-2 text-xs ${notasMsg.startsWith('Error') ? 'text-red-400' : 'text-emerald-400'}`}>
+            <p className={`mb-2 text-xs ${notasMsg.startsWith('Error') ? 'text-red-400' : ''}`} style={!notasMsg.startsWith('Error') ? { color: '#34d399' } : {}}>
               {notasMsg}
             </p>
           )}
@@ -459,29 +563,41 @@ function PanelHerramientas({
             <button
               onClick={extraerNotas}
               disabled={extrayendoNotas || !indexDone}
-              className="flex items-center gap-2 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-300 hover:border-amber-600 hover:text-amber-400 disabled:opacity-40 transition-colors"
+              className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition-all disabled:opacity-40"
+              style={{ border: '1px solid rgba(245,158,11,0.25)', color: 'rgba(251,191,36,0.7)' }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.borderColor = 'rgba(245,158,11,0.5)'; e.currentTarget.style.color = '#fbbf24'; e.currentTarget.style.background = 'rgba(245,158,11,0.07)' } }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(245,158,11,0.25)'; e.currentTarget.style.color = 'rgba(251,191,36,0.7)'; e.currentTarget.style.background = '' }}
             >
               {extrayendoNotas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <StickyNote className="h-3.5 w-3.5" />}
               {extrayendoNotas ? 'Extrayendo…' : 'Extraer notas'}
             </button>
             {notasMsg && !notasMsg.startsWith('Error') && (
-              <Link href="/notas" className="text-xs text-blue-400 hover:underline">
+              <Link
+                href="/notas"
+                className="text-xs transition-colors"
+                style={{ color: 'rgba(6,182,212,0.7)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#22d3ee' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(6,182,212,0.7)' }}
+              >
                 Ver en Notas →
               </Link>
             )}
           </div>
-          {!indexDone && <p className="mt-1.5 text-xs text-neutral-700">Indexá el documento primero.</p>}
+          {!indexDone && <p className="mt-1.5 text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>Indexá el documento primero.</p>}
         </Section>
 
         {/* Pasar a Biblioteca */}
-        <Section titulo="4. Pasar a Biblioteca" icono={<MoveRight className="h-4 w-4 text-emerald-500" />}>
-          <p className="text-xs text-neutral-500 mb-3">
+        <Section titulo="4. Pasar a Biblioteca" icono={<MoveRight className="h-4 w-4" style={{ color: '#34d399' }} />}>
+          <p className="text-xs mb-3" style={{ color: 'rgba(148,163,184,0.5)' }}>
             Una vez procesado, mové el PDF a tu Biblioteca. Allí podrás generar la ficha completa, extraer citas y datos.
           </p>
           <button
             onClick={moverABiblioteca}
             disabled={moviendoABibl}
-            className="flex items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-950/30 px-3 py-1.5 text-xs text-emerald-400 hover:bg-emerald-950/60 disabled:opacity-40 transition-colors"
+            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition-all disabled:opacity-40"
+            style={{ border: '1px solid rgba(52,211,153,0.3)', color: '#34d399', background: 'rgba(52,211,153,0.07)' }}
+            onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.background = 'rgba(52,211,153,0.14)'; e.currentTarget.style.borderColor = 'rgba(52,211,153,0.5)'; e.currentTarget.style.boxShadow = '0 0 16px rgba(52,211,153,0.15)' } }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(52,211,153,0.07)'; e.currentTarget.style.borderColor = 'rgba(52,211,153,0.3)'; e.currentTarget.style.boxShadow = '' }}
           >
             {moviendoABibl ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MoveRight className="h-3.5 w-3.5" />}
             {moviendoABibl ? 'Moviendo…' : 'Mover a Biblioteca'}
@@ -502,10 +618,13 @@ function Section({
   children: React.ReactNode
 }) {
   return (
-    <div>
+    <div
+      className="rounded-xl p-4"
+      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+    >
       <div className="flex items-center gap-2 mb-3">
         {icono}
-        <h3 className="text-sm font-semibold text-neutral-200">{titulo}</h3>
+        <h3 className="text-sm font-semibold" style={{ color: 'rgba(241,245,249,0.9)' }}>{titulo}</h3>
       </div>
       {children}
     </div>
@@ -564,7 +683,7 @@ export default function SalaLecturaClient() {
   if (cargando) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-neutral-600" />
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'rgba(139,92,246,0.5)' }} />
       </div>
     )
   }
@@ -595,21 +714,44 @@ export default function SalaLecturaClient() {
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-center px-8">
-            <BookOpen className="h-12 w-12 text-neutral-800 mb-4" />
-            <h2 className="text-lg font-semibold text-white">Sala de Lectura</h2>
-            <p className="mt-2 text-sm text-neutral-500 max-w-sm">
+            <div
+              className="flex h-16 w-16 items-center justify-center rounded-2xl mb-5"
+              style={{
+                background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(6,182,212,0.08))',
+                border: '1px solid rgba(139,92,246,0.25)',
+                boxShadow: '0 0 30px rgba(124,58,237,0.12)',
+              }}
+            >
+              <BookOpen className="h-8 w-8" style={{ color: 'rgba(139,92,246,0.7)' }} />
+            </div>
+            <h2
+              className="text-lg font-bold"
+              style={{
+                background: 'linear-gradient(90deg, #f1f5f9 30%, #a78bfa 70%, #22d3ee 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >Sala de Lectura</h2>
+            <p className="mt-2 text-sm max-w-sm" style={{ color: 'rgba(148,163,184,0.55)' }}>
               Subí un PDF que querés leer. La IA te genera una guía de lectura, podés indexarlo, extraer notas y después moverlo a Biblioteca.
             </p>
-            <div className="mt-6 flex flex-col gap-2 text-xs text-neutral-700">
-              <div className="flex items-center gap-2"><ArrowRight className="h-3.5 w-3.5" /> Subir PDF → Indexar</div>
-              <div className="flex items-center gap-2"><ArrowRight className="h-3.5 w-3.5" /> Generar guía de lectura</div>
-              <div className="flex items-center gap-2"><ArrowRight className="h-3.5 w-3.5" /> Leer + extraer notas</div>
-              <div className="flex items-center gap-2"><ArrowRight className="h-3.5 w-3.5" /> Pasar a Biblioteca</div>
+            <div className="mt-6 flex flex-col gap-2">
+              {[
+                'Subir PDF → Indexar',
+                'Generar guía de lectura',
+                'Leer + extraer notas',
+                'Pasar a Biblioteca',
+              ].map((paso, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <div
+                    className="h-1.5 w-1.5 rounded-full flex-shrink-0"
+                    style={{ background: `linear-gradient(135deg, #7c3aed, #06b6d4)`, opacity: 0.7 - i * 0.1 }}
+                  />
+                  <span style={{ color: 'rgba(148,163,184,0.4)' }}>{paso}</span>
+                </div>
+              ))}
             </div>
-            <div className="mt-6">
-              <ChevronRight className="h-4 w-4 text-neutral-800 mx-auto" />
-              <p className="text-xs text-neutral-700 mt-1">Seleccioná un PDF de la lista</p>
-            </div>
+            <p className="mt-6 text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>← Seleccioná un PDF de la lista</p>
           </div>
         )}
       </div>
