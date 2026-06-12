@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
-import { FichaLectura, Nota, Cita } from '@/types'
+import { FichaLectura, Nota, Cita, Dato } from '@/types'
 import { generarIdZettel } from '@/lib/zettel-id'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -35,6 +35,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
       try { citas = await readJSON<Cita[]>(accessToken, citasFileId) } catch { citas = [] }
     }
 
+    // Leer datos estadísticos existentes
+    const datosFileId = await findFile(accessToken, 'datos.json', estructura.citasId)
+    let datos: Dato[] = []
+    if (datosFileId) {
+      try { datos = await readJSON<Dato[]>(accessToken, datosFileId) } catch { datos = [] }
+    }
+
     // Verificar si ya se procesó (evitar duplicados)
     const yaProcessado = notas.some(
       (n) => n.documentoOrigenId === documentoId && n.etiquetas.includes('auto-ficha')
@@ -49,6 +56,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
 
     const notasNuevas: Nota[] = []
     const citasNuevas: Cita[] = []
+    const datosNuevos: Dato[] = []
 
     // ── Nota principal: tesis + argumento + posición ──────────────────────────
     const contenidoPrincipal = [
@@ -109,9 +117,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
       })
     }
 
+    // ── Datos estadísticos de la ficha ────────────────────────────────────────
+    for (const { valor, contexto, tematica, pagina } of ficha.datosEstadisticos ?? []) {
+      if (!valor?.trim()) continue
+      datosNuevos.push({
+        id: `dato_${documentoId}_${Math.random().toString(36).slice(2, 8)}`,
+        valor: valor.trim(),
+        contexto: contexto?.trim() ?? '',
+        tematica: tematica?.trim() || 'otro',
+        documentoId,
+        documentoNombre: titulo,
+        autor: autor ?? '',
+        año: año ?? '',
+        pagina,
+        etiquetas: ['auto-ficha'],
+        creadoEn: ahora,
+      })
+    }
+
     // ── Guardar atomicamente ──────────────────────────────────────────────────
     await writeJSON(accessToken, estructura.notasId, 'notas.json', [...notas, ...notasNuevas])
     await writeJSON(accessToken, estructura.citasId, 'citas.json', [...citas, ...citasNuevas])
+    if (datosNuevos.length > 0) {
+      await writeJSON(accessToken, estructura.citasId, 'datos.json', [...datos, ...datosNuevos])
+    }
 
     // Marcar fichaGenerada en el doc
     await fetch(`${process.env.NEXTAUTH_URL ?? ''}/api/drive/metadata/${documentoId}`, {
@@ -124,6 +153,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
       ok: true,
       notasCreadas: notasNuevas.length,
       citasCreadas: citasNuevas.length,
+      datosCreados: datosNuevos.length,
     })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

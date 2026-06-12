@@ -189,12 +189,27 @@ export interface FichaLectura {
   conceptosClave: { concepto: string; definicion: string }[]
   posicionDebate: string
   citasDestacadas: { texto: string; pagina: number }[]
+  datosEstadisticos?: { valor: string; contexto: string; tematica?: string; pagina?: number }[]
   limitaciones: string
   relevancia: string
   generadaEn: string
   metodologia?: string
   referenciasCitadas?: string[]
   palabrasClave?: string[]
+}
+
+export interface Dato {
+  id: string
+  valor: string
+  contexto: string
+  tematica: string
+  documentoId: string
+  documentoNombre: string
+  autor?: string
+  año?: string
+  pagina?: number
+  etiquetas: string[]
+  creadoEn: string
 }
 
 export interface DriveStructure {

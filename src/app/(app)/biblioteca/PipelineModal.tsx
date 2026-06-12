@@ -101,6 +101,7 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
 
     let notasTotales = 0
     let citasTotales = 0
+    let datosTotales = 0
 
     if (docsParaExtraer.length === 0) {
       setFase(1, { estado: 'saltado', detalle: 'No hay fichas para procesar.', resultado: '—' })
@@ -118,6 +119,7 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
           if (data.ok && !data.saltado) {
             notasTotales += data.notasCreadas ?? 0
             citasTotales += data.citasCreadas ?? 0
+            datosTotales += data.datosCreados ?? 0
           }
         } catch { /* continuar */ }
         if (i < docsParaExtraer.length - 1) await new Promise((r) => setTimeout(r, 500))
@@ -125,8 +127,8 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
       setFase(1, {
         estado: 'ok',
         progreso: { actual: docsParaExtraer.length, total: docsParaExtraer.length },
-        detalle: 'Notas y citas extraídas.',
-        resultado: `${notasTotales} notas · ${citasTotales} citas`,
+        detalle: 'Notas, citas y datos extraídos.',
+        resultado: `${notasTotales} notas · ${citasTotales} citas · ${datosTotales} datos`,
       })
     }
 
@@ -196,7 +198,7 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
 
   const fasesInfo = [
     { titulo: 'Generar fichas de lectura', desc: `${sinFicha.length} sin ficha · ${conFicha.length} ya generadas` },
-    { titulo: 'Extraer notas y citas de fichas', desc: 'Sin costo de tokens — usa fichas ya generadas' },
+    { titulo: 'Extraer notas, citas y datos de fichas', desc: 'Sin costo de tokens — usa fichas ya generadas' },
     { titulo: 'Vincular notas automáticamente', desc: 'IA detecta relaciones conceptuales entre notas' },
     { titulo: 'Completar metadatos (PDF + CrossRef)', desc: 'Solo rellena campos vacíos, sin sobreescribir' },
   ]

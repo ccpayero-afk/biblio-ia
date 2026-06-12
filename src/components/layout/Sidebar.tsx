@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import {
   BookOpen, FileText, MessageSquare, StickyNote, Quote,
-  GitFork, FolderOpen, Brain, Users, Upload, Settings, Library, Highlighter, Inbox,
+  GitFork, FolderOpen, Brain, Users, Upload, Settings, Library, Highlighter, Inbox, BarChart2,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { href: '/notas',                       label: 'Notas',            icon: StickyNote },
   { href: '/bandeja',                     label: 'Bandeja',          icon: Inbox },
   { href: '/citas',                       label: 'Citas',            icon: Quote },
+  { href: '/datos',                       label: 'Datos',            icon: BarChart2 },
   { href: '/grafo',                       label: 'Grafo',            icon: GitFork },
   { href: '/proyectos',                   label: 'Proyectos',        icon: FolderOpen },
   { href: '/inteligencia',                label: 'Inteligencia',     icon: Brain },
