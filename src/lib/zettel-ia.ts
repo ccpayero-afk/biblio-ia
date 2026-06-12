@@ -8,7 +8,7 @@ export async function sugerirVinculos(
   genAI: GoogleGenerativeAI
 ): Promise<VinculoSugerido[]> {
   const elegibles = todasLasNotas
-    .filter((n) => n.id !== notaNueva.id && n.tipo !== 'efimera' && n.tipo !== 'manual')
+    .filter((n) => n.id !== notaNueva.id && n.tipo !== 'efimera')
 
   if (elegibles.length === 0) return []
 
