@@ -237,44 +237,62 @@ export default function ConsultarClient() {
     <div className="flex h-full flex-col -m-4 md:-m-6">
 
       {/* Barra superior con historial */}
-      <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-2.5">
+      <div
+        className="flex items-center justify-between px-4 py-2.5"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(3,3,8,0.7)' }}
+      >
         <div className="relative" ref={panelRef}>
           <button
             onClick={() => setPanelAbierto((v) => !v)}
-            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-neutral-300 hover:bg-neutral-800"
+            className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-all"
+            style={{ color: 'rgba(203,213,225,0.7)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(203,213,225,0.7)' }}
           >
-            <MessageSquare className="h-4 w-4 text-neutral-500" />
+            <MessageSquare className="h-4 w-4" style={{ color: 'rgba(139,92,246,0.6)' }} />
             <span className="max-w-[200px] truncate">{tituloActual}</span>
-            <ChevronDown className={`h-3.5 w-3.5 text-neutral-500 transition-transform ${panelAbierto ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${panelAbierto ? 'rotate-180' : ''}`} style={{ color: 'rgba(148,163,184,0.4)' }} />
           </button>
 
           {/* Dropdown de conversaciones */}
           {panelAbierto && (
-            <div className="absolute left-0 top-full z-30 mt-1 w-80 rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
-              <div className="flex items-center justify-between border-b border-neutral-800 px-3 py-2">
-                <span className="text-xs font-medium text-neutral-400">Conversaciones guardadas</span>
-                <span className="text-xs text-neutral-600">{conversaciones.length}/{MAX_CONVERSACIONES}</span>
+            <div
+              className="absolute left-0 top-full z-30 mt-1 w-80 rounded-xl shadow-2xl"
+              style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 16px 40px rgba(0,0,0,0.6)' }}
+            >
+              <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <span className="text-xs font-medium" style={{ color: 'rgba(139,92,246,0.7)' }}>Conversaciones guardadas</span>
+                <span className="text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>{conversaciones.length}/{MAX_CONVERSACIONES}</span>
               </div>
               <div className="max-h-72 overflow-y-auto py-1">
                 {conversaciones.length === 0 && (
-                  <p className="px-3 py-4 text-center text-xs text-neutral-600">No hay conversaciones guardadas</p>
+                  <p className="px-3 py-4 text-center text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>No hay conversaciones guardadas</p>
                 )}
                 {conversaciones.map((conv) => (
                   <div
                     key={conv.id}
                     onClick={() => cargarConversacion(conv)}
-                    className={`group flex cursor-pointer items-start gap-2 px-3 py-2.5 hover:bg-neutral-800 ${conv.id === convId ? 'bg-neutral-800/60' : ''}`}
+                    className="group flex cursor-pointer items-start gap-2 px-3 py-2.5 transition-all"
+                    style={conv.id === convId
+                      ? { background: 'rgba(109,40,217,0.15)' }
+                      : {}
+                    }
+                    onMouseEnter={(e) => { if (conv.id !== convId) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                    onMouseLeave={(e) => { if (conv.id !== convId) e.currentTarget.style.background = '' }}
                   >
-                    <MessageSquare className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-neutral-600" />
+                    <MessageSquare className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" style={{ color: 'rgba(139,92,246,0.5)' }} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs text-neutral-300">{conv.titulo}</p>
-                      <p className="mt-0.5 text-xs text-neutral-600">
+                      <p className="truncate text-xs" style={{ color: 'rgba(203,213,225,0.8)' }}>{conv.titulo}</p>
+                      <p className="mt-0.5 text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>
                         {formatearFecha(conv.fecha)} · {conv.turnos.length} {conv.turnos.length === 1 ? 'pregunta' : 'preguntas'}
                       </p>
                     </div>
                     <button
                       onClick={(e) => eliminarConversacion(conv.id, e)}
-                      className="flex-shrink-0 rounded p-0.5 text-neutral-700 opacity-0 hover:text-red-400 group-hover:opacity-100"
+                      className="flex-shrink-0 rounded p-0.5 opacity-0 transition-all group-hover:opacity-100"
+                      style={{ color: 'rgba(148,163,184,0.4)' }}
+                      onMouseEnter={(e2) => { e2.currentTarget.style.color = '#f87171' }}
+                      onMouseLeave={(e2) => { e2.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -287,7 +305,10 @@ export default function ConsultarClient() {
 
         <button
           onClick={iniciarNuevaConversacion}
-          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-neutral-400 hover:bg-neutral-800 hover:text-neutral-200"
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all"
+          style={{ color: 'rgba(148,163,184,0.5)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#a78bfa' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
         >
           <Plus className="h-3.5 w-3.5" />
           Nueva
@@ -298,9 +319,25 @@ export default function ConsultarClient() {
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
         {turnos.length === 0 && !consultando && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <BookMarked className="h-12 w-12 text-neutral-700" />
-            <h1 className="mt-4 text-xl font-semibold text-white">Consultar la biblioteca</h1>
-            <p className="mt-2 max-w-sm text-sm text-neutral-500">
+            <div
+              className="flex h-16 w-16 items-center justify-center rounded-2xl mb-5"
+              style={{
+                background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(6,182,212,0.08))',
+                border: '1px solid rgba(139,92,246,0.25)',
+                boxShadow: '0 0 30px rgba(124,58,237,0.12)',
+              }}
+            >
+              <BookMarked className="h-8 w-8" style={{ color: 'rgba(139,92,246,0.7)' }} />
+            </div>
+            <h1
+              className="text-xl font-bold"
+              style={{
+                background: 'linear-gradient(90deg, #f1f5f9 30%, #a78bfa 70%, #22d3ee 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >Consultar la biblioteca</h1>
+            <p className="mt-2 max-w-sm text-sm" style={{ color: 'rgba(148,163,184,0.55)' }}>
               Hacé una pregunta en lenguaje natural. Gemini buscará en tus documentos indexados y responderá citando las fuentes.
             </p>
             <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2 max-w-xl w-full">
@@ -313,7 +350,14 @@ export default function ConsultarClient() {
                 <button
                   key={sugerencia}
                   onClick={() => setQuery(sugerencia)}
-                  className="rounded-lg border border-neutral-800 bg-neutral-900 px-4 py-3 text-left text-xs text-neutral-400 hover:border-neutral-700 hover:text-neutral-300"
+                  className="rounded-xl px-4 py-3 text-left text-xs transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    color: 'rgba(148,163,184,0.6)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.08)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)'; e.currentTarget.style.color = 'rgba(203,213,225,0.9)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
                 >
                   {sugerencia}
                 </button>
@@ -325,12 +369,25 @@ export default function ConsultarClient() {
         {turnos.map((turno, i) => (
           <div key={i} className="space-y-4 max-w-3xl mx-auto w-full">
             <div className="flex justify-end">
-              <div className="rounded-2xl rounded-tr-sm bg-blue-700 px-4 py-3 text-sm text-white max-w-xl">
+              <div
+                className="rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white max-w-xl"
+                style={{
+                  background: 'linear-gradient(135deg, #6d28d9, #1e40af)',
+                  boxShadow: '0 4px 16px rgba(109,40,217,0.3)',
+                }}
+              >
                 {turno.pregunta}
               </div>
             </div>
             <div className="space-y-3">
-              <div className="rounded-2xl rounded-tl-sm border border-neutral-800 bg-neutral-900 px-5 py-4 text-sm text-neutral-200 leading-relaxed font-[family-name:var(--font-lora)] max-w-2xl whitespace-pre-wrap">
+              <div
+                className="rounded-2xl rounded-tl-sm px-5 py-4 text-sm leading-relaxed font-[family-name:var(--font-lora)] max-w-2xl whitespace-pre-wrap"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  color: 'rgba(241,245,249,0.85)',
+                }}
+              >
                 {turno.respuesta}
               </div>
               {turno.fuentes.length > 0 && (
@@ -341,7 +398,10 @@ export default function ConsultarClient() {
                       <Link
                         key={j}
                         href={`/lector/${f.documentoId}?pagina=${f.pagina}`}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-neutral-700 bg-neutral-900 px-2.5 py-1 text-xs text-neutral-400 hover:border-neutral-600 hover:text-neutral-200 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-all"
+                        style={{ border: '1px solid rgba(6,182,212,0.2)', background: 'rgba(6,182,212,0.06)', color: 'rgba(34,211,238,0.7)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(6,182,212,0.5)'; e.currentTarget.style.color = '#22d3ee'; e.currentTarget.style.background = 'rgba(6,182,212,0.12)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(6,182,212,0.2)'; e.currentTarget.style.color = 'rgba(34,211,238,0.7)'; e.currentTarget.style.background = 'rgba(6,182,212,0.06)' }}
                       >
                         <BookMarked className="h-3 w-3" />
                         {apellido} ({f.año || 's.f.'}, p.{f.pagina})
@@ -352,7 +412,10 @@ export default function ConsultarClient() {
               )}
               <button
                 onClick={() => guardarComoNota(turno)}
-                className="flex items-center gap-1.5 text-xs text-neutral-600 hover:text-neutral-400 pl-1"
+                className="flex items-center gap-1.5 text-xs pl-1 transition-colors"
+                style={{ color: 'rgba(148,163,184,0.35)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(167,139,250,0.7)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.35)' }}
               >
                 Guardar como nota
               </button>
@@ -363,7 +426,13 @@ export default function ConsultarClient() {
         {consultando && (
           <div className="space-y-4 max-w-3xl mx-auto w-full">
             <div className="flex justify-end">
-              <div className="rounded-2xl rounded-tr-sm bg-blue-700 px-4 py-3 text-sm text-white max-w-xl">
+              <div
+                className="rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white max-w-xl"
+                style={{
+                  background: 'linear-gradient(135deg, #6d28d9, #1e40af)',
+                  boxShadow: '0 4px 16px rgba(109,40,217,0.3)',
+                }}
+              >
                 {query || historial[historial.length - 1]?.contenido}
               </div>
             </div>
@@ -373,7 +442,11 @@ export default function ConsultarClient() {
                   {fuentesActuales.map((f, j) => {
                     const apellido = f.autor?.split(',')[0] ?? 'Autor'
                     return (
-                      <span key={j} className="inline-flex items-center gap-1.5 rounded-full border border-neutral-700 bg-neutral-900 px-2.5 py-1 text-xs text-neutral-500">
+                      <span
+                        key={j}
+                        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs"
+                        style={{ border: '1px solid rgba(6,182,212,0.15)', background: 'rgba(6,182,212,0.05)', color: 'rgba(34,211,238,0.5)' }}
+                      >
                         <BookMarked className="h-3 w-3" />
                         {apellido} ({f.año || 's.f.'}, p.{f.pagina})
                       </span>
@@ -381,10 +454,17 @@ export default function ConsultarClient() {
                   })}
                 </div>
               )}
-              <div className="rounded-2xl rounded-tl-sm border border-neutral-800 bg-neutral-900 px-5 py-4 text-sm text-neutral-200 leading-relaxed font-[family-name:var(--font-lora)] max-w-2xl whitespace-pre-wrap min-h-12">
+              <div
+                className="rounded-2xl rounded-tl-sm px-5 py-4 text-sm leading-relaxed font-[family-name:var(--font-lora)] max-w-2xl whitespace-pre-wrap min-h-12"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  color: 'rgba(241,245,249,0.85)',
+                }}
+              >
                 {respuestaActual}
                 {!respuestaActual && (
-                  <span className="inline-flex gap-1 text-neutral-600">
+                  <span className="inline-flex gap-1" style={{ color: 'rgba(139,92,246,0.5)' }}>
                     <span className="animate-bounce">·</span>
                     <span className="animate-bounce [animation-delay:0.15s]">·</span>
                     <span className="animate-bounce [animation-delay:0.3s]">·</span>
@@ -399,12 +479,18 @@ export default function ConsultarClient() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-neutral-800 bg-neutral-950 px-6 py-4">
+      <div
+        className="px-6 py-4"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(3,3,8,0.7)' }}
+      >
         <div className="mx-auto max-w-3xl">
           {turnos.length > 0 && (
             <button
               onClick={iniciarNuevaConversacion}
-              className="mb-2 flex items-center gap-1.5 text-xs text-neutral-600 hover:text-neutral-400"
+              className="mb-2 flex items-center gap-1.5 text-xs transition-colors"
+              style={{ color: 'rgba(148,163,184,0.35)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(167,139,250,0.7)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.35)' }}
             >
               <RotateCcw className="h-3 w-3" /> Nueva conversación
             </button>
@@ -420,19 +506,28 @@ export default function ConsultarClient() {
               placeholder="Hacé una pregunta sobre tu biblioteca… (Ctrl+Enter para enviar)"
               rows={3}
               disabled={consultando}
-              className="flex-1 resize-none rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm text-white placeholder-neutral-600 focus:border-blue-600 focus:outline-none disabled:opacity-50"
+              className="flex-1 resize-none rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none disabled:opacity-50"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.boxShadow = '' }}
             />
             <button
               onClick={consultar}
               disabled={!query.trim() || consultando}
-              className="flex h-12 w-12 flex-shrink-0 self-end items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40"
+              className="flex h-12 w-12 flex-shrink-0 self-end items-center justify-center rounded-xl text-white transition-all disabled:opacity-40"
+              style={{
+                background: 'linear-gradient(135deg, #7c3aed, #0891b2)',
+                boxShadow: '0 0 16px rgba(124,58,237,0.3)',
+              }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.boxShadow = '0 0 24px rgba(124,58,237,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(124,58,237,0.3)'; e.currentTarget.style.transform = '' }}
             >
               <Send className="h-4 w-4" />
             </button>
           </div>
-          <p className="mt-1.5 text-xs text-neutral-700">
+          <p className="mt-1.5 text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>
             Busca en{' '}
-            <span className="text-neutral-500">todos los documentos indexados</span>
+            <span style={{ color: 'rgba(148,163,184,0.5)' }}>todos los documentos indexados</span>
             {' '}· Ctrl+Enter para enviar
           </p>
         </div>
