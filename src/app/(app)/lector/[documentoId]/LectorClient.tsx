@@ -97,14 +97,14 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
             target.scrollIntoView({ behavior: 'instant', block: 'start' })
             if (initialSearch) {
               // Give the text layer time to render before searching
-              setTimeout(() => window.find(initialSearch, false, false, true, false, false, false), 600)
+              setTimeout(() => (window as Window & { find?: (...args: unknown[]) => boolean }).find?.(initialSearch, false, false, true, false, false, false), 600)
             }
           }, 300)
           return
         }
       }
       if (initialSearch) {
-        setTimeout(() => window.find(initialSearch, false, false, true, false, false, false), 900)
+        setTimeout(() => (window as Window & { find?: (...args: unknown[]) => boolean }).find?.(initialSearch, false, false, true, false, false, false), 900)
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
