@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 60
 
-const MAX_NOTAS = 15  // máximo de notas a procesar por llamada (para no exceder 60s)
+const MAX_NOTAS = 8  // 8 notas × ~5s cada una = ~40s, seguro dentro de los 60s de Vercel
 
 export async function POST(req: NextRequest) {
   try {
