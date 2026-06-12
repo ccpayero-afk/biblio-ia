@@ -1,5 +1,5 @@
-import InteligenciaClient from './InteligenciaClient'
+import RepasoClient from './RepasoClient'
 
-export default function InteligenciaPage() {
-  return <InteligenciaClient />
+export default function RepasoPage() {
+  return <RepasoClient />
 }

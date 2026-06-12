@@ -35,7 +35,7 @@ const NAV_GROUPS = [
     items: [
       { href: '/grafo',         label: 'Grafo',         icon: GitFork },
       { href: '/proyectos',     label: 'Proyectos',     icon: FolderOpen },
-      { href: '/inteligencia',  label: 'Inteligencia',  icon: Brain },
+      { href: '/inteligencia',  label: 'Repaso',         icon: Brain },
       { href: '/interlocutor',  label: 'Interlocutor',  icon: Users },
     ],
   },
