@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Nota, TipoNota, VinculoZettel, VinculoSugerido } from '@/types'
+import { Nota, TipoNota, VinculoZettel, VinculoSugerido } from '@/types' // VinculoSugerido usado en Editor
 import {
   Plus, Search, X, Link2, Loader2, ChevronRight,
   AlertTriangle, Sparkles, Check, RefreshCw, Zap, BookOpen, ArrowLeft,
@@ -688,61 +688,28 @@ export default function NotasClient() {
   }
 
   async function vincularTodoConIA(soloSinVinculos: boolean) {
-    const candidatas = soloSinVinculos
-      ? notas.filter((n) => (n.vinculos ?? []).length === 0)
-      : notas
-    if (candidatas.length === 0 || vinculandoIA) return
+    if (vinculandoIA) return
     setVinculandoIA(true)
-    setProgresoVinc({ actual: 0, total: candidatas.length, nuevos: 0 })
-    let totalNuevos = 0
-    for (let i = 0; i < candidatas.length; i++) {
-      const nota = candidatas[i]
-      setProgresoVinc({ actual: i + 1, total: candidatas.length, nuevos: totalNuevos })
-      try {
-        const res = await fetch('/api/notas/ia/sugerir-vinculos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nota }),
-        })
-        if (res.status === 429) {
-          await new Promise((r) => setTimeout(r, 60000))
-          i--
-          continue
-        }
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({})) as { error?: string }
-          setProgresoVinc((p) => p ? { ...p, ultimoError: errData.error ?? `Error ${res.status}` } : p)
-          continue
-        }
-        const sugerencias: VinculoSugerido[] = await res.json()
-        if (!Array.isArray(sugerencias)) continue
-        const altas = sugerencias
-        if (altas.length > 0) {
-          const yaExisten = new Set((nota.vinculos ?? []).map((v) => v.notaDestinoId))
-          const nuevosVinculos: VinculoZettel[] = altas
-            .filter((s) => !yaExisten.has(s.notaId))
-            .map((s) => ({
-              notaDestinoId: s.notaId,
-              tipo: s.tipoVinculo,
-              nota: s.razon,
-              bidireccional: true,
-              creadoEn: new Date().toISOString(),
-            }))
-          if (nuevosVinculos.length > 0) {
-            await fetch(`/api/notas/${nota.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ vinculos: [...(nota.vinculos ?? []), ...nuevosVinculos] }),
-            })
-            totalNuevos += nuevosVinculos.length
-          }
-        }
-      } catch { /* silencioso */ }
-      if (i < candidatas.length - 1) await new Promise((r) => setTimeout(r, 1500))
+    setProgresoVinc({ actual: 1, total: 1, nuevos: 0 })
+    try {
+      const res = await fetch('/api/notas/ia/vincular-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ soloSinVinculos }),
+      })
+      const data = await res.json() as { aplicados?: number; conexiones?: number; notas?: number; error?: string }
+      if (!res.ok) {
+        setProgresoVinc((p) => p ? { ...p, ultimoError: data.error ?? `Error ${res.status}` } : p)
+      } else {
+        setProgresoVinc((p) => p ? { ...p, nuevos: data.aplicados ?? 0 } : p)
+        if ((data.aplicados ?? 0) > 0) await cargar()
+      }
+    } catch (e) {
+      setProgresoVinc((p) => p ? { ...p, ultimoError: String(e) } : p)
     }
-    setProgresoVinc(null)
+    await new Promise((r) => setTimeout(r, 3000))
     setVinculandoIA(false)
-    if (totalNuevos > 0) await cargar()
+    setProgresoVinc(null)
   }
 
   const etiquetasUnicas = [...new Set(notas.flatMap((n) => n.etiquetas))].sort()
@@ -930,10 +897,15 @@ export default function NotasClient() {
         {/* Progreso de vinculación IA */}
         {progresoVinc && (
           <div className="border-b border-neutral-800 bg-purple-950/20 px-4 py-2 text-xs text-purple-400">
-            Vinculando {progresoVinc.actual}/{progresoVinc.total}… · {progresoVinc.nuevos} nuevos vínculos
-            {progresoVinc.ultimoError && (
-              <span className="ml-2 text-red-400" title={progresoVinc.ultimoError}>
-                · Error: {progresoVinc.ultimoError.slice(0, 80)}
+            {progresoVinc.ultimoError ? (
+              <span className="text-red-400" title={progresoVinc.ultimoError}>
+                Error: {progresoVinc.ultimoError.slice(0, 100)}
+              </span>
+            ) : progresoVinc.nuevos > 0 ? (
+              <span>{progresoVinc.nuevos} vínculos aplicados</span>
+            ) : (
+              <span className="flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin" /> Analizando notas con IA…
               </span>
             )}
           </div>

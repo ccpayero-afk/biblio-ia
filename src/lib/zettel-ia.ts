@@ -2,6 +2,50 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { Nota, VinculoSugerido, VinculoZettel } from '@/types'
 import { GEMINI_MODEL_FAST, GEMINI_MODEL_GENERATION } from './gemini'
 
+export async function sugerirVinculosBatch(
+  notas: Nota[],
+  genAI: GoogleGenerativeAI
+): Promise<Array<{ nota1Id: string; nota2Id: string; tipo: VinculoZettel['tipo']; razon: string }>> {
+  const elegibles = notas.filter((n) => n.tipo !== 'efimera')
+  if (elegibles.length < 2) return []
+
+  const max = Math.min(40, Math.ceil(elegibles.length * 0.25))
+
+  const listado = elegibles
+    .map((n) => `[${n.id}] ${n.titulo}\n  ${n.contenido.slice(0, 100).replace(/\n/g, ' ')}`)
+    .join('\n')
+
+  const prompt = `Analizá estas notas de un Zettelkasten académico en ciencias sociales latinoamericanas.
+Encontrá las ${max} conexiones conceptuales más significativas entre ellas.
+Solo conexiones con relación real y concreta entre ideas. No inventes conexiones débiles.
+
+Tipos: complementa, contradice, ejemplifica, aplica_en, es_consecuencia_de, cuestiona, define, ver_tambien
+
+JSON sin texto adicional:
+{"conexiones":[{"nota1Id":"...","nota2Id":"...","tipo":"...","razon":"una oración"}]}
+
+NOTAS:
+${listado}`
+
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+  })
+  const text = result.response.text().trim()
+
+  const jsonMatch = text.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) return []
+
+  const parsed = JSON.parse(jsonMatch[0])
+  const idSet = new Set(elegibles.map((n) => n.id))
+
+  return (parsed.conexiones ?? [])
+    .filter((c: { nota1Id: string; nota2Id: string }) =>
+      idSet.has(c.nota1Id) && idSet.has(c.nota2Id) && c.nota1Id !== c.nota2Id
+    )
+    .slice(0, max)
+}
+
 export async function sugerirVinculos(
   notaNueva: Nota,
   todasLasNotas: Nota[],
