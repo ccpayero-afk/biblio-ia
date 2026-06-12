@@ -682,7 +682,7 @@ export default function NotasClient() {
         }
         const sugerencias: VinculoSugerido[] = await res.json()
         if (!Array.isArray(sugerencias)) continue
-        const altas = sugerencias.filter((s) => s.confianza === 'alta')
+        const altas = sugerencias.filter((s) => s.confianza !== 'baja')
         if (altas.length > 0) {
           const yaExisten = new Set((nota.vinculos ?? []).map((v) => v.notaDestinoId))
           const nuevosVinculos: VinculoZettel[] = altas
@@ -868,7 +868,7 @@ export default function NotasClient() {
                 <p className="mb-1 text-xs font-semibold text-purple-400">Vincular con IA</p>
                 <p className="text-xs text-neutral-500 leading-relaxed">
                   Sugiere y aplica vínculos automáticos entre notas sin vínculos usando Gemini.
-                  Solo aplica sugerencias de alta confianza.
+                  Aplica sugerencias de confianza alta y media.
                 </p>
                 <button
                   className="pointer-events-auto mt-2 block w-full rounded bg-neutral-800 py-1 text-center text-xs text-neutral-300 hover:bg-neutral-700"

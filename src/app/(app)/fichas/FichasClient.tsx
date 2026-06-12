@@ -193,11 +193,14 @@ export default function FichasClient() {
   const [docSel, setDocSel] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/drive/pdfs')
-      .then((r) => r.json())
-      .then((data: Documento[]) => {
-        if (!Array.isArray(data)) return
-        setDocs(data)
+    Promise.all([
+      fetch('/api/drive/pdfs').then((r) => r.json()),
+      fetch('/api/fichas').then((r) => r.json()),
+    ])
+      .then(([docs, fichaIds]: [Documento[], unknown]) => {
+        if (!Array.isArray(docs)) return
+        const fichaIdSet = new Set(Array.isArray(fichaIds) ? fichaIds : [])
+        setDocs(docs.map((d) => ({ ...d, fichaGenerada: d.fichaGenerada || fichaIdSet.has(d.id) })))
         setCargando(false)
       })
       .catch(() => setCargando(false))
