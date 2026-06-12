@@ -5,10 +5,11 @@ import { usePathname } from 'next/navigation'
 import { X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import {
   BookOpen, FileText, MessageSquare, StickyNote, Quote,
-  GitFork, FolderOpen, Brain, Users, Upload, Settings, Library, Highlighter, Inbox, BarChart2,
+  GitFork, FolderOpen, Brain, Users, Upload, Settings, Library, Highlighter, Inbox, BarChart2, Coffee,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
+  { href: '/sala-lectura',                   label: 'Sala de Lectura',  icon: Coffee },
   { href: '/biblioteca',                     label: 'Biblioteca',       icon: Library },
   { href: '/biblioteca/procesar-highlights', label: 'Highlights PDF',   icon: Highlighter },
   { href: '/lector',                         label: 'Lector',           icon: BookOpen },

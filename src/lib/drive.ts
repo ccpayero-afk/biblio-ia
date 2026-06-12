@@ -44,7 +44,7 @@ export async function initUserDrive(accessToken: string): Promise<DriveStructure
   })
   const rootId = rootRes.data.files?.[0]?.id ?? await createFolder(drive, 'BibliografíaIA')
 
-  const [pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId] = await Promise.all([
+  const [pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId] = await Promise.all([
     getOrCreateFolder(drive, 'pdfs', rootId),
     getOrCreateFolder(drive, 'highlights', rootId),
     getOrCreateFolder(drive, 'citas', rootId),
@@ -53,9 +53,10 @@ export async function initUserDrive(accessToken: string): Promise<DriveStructure
     getOrCreateFolder(drive, 'proyectos', rootId),
     getOrCreateFolder(drive, 'index', rootId),
     getOrCreateFolder(drive, 'carpetas', rootId),
+    getOrCreateFolder(drive, 'por-leer', rootId),
   ])
 
-  return { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId }
+  return { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId }
 }
 
 export async function listPDFs(accessToken: string, pdfsId: string): Promise<Documento[]> {

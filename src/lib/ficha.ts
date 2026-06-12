@@ -25,7 +25,7 @@ export async function generateFicha(
     .join('\n\n')
 
   const titulo = documentoNombre.replace(/\.pdf$/i, '')
-  const prompt = `Analizá el siguiente texto académico y generá una ficha de lectura estructurada.
+  const prompt = `Analizá el siguiente texto académico y generá una ficha de lectura académica completa.
 
 DOCUMENTO: "${titulo}" por ${autor || 'Autor desconocido'} (${año || 's.f.'})
 
@@ -34,25 +34,49 @@ ${muestraTexto}
 
 Respondé ÚNICAMENTE con un objeto JSON puro (sin markdown, sin \`\`\`json) con esta estructura exacta:
 {
-  "tesisCentral": "Una oración que sintetice la tesis principal",
-  "argumentoPrincipal": "Dos o tres oraciones que expliquen el argumento central y cómo se sostiene",
+  "tesisCentral": "Una oración precisa que sintetice la tesis o argumento central del texto",
+  "argumentoPrincipal": "2-3 oraciones que expliquen cómo el autor sostiene y desarrolla su tesis",
+  "contextoProduccion": "Contexto histórico, institucional y académico en que fue producido el texto. Campo disciplinar, tradición teórica, momento del debate en que interviene",
+  "problemaInvestigacion": "Cuál es el problema concreto que el texto busca resolver o explicar",
+  "preguntasInvestigacion": ["¿Pregunta central que guía la investigación?", "¿Otras preguntas secundarias si las hay?"],
+  "objetivos": "Objetivos generales y específicos del trabajo (qué se propone demostrar, analizar o construir)",
+  "hipotesis": "Hipótesis central o supuestos de partida del trabajo. Si no hay hipótesis explícita, reconstruirla",
   "conceptosClave": [
-    { "concepto": "nombre del concepto", "definicion": "cómo lo define el autor en el texto" }
+    { "concepto": "nombre del concepto", "definicion": "cómo lo define el autor en el texto, diferenciándolo de otros usos" }
   ],
-  "posicionDebate": "En qué debate académico se inscribe y qué posición adopta frente a otros autores",
+  "marcoTeorico": "Principales corrientes teóricas, autores y debates en que se apoya el trabajo. Qué tradición adopta y con qué autores dialoga",
+  "metodologia": "Diseño metodológico: tipo de estudio, fuentes, técnicas de recolección y análisis, universo/muestra, período y ámbito geográfico",
+  "estructuraArgumental": "Cómo está organizado el texto: partes, capítulos o secciones y su lógica argumentativa",
+  "evidencias": "Principales evidencias empíricas, casos, ejemplos o datos que el autor usa para sostener su argumento",
+  "hallazgos": "Principales hallazgos, resultados y conclusiones a las que llega el texto",
+  "posicionDebate": "En qué debate académico se inscribe y qué posición adopta frente a otros autores o corrientes",
+  "debatesControversias": "Con qué autores, enfoques o posiciones polemiza explícita o implícitamente. Qué debates abre o cierra",
+  "limitaciones": "Limitaciones metodológicas, alcances acotados, aspectos no abordados o posibles críticas al trabajo",
+  "aportes": {
+    "teoricos": "Contribuciones al marco conceptual o teórico del campo",
+    "metodologicos": "Innovaciones o aportes al enfoque o diseño metodológico",
+    "empiricos": "Datos, casos o hallazgos empíricos novedosos",
+    "politicos": "Implicaciones para políticas públicas, intervenciones o debates político-sociales"
+  },
   "citasDestacadas": [
     { "texto": "cita textual relevante extraída del fragmento", "pagina": 1 }
   ],
+  "palabrasClave": ["palabra1", "palabra2", "palabra3"],
+  "relacionOtrasObras": "Cómo se relaciona con otros textos del campo: qué continúa, cuestiona o complementa",
+  "utilidadInvestigacion": "Para qué tipo de investigaciones en ciencias sociales latinoamericanas es más útil este texto y cómo usarlo",
+  "evaluacionCritica": "Evaluación crítica del texto: fortalezas, debilidades, coherencia entre preguntas-método-conclusiones, originalidad y relevancia",
+  "notasZettelkasten": ["Idea atómica 1 extraída del texto formulada como afirmación propia", "Idea atómica 2"],
   "datosEstadisticos": [
     { "valor": "el dato numérico, porcentaje o estadística exacta tal como aparece en el texto", "contexto": "qué mide o significa ese dato, marco temporal/espacial, a qué población o fenómeno refiere", "tematica": "una de las temáticas del listado", "pagina": 1 }
   ],
-  "limitaciones": "Qué aspectos no aborda, limitaciones metodológicas o críticas posibles",
-  "relevancia": "Por qué es relevante para investigación en ciencias sociales latinoamericanas"
+  "referenciasCitadas": ["Apellido, Nombre (año). Título. Editorial"]
 }
 
-IMPORTANTE sobre datosEstadisticos:
-- Incluí SOLO datos que tengan un número, porcentaje, cifra, índice o estadística concreta (ej: "el 1% más rico posee el 38% de la riqueza mundial", "la tasa de desempleo alcanzó el 22% en 2002"). Si el texto no tiene datos numéricos, devolvé [].
-- El campo "tematica" DEBE ser una de estas opciones (elegí la más apropiada): pobreza, desigualdad, riqueza, deuda, trabajo, empleo, salario, poblacion, educacion, salud, vivienda, genero, migracion, economia, finanzas, comercio, industria, agricultura, medio-ambiente, politica, violencia, otro.`
+REGLAS:
+- Si algún campo no aplica al texto, devolvé null o [] según corresponda.
+- datosEstadisticos: incluí SOLO datos con número, porcentaje, cifra o estadística concreta. Si no hay, devolvé [].
+- tematica en datosEstadisticos DEBE ser una de: pobreza, desigualdad, riqueza, deuda, trabajo, empleo, salario, poblacion, educacion, salud, vivienda, genero, migracion, economia, finanzas, comercio, industria, agricultura, medio-ambiente, politica, violencia, otro.
+- notasZettelkasten: formulá cada idea como una afirmación propia del investigador, no como resumen del texto.`
 
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -65,16 +89,8 @@ IMPORTANTE sobre datosEstadisticos:
   const end = text.lastIndexOf('}')
   if (start !== -1 && end !== -1) text = text.slice(start, end + 1)
 
-  let parsed: {
-    tesisCentral?: string
-    argumentoPrincipal?: string
-    conceptosClave?: { concepto: string; definicion: string }[]
-    posicionDebate?: string
-    citasDestacadas?: { texto: string; pagina: number }[]
-    datosEstadisticos?: { valor: string; contexto: string; tematica?: string; pagina?: number }[]
-    limitaciones?: string
-    relevancia?: string
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let parsed: Record<string, any>
   try {
     parsed = JSON.parse(text)
   } catch {
@@ -91,7 +107,26 @@ IMPORTANTE sobre datosEstadisticos:
     datosEstadisticos: parsed.datosEstadisticos ?? [],
     limitaciones: parsed.limitaciones ?? '',
     relevancia: parsed.relevancia ?? '',
+    metodologia: parsed.metodologia ?? '',
+    referenciasCitadas: parsed.referenciasCitadas ?? [],
+    palabrasClave: parsed.palabrasClave ?? [],
     generadaEn: new Date().toISOString(),
+    // Campos ricos
+    contextoProduccion: parsed.contextoProduccion ?? '',
+    problemaInvestigacion: parsed.problemaInvestigacion ?? '',
+    preguntasInvestigacion: parsed.preguntasInvestigacion ?? [],
+    objetivos: parsed.objetivos ?? '',
+    hipotesis: parsed.hipotesis ?? '',
+    marcoTeorico: parsed.marcoTeorico ?? '',
+    estructuraArgumental: parsed.estructuraArgumental ?? '',
+    evidencias: parsed.evidencias ?? '',
+    hallazgos: parsed.hallazgos ?? '',
+    debatesControversias: parsed.debatesControversias ?? '',
+    aportes: parsed.aportes ?? {},
+    relacionOtrasObras: parsed.relacionOtrasObras ?? '',
+    utilidadInvestigacion: parsed.utilidadInvestigacion ?? '',
+    evaluacionCritica: parsed.evaluacionCritica ?? '',
+    notasZettelkasten: parsed.notasZettelkasten ?? [],
   }
 }
 

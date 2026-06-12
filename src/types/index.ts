@@ -186,6 +186,7 @@ export interface Proyecto {
 
 export interface FichaLectura {
   documentoId: string
+  // Campos estructurados (usados por Citas y Datos)
   tesisCentral: string
   argumentoPrincipal: string
   conceptosClave: { concepto: string; definicion: string }[]
@@ -198,6 +199,22 @@ export interface FichaLectura {
   metodologia?: string
   referenciasCitadas?: string[]
   palabrasClave?: string[]
+  // Campos ricos (22 secciones)
+  contextoProduccion?: string
+  problemaInvestigacion?: string
+  preguntasInvestigacion?: string[]
+  objetivos?: string
+  hipotesis?: string
+  marcoTeorico?: string
+  estructuraArgumental?: string
+  evidencias?: string
+  hallazgos?: string
+  debatesControversias?: string
+  aportes?: { teoricos?: string; metodologicos?: string; empiricos?: string; politicos?: string }
+  relacionOtrasObras?: string
+  utilidadInvestigacion?: string
+  evaluacionCritica?: string
+  notasZettelkasten?: string[]
 }
 
 export interface Dato {
@@ -225,6 +242,7 @@ export interface DriveStructure {
   indexId: string
   carpetasId?: string
   configFileId?: string
+  porLeerFolderId?: string
 }
 
 export interface ConfigUsuario {

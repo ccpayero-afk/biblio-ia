@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Documento, FichaLectura } from '@/types'
 
 function esFichaValida(f: unknown): f is FichaLectura {
-  return !!f && typeof f === 'object' && 'tesisCentral' in (f as object)
+  return !!f && typeof f === 'object' && ('tesisCentral' in (f as object) || 'contenidoRico' in (f as object))
 }
 
 const shortName = (nombre: string) =>
@@ -15,6 +15,16 @@ const shortName = (nombre: string) =>
 type Filtro = 'todas' | 'con_ficha' | 'sin_ficha'
 
 // ─── Panel detalle ────────────────────────────────────────────────────────────
+
+function Sec({ titulo, texto }: { titulo: string; texto?: string | null }) {
+  if (!texto?.trim()) return null
+  return (
+    <div>
+      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">{titulo}</h3>
+      <p className="text-sm text-neutral-300 leading-relaxed">{texto}</p>
+    </div>
+  )
+}
 
 function FichaDetalle({
   doc,
@@ -79,9 +89,7 @@ function FichaDetalle({
         {!ficha && !cargando && !error && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <BookOpen className="h-10 w-10 text-neutral-700" />
-            <p className="mt-4 text-sm text-neutral-500">
-              Este documento no tiene ficha todavía.
-            </p>
+            <p className="mt-4 text-sm text-neutral-500">Este documento no tiene ficha todavía.</p>
             <button
               onClick={onGenerar}
               className="mt-4 flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500"
@@ -97,14 +105,49 @@ function FichaDetalle({
         )}
 
         {ficha && (
-          <div className="space-y-5">
-            <Section titulo="Tesis central" texto={ficha.tesisCentral} />
-            {ficha.argumentoPrincipal !== ficha.tesisCentral && (
-              <Section titulo="Argumento principal" texto={ficha.argumentoPrincipal} />
-            )}
-            <Section titulo="Posición en el debate" texto={ficha.posicionDebate} />
-            {ficha.metodologia && <Section titulo="Metodología" texto={ficha.metodologia} />}
+          <div className="space-y-6">
+            {/* 1. Datos bibliográficos */}
+            <div className="rounded-lg border border-neutral-800 bg-neutral-900/40 px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-1">Datos bibliográficos</p>
+              <p className="text-sm font-medium text-white">{shortName(doc.nombre)}</p>
+              <p className="text-sm text-neutral-400">{doc.autor || 'Autor desconocido'}{doc.año ? ` · ${doc.año}` : ''}</p>
+            </div>
 
+            {/* 2. Tesis central */}
+            <Sec titulo="Tesis central" texto={ficha.tesisCentral} />
+
+            {/* 3. Argumento principal */}
+            {ficha.argumentoPrincipal && ficha.argumentoPrincipal !== ficha.tesisCentral && (
+              <Sec titulo="Argumento principal" texto={ficha.argumentoPrincipal} />
+            )}
+
+            {/* 4. Contexto de producción */}
+            <Sec titulo="Contexto de producción" texto={ficha.contextoProduccion} />
+
+            {/* 5. Problema de investigación */}
+            <Sec titulo="Problema de investigación" texto={ficha.problemaInvestigacion} />
+
+            {/* 6. Preguntas de investigación */}
+            {(ficha.preguntasInvestigacion?.length ?? 0) > 0 && (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Preguntas de investigación</h3>
+                <ul className="space-y-1.5">
+                  {(ficha.preguntasInvestigacion ?? []).map((p, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-neutral-300">
+                      <span className="text-violet-400 flex-shrink-0">?</span>{p}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* 7. Objetivos */}
+            <Sec titulo="Objetivos" texto={ficha.objetivos} />
+
+            {/* 8. Hipótesis */}
+            <Sec titulo="Hipótesis" texto={ficha.hipotesis} />
+
+            {/* 9. Conceptos clave */}
             {ficha.conceptosClave?.length > 0 && (
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Conceptos clave</h3>
@@ -119,6 +162,79 @@ function FichaDetalle({
               </div>
             )}
 
+            {/* 10. Marco teórico */}
+            <Sec titulo="Marco teórico" texto={ficha.marcoTeorico} />
+
+            {/* 11. Metodología */}
+            <Sec titulo="Metodología" texto={ficha.metodologia} />
+
+            {/* 12. Estructura argumental */}
+            <Sec titulo="Estructura argumental" texto={ficha.estructuraArgumental} />
+
+            {/* 13. Evidencias */}
+            <Sec titulo="Evidencias y datos empíricos" texto={ficha.evidencias} />
+
+            {/* 14. Hallazgos y conclusiones */}
+            <Sec titulo="Hallazgos y conclusiones" texto={ficha.hallazgos} />
+
+            {/* 15. Posición en el debate */}
+            <Sec titulo="Posición en el debate" texto={ficha.posicionDebate} />
+
+            {/* 16. Debates y controversias */}
+            <Sec titulo="Debates y controversias" texto={ficha.debatesControversias} />
+
+            {/* 17. Limitaciones */}
+            <Sec titulo="Limitaciones" texto={ficha.limitaciones} />
+
+            {/* 18. Aportes */}
+            {ficha.aportes && Object.values(ficha.aportes).some(Boolean) && (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Aportes</h3>
+                <div className="space-y-2">
+                  {ficha.aportes.teoricos && (
+                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-sm">
+                      <span className="text-xs font-medium text-violet-400 block mb-0.5">Teóricos</span>
+                      <span className="text-neutral-300">{ficha.aportes.teoricos}</span>
+                    </div>
+                  )}
+                  {ficha.aportes.metodologicos && (
+                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-sm">
+                      <span className="text-xs font-medium text-blue-400 block mb-0.5">Metodológicos</span>
+                      <span className="text-neutral-300">{ficha.aportes.metodologicos}</span>
+                    </div>
+                  )}
+                  {ficha.aportes.empiricos && (
+                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-sm">
+                      <span className="text-xs font-medium text-emerald-400 block mb-0.5">Empíricos</span>
+                      <span className="text-neutral-300">{ficha.aportes.empiricos}</span>
+                    </div>
+                  )}
+                  {ficha.aportes.politicos && (
+                    <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-3 py-2 text-sm">
+                      <span className="text-xs font-medium text-amber-400 block mb-0.5">Político-sociales</span>
+                      <span className="text-neutral-300">{ficha.aportes.politicos}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 19. Citas textuales */}
+            {ficha.citasDestacadas?.length > 0 && (
+              <div>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Citas textuales relevantes</h3>
+                <div className="space-y-2">
+                  {ficha.citasDestacadas.map((c, i) => (
+                    <blockquote key={i} className="border-l-2 border-neutral-700 pl-3 text-sm text-neutral-300 italic">
+                      &ldquo;{c.texto}&rdquo;
+                      <span className="ml-2 not-italic text-xs text-neutral-600">p.{c.pagina}</span>
+                    </blockquote>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 20. Palabras clave */}
             {(ficha.palabrasClave?.length ?? 0) > 0 && (
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Palabras clave</h3>
@@ -132,20 +248,30 @@ function FichaDetalle({
               </div>
             )}
 
-            {ficha.citasDestacadas?.length > 0 && (
+            {/* 21. Relación con otras obras */}
+            <Sec titulo="Relación con otras obras" texto={ficha.relacionOtrasObras} />
+
+            {/* 22. Utilidad para la investigación */}
+            <Sec titulo="Utilidad para la investigación" texto={ficha.utilidadInvestigacion} />
+
+            {/* 23. Evaluación crítica */}
+            <Sec titulo="Evaluación crítica" texto={ficha.evaluacionCritica} />
+
+            {/* 24. Notas Zettelkasten */}
+            {(ficha.notasZettelkasten?.length ?? 0) > 0 && (
               <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Citas destacadas</h3>
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Notas Zettelkasten</h3>
                 <div className="space-y-2">
-                  {ficha.citasDestacadas.map((c, i) => (
-                    <blockquote key={i} className="border-l-2 border-neutral-700 pl-3 text-sm text-neutral-300 italic">
-                      "{c.texto}"
-                      <span className="ml-2 not-italic text-xs text-neutral-600">p.{c.pagina}</span>
-                    </blockquote>
+                  {(ficha.notasZettelkasten ?? []).map((n, i) => (
+                    <div key={i} className="rounded-lg border border-violet-900/40 bg-violet-950/20 px-3 py-2 text-sm text-neutral-300">
+                      {n}
+                    </div>
                   ))}
                 </div>
               </div>
             )}
 
+            {/* Referencias citadas en el texto */}
             {(ficha.referenciasCitadas?.length ?? 0) > 0 && (
               <div>
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-500">Referencias citadas en el texto</h3>
@@ -157,8 +283,10 @@ function FichaDetalle({
               </div>
             )}
 
-            {ficha.limitaciones && <Section titulo="Tensiones / limitaciones" texto={ficha.limitaciones} />}
-            {ficha.relevancia && <Section titulo="Relevancia" texto={ficha.relevancia} />}
+            {/* Relevancia (campo legacy) */}
+            {ficha.relevancia && !ficha.utilidadInvestigacion && (
+              <Sec titulo="Relevancia" texto={ficha.relevancia} />
+            )}
 
             <p className="pt-2 text-xs text-neutral-700">
               Generada {new Date(ficha.generadaEn).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -166,16 +294,6 @@ function FichaDetalle({
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function Section({ titulo, texto }: { titulo: string; texto: string }) {
-  if (!texto?.trim()) return null
-  return (
-    <div>
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-neutral-500">{titulo}</h3>
-      <p className="text-sm text-neutral-300 leading-relaxed">{texto}</p>
     </div>
   )
 }
