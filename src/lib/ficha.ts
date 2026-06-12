@@ -54,7 +54,10 @@ IMPORTANTE sobre datosEstadisticos:
 - Incluí SOLO datos que tengan un número, porcentaje, cifra, índice o estadística concreta (ej: "el 1% más rico posee el 38% de la riqueza mundial", "la tasa de desempleo alcanzó el 22% en 2002"). Si el texto no tiene datos numéricos, devolvé [].
 - El campo "tematica" DEBE ser una de estas opciones (elegí la más apropiada): pobreza, desigualdad, riqueza, deuda, trabajo, empleo, salario, poblacion, educacion, salud, vivienda, genero, migracion, economia, finanzas, comercio, industria, agricultura, medio-ambiente, politica, violencia, otro.`
 
-  const result = await model.generateContent(prompt)
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never,
+  })
   let text = result.response.text().trim()
 
   // Extract the JSON object regardless of markdown wrappers

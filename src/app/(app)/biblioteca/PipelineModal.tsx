@@ -85,7 +85,7 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
           })
           if (res.ok) { fichasOk++; fichasNuevas.push(doc) }
         } catch { /* continuar */ }
-        if (i < sinFicha.length - 1) await new Promise((r) => setTimeout(r, 2000))
+        if (i < sinFicha.length - 1) await new Promise((r) => setTimeout(r, 800))
       }
       setFase(0, {
         estado: fichasOk > 0 || sinFicha.length === 0 ? 'ok' : 'error',

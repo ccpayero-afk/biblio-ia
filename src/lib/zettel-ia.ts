@@ -64,7 +64,10 @@ ${listaNotas}`
 
   try {
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-    const result = await model.generateContent(prompt)
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { thinkingConfig: { thinkingBudget: 512 } } as never,
+    })
     const text = result.response.text().trim()
     const jsonStr = text.startsWith('{') ? text : text.slice(text.indexOf('{'))
     const parsed = JSON.parse(jsonStr)
