@@ -1,19 +1,15 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { Nota, VinculoSugerido, VinculoZettel } from '@/types'
-import { GEMINI_MODEL_GENERATION } from './gemini'
+import { GEMINI_MODEL_FAST, GEMINI_MODEL_GENERATION } from './gemini'
 
 export async function sugerirVinculos(
   notaNueva: Nota,
   todasLasNotas: Nota[],
   genAI: GoogleGenerativeAI
 ): Promise<VinculoSugerido[]> {
-  const elegibles = todasLasNotas
-    .filter((n) => n.id !== notaNueva.id && n.tipo !== 'efimera')
-
+  const elegibles = todasLasNotas.filter((n) => n.id !== notaNueva.id && n.tipo !== 'efimera')
   if (elegibles.length === 0) return []
 
-  // Pre-filtrar por relevancia de keywords para reducir tokens enviados a la IA.
-  // Extraemos palabras significativas (>4 chars) del título + contenido de la nota nueva.
   const palabrasRef = new Set(
     `${notaNueva.titulo} ${notaNueva.contenido}`
       .toLowerCase()
@@ -21,67 +17,61 @@ export async function sugerirVinculos(
       .filter((w) => w.length > 4)
   )
 
-  const scored = elegibles.map((n) => {
-    const texto = `${n.titulo} ${n.contenido}`.toLowerCase()
-    const matches = [...palabrasRef].filter((p) => texto.includes(p)).length
-    return { n, matches }
-  })
-
-  // Top 30 más relevantes por keywords; si hay menos de 5 matches, completar hasta 30 con el resto
-  const candidatas = scored
+  // Solo notas con al menos 1 keyword en común; máximo 8 candidatas
+  const candidatas = elegibles
+    .map((n) => {
+      const texto = `${n.titulo} ${n.contenido}`.toLowerCase()
+      const matches = [...palabrasRef].filter((p) => texto.includes(p)).length
+      return { n, matches }
+    })
+    .filter((s) => s.matches >= 1)
     .sort((a, b) => b.matches - a.matches)
-    .slice(0, 30)
+    .slice(0, 8)
     .map((s) => s.n)
 
-  const listaNotas = candidatas
-    .map((n) => `ID: ${n.id}\nTítulo: ${n.titulo}\nContenido: ${n.contenido.slice(0, 250)}`)
-    .join('\n---\n')
+  // Sin candidatas con keyword overlap → no hay conexión probable, evitar llamada a la IA
+  if (candidatas.length === 0) return []
 
-  const prompt = `Sos un asistente de investigación académica especializado en ciencias sociales latinoamericanas.
-Te doy una nota de un Zettelkasten y una lista de notas existentes.
+  const listaCandidatas = candidatas
+    .map((n) => `[${n.id}] ${n.titulo} — ${n.contenido.slice(0, 60)}`)
+    .join('\n')
 
-Identificá TODAS las notas que se relacionan conceptualmente con la nota dada, aunque sea de forma indirecta.
-Para cada relación, indicá el tipo:
-- complementa: las ideas se refuerzan mutuamente
-- contradice: las ideas están en tensión o conflicto
-- ejemplifica: una nota da un ejemplo concreto de la idea de la otra
-- aplica_en: una idea abstracta se aplica en el caso de la otra
-- es_consecuencia_de: una idea se desprende lógicamente de la otra
-- cuestiona: una nota abre preguntas que la otra no responde
-- define: una nota define un concepto que la otra usa
-- ver_tambien: cualquier relación relevante
+  const prompt = `Encontrá los vínculos más relevantes (máximo 5) entre la nota y las candidatas.
+Solo incluí vínculos con conexión conceptual real y concreta. Menos vínculos pero más precisos.
 
-Importante: devolvé TODAS las relaciones que encuentres, sean fuertes o débiles. Usá "confianza" para indicar qué tan segura es la relación (alta/media/baja), pero no omitas ninguna.
-Respondé ÚNICAMENTE en JSON válido sin texto adicional:
-{ "sugerencias": [{ "notaId": "...", "tipoVinculo": "...", "razon": "...", "confianza": "alta|media|baja" }] }
+Tipos: complementa, contradice, ejemplifica, aplica_en, es_consecuencia_de, cuestiona, define, ver_tambien
 
-Nota a analizar:
-Título: ${notaNueva.titulo}
-Contenido: ${notaNueva.contenido.slice(0, 600)}
+JSON sin texto adicional:
+{"sugerencias":[{"notaId":"...","tipoVinculo":"...","razon":"una oración"}]}
 
-Notas existentes:
-${listaNotas}`
+NOTA:
+${notaNueva.titulo}
+${notaNueva.contenido.slice(0, 300)}
 
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+CANDIDATAS:
+${listaCandidatas}`
+
+  // gemini-1.5-flash: sin thinking, 1500 req/día en free tier (vs 250 de 2.5-flash)
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_FAST })
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   })
   const text = result.response.text().trim()
 
-  // Handle plain JSON or markdown code block: ```json {...} ```
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) return []
 
   const parsed = JSON.parse(jsonMatch[0])
   return (parsed.sugerencias ?? [])
-    .map((s: { notaId: string; tipoVinculo: VinculoZettel['tipo']; razon: string; confianza: 'alta' | 'media' | 'baja' }) => {
+    .slice(0, 5)
+    .map((s: { notaId: string; tipoVinculo: VinculoZettel['tipo']; razon: string }) => {
       const notaRef = candidatas.find((n) => n.id === s.notaId)
       return {
         notaId: s.notaId,
         notaTitulo: notaRef?.titulo ?? s.notaId,
         tipoVinculo: s.tipoVinculo,
         razon: s.razon,
-        confianza: s.confianza,
+        confianza: 'alta' as const,
       }
     })
     .filter((s: { notaId: string }) => s.notaId && candidatas.some((n) => n.id === s.notaId))
