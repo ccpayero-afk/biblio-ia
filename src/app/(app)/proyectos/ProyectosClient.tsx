@@ -59,12 +59,18 @@ export default function ProyectosClient() {
     <div className="max-w-3xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-white">Proyectos de escritura</h1>
-          <p className="mt-1 text-sm text-neutral-500">Tesis, artículos, ponencias y más con asistencia de IA.</p>
+          <h1 className="text-xl font-bold text-white">Proyectos de escritura</h1>
+          <p className="mt-1 text-sm" style={{ color: 'rgba(148,163,184,0.55)' }}>Tesis, artículos, ponencias y más con asistencia de IA.</p>
         </div>
         <button
           onClick={() => setCreando(true)}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500"
+          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm text-white transition-all"
+          style={{
+            background: 'linear-gradient(135deg, #7c3aed, #0891b2)',
+            boxShadow: '0 0 16px rgba(124,58,237,0.3)',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 24px rgba(124,58,237,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(124,58,237,0.3)'; e.currentTarget.style.transform = '' }}
         >
           <Plus className="h-4 w-4" /> Nuevo proyecto
         </button>
@@ -72,18 +78,25 @@ export default function ProyectosClient() {
 
       {/* Formulario de creación */}
       {creando && (
-        <div className="mb-6 rounded-xl border border-neutral-700 bg-neutral-900 p-5 space-y-3">
+        <div
+          className="mb-6 rounded-2xl p-5 space-y-3"
+          style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(139,92,246,0.25)' }}
+        >
           <h2 className="text-sm font-semibold text-white">Nuevo proyecto</h2>
           <input
             value={form.nombre}
             onChange={(e) => setForm({ ...form, nombre: e.target.value })}
             placeholder="Título del proyecto"
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none"
+            className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
           />
           <select
             value={form.tipo}
             onChange={(e) => setForm({ ...form, tipo: e.target.value as Proyecto['tipo'] })}
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white focus:outline-none"
+            className="w-full rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
           >
             {TIPOS.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
           </select>
@@ -92,20 +105,38 @@ export default function ProyectosClient() {
             onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
             placeholder="Descripción breve"
             rows={2}
-            className="w-full resize-none rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none"
+            className="w-full resize-none rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
           />
           <textarea
             value={form.argumentoCentral}
             onChange={(e) => setForm({ ...form, argumentoCentral: e.target.value })}
             placeholder="Argumento central del proyecto"
             rows={2}
-            className="w-full resize-none rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none"
+            className="w-full resize-none rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
           />
           <div className="flex gap-2">
-            <button onClick={crear} className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-500">
+            <button
+              onClick={crear}
+              className="rounded-xl px-4 py-2 text-sm text-white transition-all"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 12px rgba(124,58,237,0.3)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 20px rgba(124,58,237,0.5)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(124,58,237,0.3)' }}
+            >
               Crear
             </button>
-            <button onClick={() => setCreando(false)} className="rounded-lg border border-neutral-700 px-4 py-2 text-sm text-neutral-300">
+            <button
+              onClick={() => setCreando(false)}
+              className="rounded-xl px-4 py-2 text-sm transition-all"
+              style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
+            >
               Cancelar
             </button>
           </div>
@@ -113,39 +144,64 @@ export default function ProyectosClient() {
       )}
 
       {cargando ? (
-        <div className="py-10 text-center text-sm text-neutral-600">Cargando…</div>
+        <div className="py-10 text-center text-sm" style={{ color: 'rgba(148,163,184,0.4)' }}>Cargando…</div>
       ) : proyectos.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-center">
-          <FolderOpen className="h-12 w-12 text-neutral-700" />
-          <p className="mt-4 text-sm text-neutral-500">Aún no hay proyectos. Creá uno para empezar.</p>
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
+            style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06))', border: '1px solid rgba(139,92,246,0.2)' }}
+          >
+            <FolderOpen className="h-8 w-8" style={{ color: 'rgba(139,92,246,0.6)' }} />
+          </div>
+          <p className="text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>Aún no hay proyectos. Creá uno para empezar.</p>
         </div>
       ) : (
         <div className="space-y-3">
           {proyectos.map((p) => (
-            <div key={p.id} className="group flex items-center gap-4 rounded-xl border border-neutral-800 bg-neutral-900 p-4">
-              <FolderOpen className="h-5 w-5 flex-shrink-0 text-neutral-500" />
+            <div
+              key={p.id}
+              className="group flex items-center gap-4 rounded-xl p-4 transition-all"
+              style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)'; e.currentTarget.style.boxShadow = '0 0 20px rgba(124,58,237,0.08)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.025)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.boxShadow = '' }}
+            >
+              <div
+                className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg"
+                style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}
+              >
+                <FolderOpen className="h-4.5 w-4.5" style={{ color: 'rgba(167,139,250,0.8)' }} />
+              </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-500">{p.tipo}</span>
+                  <span
+                    className="rounded-full px-2 py-0.5 text-xs"
+                    style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', color: 'rgba(167,139,250,0.7)' }}
+                  >{p.tipo}</span>
                   <span className="truncate text-sm font-medium text-white">{p.nombre}</span>
                 </div>
                 {p.descripcion && (
-                  <p className="mt-0.5 truncate text-xs text-neutral-500">{p.descripcion}</p>
+                  <p className="mt-0.5 truncate text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>{p.descripcion}</p>
                 )}
-                <p className="mt-0.5 text-xs text-neutral-600">
+                <p className="mt-0.5 text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
                   {p.secciones.length} secciones · {new Date(p.actualizadoEn).toLocaleDateString('es')}
                 </p>
               </div>
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => eliminar(p.id)}
-                  className="text-neutral-600 hover:text-red-400"
+                  className="transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.4)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
                 <Link
                   href={`/proyectos/${p.id}`}
-                  className="flex items-center gap-1 text-xs text-neutral-400 hover:text-white"
+                  className="flex items-center gap-1 text-xs transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.5)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#a78bfa' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
                 >
                   Abrir <ArrowRight className="h-3.5 w-3.5" />
                 </Link>

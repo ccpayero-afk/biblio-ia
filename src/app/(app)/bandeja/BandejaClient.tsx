@@ -87,8 +87,8 @@ export default function BandejaClient() {
     <div className="max-w-2xl">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Bandeja de entrada</h1>
-          <p className="mt-0.5 text-sm text-neutral-400">
+          <h1 className="text-2xl font-bold text-white">Bandeja de entrada</h1>
+          <p className="mt-0.5 text-sm" style={{ color: 'rgba(148,163,184,0.55)' }}>
             {pendientes.length} nota{pendientes.length !== 1 ? 's' : ''} sin procesar
           </p>
         </div>
@@ -96,7 +96,10 @@ export default function BandejaClient() {
           <button
             onClick={procesarTodas}
             disabled={procesandoTodas}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 16px rgba(124,58,237,0.3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 24px rgba(124,58,237,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(124,58,237,0.3)'; e.currentTarget.style.transform = '' }}
           >
             {procesandoTodas ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Procesar todo con IA
@@ -106,15 +109,23 @@ export default function BandejaClient() {
 
       {cargando && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-neutral-600" />
+          <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'rgba(139,92,246,0.6)' }} />
         </div>
       )}
 
       {!cargando && pendientes.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-700 py-20 text-center">
-          <Inbox className="h-12 w-12 text-neutral-700" />
-          <p className="mt-4 text-lg font-semibold text-white">Bandeja vacía</p>
-          <p className="mt-2 text-sm text-neutral-500">No hay notas efímeras pendientes de procesar.</p>
+        <div
+          className="flex flex-col items-center justify-center rounded-2xl py-20 text-center"
+          style={{ border: '1px dashed rgba(139,92,246,0.25)', background: 'rgba(255,255,255,0.015)' }}
+        >
+          <div
+            className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
+            style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06))', border: '1px solid rgba(139,92,246,0.2)' }}
+          >
+            <Inbox className="h-8 w-8" style={{ color: 'rgba(139,92,246,0.6)' }} />
+          </div>
+          <p className="text-lg font-semibold text-white">Bandeja vacía</p>
+          <p className="mt-2 text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>No hay notas efímeras pendientes de procesar.</p>
         </div>
       )}
 
@@ -122,24 +133,31 @@ export default function BandejaClient() {
         {pendientes.map((nota) => (
           <div
             key={nota.id}
-            className={`rounded-xl border bg-neutral-900 p-5 transition-all ${nota.aceptada ? 'border-green-900/40 opacity-50' : 'border-neutral-800'}`}
+            className="rounded-xl p-5 transition-all"
+            style={nota.aceptada
+              ? { background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.15)', opacity: 0.6 }
+              : { background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }
+            }
           >
             {/* Cabecera */}
             <div className="flex items-start justify-between gap-3 mb-3">
-              <div>
-                <span className="font-mono text-xs text-neutral-600">{nota.id}</span>
-                <p className="mt-1 text-sm text-neutral-300 line-clamp-3 whitespace-pre-wrap">{nota.contenido}</p>
+              <div className="flex-1 min-w-0">
+                <span className="font-mono text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>{nota.id}</span>
+                <p className="mt-1 text-sm line-clamp-3 whitespace-pre-wrap" style={{ color: 'rgba(203,213,225,0.75)' }}>{nota.contenido}</p>
               </div>
               <button
                 onClick={() => descartarNota(nota.id)}
-                className="flex-shrink-0 rounded p-1 text-neutral-700 hover:text-red-400"
+                className="flex-shrink-0 rounded p-1 transition-colors"
+                style={{ color: 'rgba(148,163,184,0.3)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.3)' }}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
 
             {(nota.documentoOrigenId ?? nota.documentoId) && (
-              <p className="mb-3 text-xs text-neutral-600">
+              <p className="mb-3 text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
                 Origen: {nota.documentoOrigenId ?? nota.documentoId}
                 {(nota.paginaOrigen ?? nota.pagina) ? ` · p. ${nota.paginaOrigen ?? nota.pagina}` : ''}
               </p>
@@ -147,27 +165,40 @@ export default function BandejaClient() {
 
             {/* Sugerencia de conversión */}
             {nota.sugerencia && !nota.aceptada && (
-              <div className="mt-3 rounded-lg border border-green-900/30 bg-green-950/10 p-4 space-y-3">
-                <p className="text-xs font-semibold text-green-400 flex items-center gap-1.5">
+              <div
+                className="mt-3 rounded-xl p-4 space-y-3"
+                style={{ background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.15)' }}
+              >
+                <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'rgba(52,211,153,0.9)' }}>
                   <Sparkles className="h-3.5 w-3.5" /> Sugerencia IA
                 </p>
                 <div>
-                  <p className="text-xs text-neutral-500">Título</p>
+                  <p className="text-xs mb-0.5" style={{ color: 'rgba(148,163,184,0.5)' }}>Título</p>
                   <p className="text-sm font-medium text-white">{nota.sugerencia.titulo_sugerido}</p>
-                  <p className="text-xs text-neutral-600">{nota.sugerencia.razon_titulo}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'rgba(148,163,184,0.4)' }}>{nota.sugerencia.razon_titulo}</p>
                 </div>
-                <p className="text-xs text-neutral-500">Tipo: <span className="text-neutral-300">{nota.sugerencia.tipo_sugerido}</span></p>
-                <p className="text-xs text-neutral-500">Etiquetas: <span className="text-neutral-300">{nota.sugerencia.etiquetas_sugeridas.join(', ')}</span></p>
+                <p className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
+                  Tipo: <span style={{ color: 'rgba(203,213,225,0.7)' }}>{nota.sugerencia.tipo_sugerido}</span>
+                </p>
+                <p className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
+                  Etiquetas: <span style={{ color: 'rgba(203,213,225,0.7)' }}>{nota.sugerencia.etiquetas_sugeridas.join(', ')}</span>
+                </p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => aceptarSugerencia(nota)}
-                    className="flex items-center gap-1.5 rounded-lg bg-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600"
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-all"
+                    style={{ background: 'rgba(52,211,153,0.2)', border: '1px solid rgba(52,211,153,0.3)', color: 'rgba(52,211,153,0.9)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(52,211,153,0.3)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(52,211,153,0.2)' }}
                   >
                     <Check className="h-3.5 w-3.5" /> Aceptar
                   </button>
                   <button
                     onClick={() => setNotas((prev) => prev.map((n) => n.id === nota.id ? { ...n, sugerencia: undefined } : n))}
-                    className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400"
+                    className="rounded-lg px-3 py-1.5 text-xs transition-all"
+                    style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.5)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
                   >
                     Descartar
                   </button>
@@ -176,7 +207,7 @@ export default function BandejaClient() {
             )}
 
             {nota.aceptada && (
-              <div className="flex items-center gap-2 text-xs text-green-400">
+              <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(52,211,153,0.8)' }}>
                 <Check className="h-4 w-4" /> Convertida en nota permanente
               </div>
             )}
@@ -187,14 +218,20 @@ export default function BandejaClient() {
                 <button
                   onClick={() => convertirNota(nota.id)}
                   disabled={nota.procesando}
-                  className="flex items-center gap-1.5 rounded-lg border border-blue-800/50 bg-blue-950/20 px-3 py-1.5 text-xs text-blue-400 hover:bg-blue-950/40 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all disabled:opacity-50"
+                  style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', color: 'rgba(167,139,250,0.8)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.15)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.08)' }}
                 >
                   {nota.procesando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                   Convertir en permanente
                 </button>
                 <button
                   onClick={() => window.open('/notas', '_self')}
-                  className="flex items-center gap-1.5 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs text-neutral-400 hover:border-neutral-600"
+                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all"
+                  style={{ border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.5)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
                 >
                   <ArrowRight className="h-3.5 w-3.5" /> Ver en Notas
                 </button>
