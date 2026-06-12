@@ -682,7 +682,7 @@ export default function NotasClient() {
         }
         const sugerencias: VinculoSugerido[] = await res.json()
         if (!Array.isArray(sugerencias)) continue
-        const altas = sugerencias.filter((s) => s.confianza !== 'baja')
+        const altas = sugerencias
         if (altas.length > 0) {
           const yaExisten = new Set((nota.vinculos ?? []).map((v) => v.notaDestinoId))
           const nuevosVinculos: VinculoZettel[] = altas

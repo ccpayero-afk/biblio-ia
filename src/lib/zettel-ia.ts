@@ -34,30 +34,30 @@ export async function sugerirVinculos(
     .map((s) => s.n)
 
   const listaNotas = candidatas
-    .map((n) => `ID: ${n.id}\nTítulo: ${n.titulo}\nContenido: ${n.contenido.slice(0, 150)}`)
+    .map((n) => `ID: ${n.id}\nTítulo: ${n.titulo}\nContenido: ${n.contenido.slice(0, 250)}`)
     .join('\n---\n')
 
   const prompt = `Sos un asistente de investigación académica especializado en ciencias sociales latinoamericanas.
-Te doy una nota nueva y una lista de notas existentes en el Zettelkasten del usuario.
+Te doy una nota de un Zettelkasten y una lista de notas existentes.
 
-Tu tarea es identificar qué notas existentes se relacionan conceptualmente con la nota nueva,
-y qué TIPO de relación existe entre ellas:
-- complementa: las dos notas se refuerzan mutuamente
-- contradice: las ideas de las notas están en tensión
+Identificá TODAS las notas que se relacionan conceptualmente con la nota dada, aunque sea de forma indirecta.
+Para cada relación, indicá el tipo:
+- complementa: las ideas se refuerzan mutuamente
+- contradice: las ideas están en tensión o conflicto
 - ejemplifica: una nota da un ejemplo concreto de la idea de la otra
-- aplica_en: la idea abstracta de una nota se aplica en el caso de la otra
+- aplica_en: una idea abstracta se aplica en el caso de la otra
 - es_consecuencia_de: una idea se desprende lógicamente de la otra
 - cuestiona: una nota abre preguntas que la otra no responde
 - define: una nota define un concepto que la otra usa
-- ver_tambien: relación relevante sin tipo específico claro
+- ver_tambien: cualquier relación relevante
 
-Devolvé SOLO las relaciones con confianza alta o media. No fuerces vínculos débiles.
+Importante: devolvé TODAS las relaciones que encuentres, sean fuertes o débiles. Usá "confianza" para indicar qué tan segura es la relación (alta/media/baja), pero no omitas ninguna.
 Respondé ÚNICAMENTE en JSON válido sin texto adicional:
 { "sugerencias": [{ "notaId": "...", "tipoVinculo": "...", "razon": "...", "confianza": "alta|media|baja" }] }
 
-Nota nueva:
+Nota a analizar:
 Título: ${notaNueva.titulo}
-Contenido: ${notaNueva.contenido.slice(0, 500)}
+Contenido: ${notaNueva.contenido.slice(0, 600)}
 
 Notas existentes:
 ${listaNotas}`
@@ -73,7 +73,6 @@ ${listaNotas}`
     const parsed = JSON.parse(jsonStr)
 
     return (parsed.sugerencias ?? [])
-      .filter((s: VinculoSugerido) => s.confianza !== 'baja')
       .map((s: { notaId: string; tipoVinculo: VinculoZettel['tipo']; razon: string; confianza: 'alta' | 'media' | 'baja' }) => {
         const nota = candidatas.find((n) => n.id === s.notaId)
         return {
