@@ -249,4 +249,6 @@ export interface ConfigUsuario {
   driveInitializado: boolean
   estructura: DriveStructure
   geminiKeyEncriptada?: string
+  zoteroUserId?: string
+  zoteroApiKeyEncriptada?: string
 }

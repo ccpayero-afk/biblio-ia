@@ -374,6 +374,8 @@ export default function BibliotecaClient() {
   const [menuHerramientas, setMenuHerramientas] = useState(false)
   const herramientasRef = useRef<HTMLDivElement>(null)
   const [vista, setVista] = useState<'lista' | 'grilla'>('lista')
+  const [sincronizandoZotero, setSincronizandoZotero] = useState(false)
+  const [resultadoZotero, setResultadoZotero] = useState<string | null>(null)
   const [sidebarAbierto, setSidebarAbierto] = useState(true)
   const [todosColapsados, setTodosColapsados] = useState(false)
   const [panelWidth, setPanelWidth] = useState(208)
@@ -1070,6 +1072,41 @@ export default function BibliotecaClient() {
                         <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>{documentosFiltrados.length} ref. → .txt</p>
                       </div>
                     </button>
+
+                    <div className="my-1" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} />
+
+                    {/* Sincronizar con Zotero */}
+                    <button
+                      onClick={async () => {
+                        setMenuHerramientas(false)
+                        setSincronizandoZotero(true)
+                        setResultadoZotero(null)
+                        try {
+                          const res  = await fetch('/api/zotero/sync', { method: 'POST' })
+                          const data = await res.json()
+                          if (data.ok) {
+                            setResultadoZotero(`Zotero: ${data.creados} nuevos, ${data.actualizados} actualizados${data.errores > 0 ? `, ${data.errores} errores` : ''}`)
+                          } else {
+                            setResultadoZotero(`Error: ${data.error ?? 'Verificá la configuración de Zotero'}`)
+                          }
+                        } catch {
+                          setResultadoZotero('Error de conexión')
+                        } finally {
+                          setSincronizandoZotero(false)
+                          setTimeout(() => setResultadoZotero(null), 8000)
+                        }
+                      }}
+                      disabled={sincronizandoZotero}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors disabled:opacity-40"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
+                    >
+                      <RefreshCw className={`h-4 w-4 flex-shrink-0 text-orange-400 ${sincronizandoZotero ? 'animate-spin' : ''}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white">{sincronizandoZotero ? 'Sincronizando…' : 'Sincronizar con Zotero'}</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>Empuja la Biblioteca a tu librería Zotero</p>
+                      </div>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1157,6 +1194,20 @@ export default function BibliotecaClient() {
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               <span>{errorSubida}</span>
               <button onClick={() => setErrorSubida(null)} className="ml-auto text-xs underline">Cerrar</button>
+            </div>
+          )}
+          {resultadoZotero && (
+            <div
+              className="mt-3 flex items-center gap-2 rounded-xl px-4 py-3 text-sm"
+              style={
+                resultadoZotero.startsWith('Error')
+                  ? { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }
+                  : { background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)', color: 'rgba(52,211,153,0.9)' }
+              }
+            >
+              <RefreshCw className="h-4 w-4 flex-shrink-0" />
+              <span>{resultadoZotero}</span>
+              <button onClick={() => setResultadoZotero(null)} className="ml-auto text-xs underline">Cerrar</button>
             </div>
           )}
         </div>
