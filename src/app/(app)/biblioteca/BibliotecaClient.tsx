@@ -88,26 +88,36 @@ function CarpetaItem({
           </button>
           <button
             onClick={() => onSelect(carpeta.id)}
-            className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-sm ${estaActiva ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}`}
+            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-sm transition-all"
+            style={estaActiva
+              ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.25), rgba(30,58,138,0.15))', color: '#fff', border: '1px solid rgba(139,92,246,0.15)' }
+              : { color: 'rgba(148,163,184,0.55)', border: '1px solid transparent' }
+            }
           >
             <Folder className={`h-3.5 w-3.5 flex-shrink-0 ${COLORES_CARPETA[carpeta.color]}`} />
             <span className="flex-1 truncate text-left">{carpeta.nombre}</span>
-            {count > 0 && <span className="flex-shrink-0 text-xs text-neutral-600">{count}</span>}
+            {count > 0 && <span className="flex-shrink-0 text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>{count}</span>}
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onMenuToggle(menuCarpeta === carpeta.id ? null : carpeta.id) }}
-            className="flex-shrink-0 rounded p-0.5 text-neutral-700 opacity-0 hover:text-neutral-300 group-hover:opacity-100"
+            className="flex-shrink-0 rounded p-0.5 opacity-0 transition-colors group-hover:opacity-100"
+            style={{ color: 'rgba(148,163,184,0.4)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
         </div>
         {menuCarpeta === carpeta.id && (
-          <div className="absolute right-0 top-full z-20 mt-0.5 w-52 rounded-lg border border-neutral-700 bg-neutral-900 py-1 shadow-lg">
-            <button onClick={() => { onNuevaSubcarpeta(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800">+ Subcarpeta</button>
-            <button onClick={() => { onEditar(carpeta); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800">Editar</button>
-            <div className="my-1 border-t border-neutral-800" />
-            <button onClick={() => { onEliminar(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-neutral-400 hover:bg-neutral-800">Eliminar carpeta</button>
-            <button onClick={() => { onEliminarConArchivos(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-neutral-800">Eliminar carpeta + archivos</button>
+          <div
+            className="absolute right-0 top-full z-20 mt-0.5 w-52 rounded-xl py-1 shadow-2xl"
+            style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(12px)' }}
+          >
+            <button onClick={() => { onNuevaSubcarpeta(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs transition-colors" style={{ color: 'rgba(203,213,225,0.7)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }} onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(203,213,225,0.7)' }}>+ Subcarpeta</button>
+            <button onClick={() => { onEditar(carpeta); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs transition-colors" style={{ color: 'rgba(203,213,225,0.7)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }} onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(203,213,225,0.7)' }}>Editar</button>
+            <div className="my-1" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} />
+            <button onClick={() => { onEliminar(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs transition-colors" style={{ color: 'rgba(148,163,184,0.5)' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.08)'; e.currentTarget.style.color = '#fff' }} onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}>Eliminar carpeta</button>
+            <button onClick={() => { onEliminarConArchivos(carpeta.id); onMenuToggle(null) }} className="block w-full px-3 py-1.5 text-left text-xs transition-colors text-red-400" onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)' }} onMouseLeave={(e) => { e.currentTarget.style.background = '' }}>Eliminar carpeta + archivos</button>
           </div>
         )}
       </div>
@@ -149,8 +159,11 @@ function CarpetaModal({
   const [descripcion, setDescripcion] = useState(carpeta?.descripcion ?? '')
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-sm rounded-2xl border border-neutral-700 bg-neutral-900 p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div
+        className="w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+        style={{ background: 'rgba(8,8,20,0.98)', border: '1px solid rgba(139,92,246,0.3)', backdropFilter: 'blur(20px)' }}
+      >
         <h3 className="mb-4 text-lg font-semibold text-white">{carpeta ? 'Editar carpeta' : 'Nueva carpeta'}</h3>
         <div className="space-y-4">
           <input
@@ -158,16 +171,22 @@ function CarpetaModal({
             onChange={(e) => setNombre(e.target.value)}
             placeholder="Nombre de la carpeta"
             autoFocus
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none"
+            className="w-full rounded-lg px-3 py-2 text-sm text-white placeholder:text-neutral-600 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
           />
           <input
             value={descripcion}
             onChange={(e) => setDescripcion(e.target.value)}
             placeholder="Descripción (opcional)"
-            className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-300 placeholder:text-neutral-600 focus:border-neutral-500 focus:outline-none"
+            className="w-full rounded-lg px-3 py-2 text-sm text-neutral-300 placeholder:text-neutral-600 focus:outline-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)' }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
           />
           <div>
-            <p className="mb-2 text-xs text-neutral-500">Color</p>
+            <p className="mb-2 text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Color</p>
             <div className="flex gap-2">
               {OPCIONES_COLOR.map((c) => (
                 <button
@@ -181,11 +200,20 @@ function CarpetaModal({
           </div>
         </div>
         <div className="mt-5 flex justify-end gap-3">
-          <button onClick={onCerrar} className="rounded-lg px-4 py-2 text-sm text-neutral-400 hover:text-white">Cancelar</button>
+          <button
+            onClick={onCerrar}
+            className="rounded-lg px-4 py-2 text-sm transition-colors"
+            style={{ color: 'rgba(148,163,184,0.5)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
+          >Cancelar</button>
           <button
             onClick={() => { if (nombre.trim()) onGuardar({ nombre: nombre.trim(), color, descripcion: descripcion.trim() || undefined }) }}
             disabled={!nombre.trim()}
-            className="rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
+            className="rounded-xl px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 12px rgba(124,58,237,0.3)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 20px rgba(124,58,237,0.5)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(124,58,237,0.3)' }}
           >
             {carpeta ? 'Guardar' : 'Crear'}
           </button>
@@ -209,26 +237,42 @@ function MoverModal({
   onCerrar: () => void
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-xs rounded-2xl border border-neutral-700 bg-neutral-900 p-5 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div
+        className="w-full max-w-xs rounded-2xl p-5 shadow-2xl"
+        style={{ background: 'rgba(8,8,20,0.98)', border: '1px solid rgba(139,92,246,0.25)', backdropFilter: 'blur(20px)' }}
+      >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-white">Mover a carpeta</h3>
-          <button onClick={onCerrar}><X className="h-4 w-4 text-neutral-500" /></button>
+          <button
+            onClick={onCerrar}
+            style={{ color: 'rgba(148,163,184,0.4)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
+          ><X className="h-4 w-4" /></button>
         </div>
-        <p className="mb-3 text-xs text-neutral-500 truncate">{documento.nombre}</p>
+        <p className="mb-3 text-xs truncate" style={{ color: 'rgba(148,163,184,0.5)' }}>{documento.nombre}</p>
         <div className="space-y-1 max-h-64 overflow-y-auto">
           <button
             onClick={() => onMover(null)}
-            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-left ${!documento.carpetaId ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:bg-neutral-800'}`}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-all"
+            style={!documento.carpetaId
+              ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.2), rgba(30,58,138,0.12))', color: '#fff', border: '1px solid rgba(139,92,246,0.2)' }
+              : { color: 'rgba(148,163,184,0.5)', border: '1px solid transparent' }
+            }
           >
-            <FolderOpen className="h-4 w-4 text-neutral-500" />
+            <FolderOpen className="h-4 w-4" style={{ color: 'rgba(148,163,184,0.4)' }} />
             Sin carpeta
           </button>
           {carpetas.map((c) => (
             <button
               key={c.id}
               onClick={() => onMover(c.id)}
-              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-left ${documento.carpetaId === c.id ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:bg-neutral-800'}`}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-left transition-all"
+              style={documento.carpetaId === c.id
+                ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.2), rgba(30,58,138,0.12))', color: '#fff', border: '1px solid rgba(139,92,246,0.2)' }
+                : { color: 'rgba(148,163,184,0.5)', border: '1px solid transparent' }
+              }
             >
               <Folder className={`h-4 w-4 ${COLORES_CARPETA[c.color]}`} />
               {c.nombre}
@@ -588,26 +632,43 @@ export default function BibliotecaClient() {
     >
       {/* Panel de carpetas */}
       <div
-        className="hidden flex-shrink-0 overflow-hidden bg-neutral-950 transition-[width] duration-200 md:block"
-        style={{ width: sidebarAbierto ? panelWidth : 0 }}
+        className="hidden flex-shrink-0 overflow-hidden transition-[width] duration-200 md:block"
+        style={{ width: sidebarAbierto ? panelWidth : 0, background: 'rgba(5,5,12,0.8)', borderRight: '1px solid rgba(255,255,255,0.05)' }}
       >
         <div className="flex h-full flex-col overflow-y-auto p-3" style={{ width: panelWidth }}>
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600">Carpetas</p>
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.4)' }}>Carpetas</p>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setTodosColapsados((v) => !v)}
-              className="rounded p-0.5 text-neutral-600 hover:text-neutral-300"
+              className="rounded p-0.5 transition-colors"
+              style={{ color: 'rgba(148,163,184,0.35)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.35)' }}
               title={todosColapsados ? 'Expandir todo' : 'Colapsar todo'}
             >
               {todosColapsados
                 ? <ChevronsUpDown className="h-3.5 w-3.5" />
                 : <ChevronsDownUp className="h-3.5 w-3.5" />}
             </button>
-            <button onClick={() => setModalCarpeta({})} className="rounded p-0.5 text-neutral-600 hover:text-neutral-300" title="Nueva carpeta">
+            <button
+              onClick={() => setModalCarpeta({})}
+              className="rounded p-0.5 transition-colors"
+              style={{ color: 'rgba(148,163,184,0.35)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.35)' }}
+              title="Nueva carpeta"
+            >
               <FolderPlus className="h-4 w-4" />
             </button>
-            <button onClick={() => setSidebarAbierto(false)} className="rounded p-0.5 text-neutral-600 hover:text-neutral-300" title="Colapsar panel">
+            <button
+              onClick={() => setSidebarAbierto(false)}
+              className="rounded p-0.5 transition-colors"
+              style={{ color: 'rgba(148,163,184,0.35)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.35)' }}
+              title="Colapsar panel"
+            >
               <PanelLeftClose className="h-4 w-4" />
             </button>
           </div>
@@ -616,26 +677,34 @@ export default function BibliotecaClient() {
         {/* Todas */}
         <button
           onClick={() => setCarpetaActiva(null)}
-          className={`mb-0.5 flex items-center justify-between rounded-lg px-2 py-2 text-sm ${carpetaActiva === null ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}`}
+          className="mb-0.5 flex items-center justify-between rounded-lg px-2 py-2 text-sm transition-all"
+          style={carpetaActiva === null
+            ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.25), rgba(30,58,138,0.15))', color: '#fff', border: '1px solid rgba(139,92,246,0.15)' }
+            : { color: 'rgba(148,163,184,0.5)', border: '1px solid transparent' }
+          }
         >
           <div className="flex items-center gap-2">
-            <FolderOpen className="h-4 w-4 text-neutral-500" />
+            <FolderOpen className="h-4 w-4" style={{ color: 'rgba(148,163,184,0.4)' }} />
             <span>Todos</span>
           </div>
-          <span className="text-xs text-neutral-600">{documentos.length}</span>
+          <span className="text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>{documentos.length}</span>
         </button>
 
         {/* Sin carpeta */}
         {sinCarpeta > 0 && (
           <button
             onClick={() => setCarpetaActiva('sin-carpeta')}
-            className={`mb-0.5 flex items-center justify-between rounded-lg px-2 py-2 text-sm ${carpetaActiva === 'sin-carpeta' ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:bg-neutral-900 hover:text-neutral-200'}`}
+            className="mb-0.5 flex items-center justify-between rounded-lg px-2 py-2 text-sm transition-all"
+            style={carpetaActiva === 'sin-carpeta'
+              ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.25), rgba(30,58,138,0.15))', color: '#fff', border: '1px solid rgba(139,92,246,0.15)' }
+              : { color: 'rgba(148,163,184,0.5)', border: '1px solid transparent' }
+            }
           >
             <div className="flex items-center gap-2">
-              <Folder className="h-4 w-4 text-neutral-600" />
+              <Folder className="h-4 w-4" style={{ color: 'rgba(148,163,184,0.35)' }} />
               <span>Sin carpeta</span>
             </div>
-            <span className="text-xs text-neutral-600">{sinCarpeta}</span>
+            <span className="text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>{sinCarpeta}</span>
           </button>
         )}
 
@@ -661,7 +730,10 @@ export default function BibliotecaClient() {
 
         <button
           onClick={() => setModalCarpeta({})}
-          className="mt-3 flex items-center gap-2 rounded-lg border border-dashed border-neutral-800 px-2 py-2 text-xs text-neutral-600 hover:border-neutral-700 hover:text-neutral-400"
+          className="mt-3 flex items-center gap-2 rounded-lg px-2 py-2 text-xs transition-all"
+          style={{ border: '1px dashed rgba(139,92,246,0.2)', color: 'rgba(148,163,184,0.4)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = 'rgba(167,139,250,0.7)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
         >
           <FolderPlus className="h-3.5 w-3.5" /> Nueva carpeta
         </button>
@@ -672,7 +744,10 @@ export default function BibliotecaClient() {
       {sidebarAbierto && (
         <div
           onMouseDown={onPanelDragStart}
-          className="group hidden w-1.5 flex-shrink-0 cursor-col-resize bg-neutral-800 hover:bg-blue-500/50 transition-colors md:block"
+          className="group hidden w-1.5 flex-shrink-0 cursor-col-resize transition-colors md:block"
+          style={{ background: 'rgba(255,255,255,0.04)' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.3)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
           title="Arrastrar para redimensionar"
         />
       )}
@@ -680,10 +755,17 @@ export default function BibliotecaClient() {
       {/* Área principal */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Barra superior */}
-        <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <div className="flex min-w-0 items-center gap-2">
             {!sidebarAbierto && (
-              <button onClick={() => setSidebarAbierto(true)} className="hidden rounded p-1 text-neutral-600 hover:text-neutral-300 md:block" title="Expandir panel">
+              <button
+                onClick={() => setSidebarAbierto(true)}
+                className="hidden rounded p-1 transition-colors md:block"
+                style={{ color: 'rgba(148,163,184,0.4)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
+                title="Expandir panel"
+              >
                 <PanelLeftOpen className="h-4 w-4" />
               </button>
             )}
@@ -732,17 +814,36 @@ export default function BibliotecaClient() {
               onClick={cargar}
               disabled={cargando}
               title="Recargar"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-neutral-600 hover:text-white disabled:opacity-50"
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all disabled:opacity-50"
+              style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.5)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
             >
               <RefreshCw className={`h-4 w-4 ${cargando ? 'animate-spin' : ''}`} />
             </button>
 
             {/* Toggle vista */}
-            <div className="flex overflow-hidden rounded-lg border border-neutral-700">
-              <button onClick={() => setVista('lista')} title="Vista lista" className={`flex h-9 w-9 items-center justify-center ${vista === 'lista' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
+            <div className="flex overflow-hidden rounded-lg" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+              <button
+                onClick={() => setVista('lista')}
+                title="Vista lista"
+                className="flex h-9 w-9 items-center justify-center transition-all"
+                style={vista === 'lista'
+                  ? { background: 'rgba(139,92,246,0.2)', color: '#fff' }
+                  : { color: 'rgba(148,163,184,0.4)' }
+                }
+              >
                 <LayoutList className="h-4 w-4" />
               </button>
-              <button onClick={() => setVista('grilla')} title="Vista grilla" className={`flex h-9 w-9 items-center justify-center ${vista === 'grilla' ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
+              <button
+                onClick={() => setVista('grilla')}
+                title="Vista grilla"
+                className="flex h-9 w-9 items-center justify-center transition-all"
+                style={vista === 'grilla'
+                  ? { background: 'rgba(139,92,246,0.2)', color: '#fff' }
+                  : { color: 'rgba(148,163,184,0.4)' }
+                }
+              >
                 <LayoutGrid className="h-4 w-4" />
               </button>
             </div>
@@ -752,7 +853,10 @@ export default function BibliotecaClient() {
               <button
                 onClick={() => setModoSeleccion(true)}
                 title="Seleccionar documentos"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-neutral-700 text-neutral-400 hover:border-neutral-600 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-lg transition-all"
+                style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.5)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
               >
                 <CheckSquare2 className="h-4 w-4" />
               </button>
@@ -762,7 +866,13 @@ export default function BibliotecaClient() {
             <div className="relative" ref={herramientasRef}>
               <button
                 onClick={() => setMenuHerramientas((v) => !v)}
-                className={`flex h-9 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors ${menuHerramientas ? 'border-neutral-500 bg-neutral-800 text-white' : 'border-neutral-700 text-neutral-400 hover:border-neutral-600 hover:text-white'}`}
+                className="flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm transition-all"
+                style={menuHerramientas
+                  ? { border: '1px solid rgba(139,92,246,0.4)', background: 'rgba(139,92,246,0.1)', color: '#fff' }
+                  : { border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.5)' }
+                }
+                onMouseEnter={(e) => { if (!menuHerramientas) { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#fff' } }}
+                onMouseLeave={(e) => { if (!menuHerramientas) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' } }}
               >
                 <Settings2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Herramientas</span>
@@ -770,21 +880,25 @@ export default function BibliotecaClient() {
               </button>
 
               {menuHerramientas && (
-                <div className="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl">
+                <div
+                  className="absolute right-0 top-full z-30 mt-1 w-72 overflow-hidden rounded-xl shadow-2xl"
+                  style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.2)', backdropFilter: 'blur(12px)' }}
+                >
                   <div className="p-1.5 space-y-0.5">
-
                     {/* Indexar pendientes */}
                     <button
                       onClick={() => { setMenuHerramientas(false); indexarTodosSecuencial(documentosFiltrados.filter((d) => d.estado === 'sin_indexar' || d.estado === 'error')) }}
                       disabled={indexandoLote || sinIndexar === 0}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors disabled:opacity-40"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
                     >
                       <Zap className={`h-4 w-4 flex-shrink-0 text-blue-400 ${indexandoLote ? 'animate-pulse' : ''}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white">
                           {indexandoLote && progresoLote ? `Indexando ${progresoLote.actual + 1}/${progresoLote.total}…` : 'Indexar pendientes'}
                         </p>
-                        <p className="text-xs text-neutral-500">{sinIndexar} sin indexar</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>{sinIndexar} sin indexar</p>
                       </div>
                     </button>
 
@@ -792,27 +906,31 @@ export default function BibliotecaClient() {
                     <button
                       onClick={() => { setMenuHerramientas(false); ocrTodosSecuencial() }}
                       disabled={ocrLoteActivo || conError === 0}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors disabled:opacity-40"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
                     >
                       <ScanText className={`h-4 w-4 flex-shrink-0 text-orange-400 ${ocrLoteActivo ? 'animate-pulse' : ''}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white">{ocrLoteActivo && progresoOcrLote ? `OCR ${progresoOcrLote.actual + 1}/${progresoOcrLote.total}…` : 'OCR + Reindexar errores'}</p>
-                        <p className="text-xs text-neutral-500">{conError} con error</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>{conError} con error</p>
                       </div>
                     </button>
 
-                    <div className="my-1 border-t border-neutral-800" />
+                    <div className="my-1" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} />
 
                     {/* Extraer metadatos vacíos */}
                     <button
                       onClick={() => { setMenuHerramientas(false); extraerMetadatosLote() }}
                       disabled={extrayendoMeta || sinMetadatos === 0}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors disabled:opacity-40"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
                     >
                       <ScanSearch className={`h-4 w-4 flex-shrink-0 text-teal-400 ${extrayendoMeta ? 'animate-pulse' : ''}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white">{extrayendoMeta && progresoMeta ? `Extrayendo ${progresoMeta.actual}/${progresoMeta.total}…` : 'Extraer metadatos vacíos'}</p>
-                        <p className="text-xs text-neutral-500">{sinMetadatos} sin autor/año</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>{sinMetadatos} sin autor/año</p>
                       </div>
                     </button>
 
@@ -820,39 +938,45 @@ export default function BibliotecaClient() {
                     <button
                       onClick={() => { setMenuHerramientas(false); actualizarMetadatosLote() }}
                       disabled={actualizandoMetaLote || documentosFiltrados.length === 0}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors disabled:opacity-40"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
                     >
                       <RefreshCw className={`h-4 w-4 flex-shrink-0 text-violet-400 ${actualizandoMetaLote ? 'animate-spin' : ''}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white">{actualizandoMetaLote && progresoActMeta ? `Actualizando ${progresoActMeta.actual}/${progresoActMeta.total}…` : 'Actualizar todos los metadatos'}</p>
-                        <p className="text-xs text-neutral-500">Sobrescribe con datos frescos (CrossRef)</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>Sobrescribe con datos frescos (CrossRef)</p>
                       </div>
                     </button>
 
-                    <div className="my-1 border-t border-neutral-800" />
+                    <div className="my-1" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} />
 
                     {/* Pipeline */}
                     <button
                       onClick={() => { setMenuHerramientas(false); setShowPipeline(true) }}
                       disabled={documentosFiltrados.filter((d) => d.estado === 'indexado').length === 0}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800 disabled:opacity-40"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors disabled:opacity-40"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
                     >
                       <Wand2 className="h-4 w-4 flex-shrink-0 text-purple-400" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white">Procesar biblioteca</p>
-                        <p className="text-xs text-neutral-500">Fichas + notas + citas + vínculos</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>Fichas + notas + citas + vínculos</p>
                       </div>
                     </button>
 
                     {/* Importar carpeta */}
                     <button
                       onClick={() => { setMenuHerramientas(false); setModalImportarCarpeta(true) }}
-                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-neutral-800"
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
+                      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = '' }}
                     >
-                      <FolderInput className="h-4 w-4 flex-shrink-0 text-neutral-400" />
+                      <FolderInput className="h-4 w-4 flex-shrink-0" style={{ color: 'rgba(148,163,184,0.5)' }} />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white">Importar carpeta</p>
-                        <p className="text-xs text-neutral-500">Subir varios PDFs desde carpeta local</p>
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>Subir varios PDFs desde carpeta local</p>
                       </div>
                     </button>
                   </div>
@@ -864,7 +988,10 @@ export default function BibliotecaClient() {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={subiendo}
-              className="flex h-9 items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500 shadow-md shadow-violet-900/30 disabled:opacity-50"
+              className="flex h-9 items-center gap-2 rounded-xl px-4 text-sm font-medium text-white transition-all disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 14px rgba(124,58,237,0.3)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 22px rgba(124,58,237,0.5)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 14px rgba(124,58,237,0.3)' }}
             >
               <Upload className="h-4 w-4" />
               <span>{subiendo ? 'Subiendo…' : 'Subir PDF'}</span>
@@ -875,29 +1002,43 @@ export default function BibliotecaClient() {
 
         {/* Barra de selección */}
         {modoSeleccion && (
-          <div className="flex items-center gap-3 border-b border-neutral-800 bg-neutral-950 px-6 py-2.5">
-            <span className="text-sm text-neutral-400">
+          <div className="flex items-center gap-3 px-6 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(3,3,8,0.6)' }}>
+            <span className="text-sm" style={{ color: 'rgba(148,163,184,0.6)' }}>
               {seleccionados.size > 0 ? `${seleccionados.size} seleccionado${seleccionados.size !== 1 ? 's' : ''}` : 'Ninguno seleccionado'}
             </span>
             <button
               onClick={() => setSeleccionados(new Set(documentosFiltrados.map((d) => d.id)))}
-              className="text-xs text-blue-400 hover:underline"
+              className="text-xs hover:underline"
+              style={{ color: 'rgba(139,92,246,0.8)' }}
             >
               Todo
             </button>
             {seleccionados.size > 0 && (
-              <button onClick={() => setSeleccionados(new Set())} className="text-xs text-neutral-500 hover:underline">
+              <button
+                onClick={() => setSeleccionados(new Set())}
+                className="text-xs hover:underline"
+                style={{ color: 'rgba(148,163,184,0.4)' }}
+              >
                 Limpiar
               </button>
             )}
             <div className="ml-auto flex gap-2">
-              <button onClick={salirModoSeleccion} className="rounded-lg px-3 py-1.5 text-sm text-neutral-400 hover:text-white">
+              <button
+                onClick={salirModoSeleccion}
+                className="rounded-lg px-3 py-1.5 text-sm transition-colors"
+                style={{ color: 'rgba(148,163,184,0.5)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
+              >
                 Cancelar
               </button>
               <button
                 onClick={eliminarSeleccionados}
                 disabled={!seleccionados.size || eliminandoLote}
-                className="flex items-center gap-1.5 rounded-lg border border-red-800 bg-red-950/40 px-3 py-1.5 text-sm text-red-400 hover:bg-red-950 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-red-400 transition-all disabled:opacity-50"
+                style={{ border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.12)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239,68,68,0.06)' }}
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 {eliminandoLote ? 'Eliminando…' : `Eliminar (${seleccionados.size})`}
@@ -909,13 +1050,19 @@ export default function BibliotecaClient() {
         {/* Errores */}
         <div className="px-6">
           {errorCarga && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-900/50 bg-red-950/20 px-4 py-3 text-sm text-red-400">
+            <div
+              className="mt-3 flex items-center gap-2 rounded-xl px-4 py-3 text-sm text-red-400"
+              style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
+            >
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               <span>{errorCarga}</span>
             </div>
           )}
           {errorSubida && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg border border-red-900/50 bg-red-950/20 px-4 py-3 text-sm text-red-400">
+            <div
+              className="mt-3 flex items-center gap-2 rounded-xl px-4 py-3 text-sm text-red-400"
+              style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}
+            >
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               <span>{errorSubida}</span>
               <button onClick={() => setErrorSubida(null)} className="ml-auto text-xs underline">Cerrar</button>
@@ -926,27 +1073,44 @@ export default function BibliotecaClient() {
         {/* Contenido principal */}
         <div className={`flex-1 overflow-y-auto ${vista === 'lista' ? 'p-0' : 'p-6'}`}>
           {dragging && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/80 backdrop-blur-sm">
-              <div className="rounded-2xl border-2 border-dashed border-blue-500 bg-neutral-900 p-16 text-center">
-                <Upload className="mx-auto h-12 w-12 text-blue-400" />
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+              <div
+                className="rounded-2xl p-16 text-center"
+                style={{ border: '2px dashed rgba(139,92,246,0.6)', background: 'rgba(109,40,217,0.08)', backdropFilter: 'blur(12px)' }}
+              >
+                <Upload className="mx-auto h-12 w-12" style={{ color: 'rgba(139,92,246,0.7)' }} />
                 <p className="mt-4 text-lg font-medium text-white">Soltá los PDFs aquí</p>
               </div>
             </div>
           )}
 
           {!cargando && documentosFiltrados.length === 0 && (
-            <div className={`flex flex-col items-center justify-center rounded-xl border border-dashed border-neutral-700 py-20 ${vista === 'lista' ? 'mx-6 mt-6' : ''}`}>
-              <Upload className="h-10 w-10 text-neutral-600" />
-              <p className="mt-3 text-sm font-medium text-neutral-400">
+            <div
+              className={`flex flex-col items-center justify-center rounded-2xl py-20 ${vista === 'lista' ? 'mx-6 mt-6' : ''}`}
+              style={{ border: '1px dashed rgba(139,92,246,0.2)', background: 'rgba(255,255,255,0.015)' }}
+            >
+              <div
+                className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
+                style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.12), rgba(6,182,212,0.06))', border: '1px solid rgba(139,92,246,0.2)' }}
+              >
+                <Upload className="h-8 w-8" style={{ color: 'rgba(139,92,246,0.6)' }} />
+              </div>
+              <p className="text-sm font-medium" style={{ color: 'rgba(148,163,184,0.6)' }}>
                 {carpetaActiva ? 'Esta carpeta está vacía' : 'No hay documentos todavía'}
               </p>
               {!carpetaActiva && (
-                <button onClick={() => fileInputRef.current?.click()} className="mt-5 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500 shadow-md shadow-violet-900/30">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="mt-5 rounded-xl px-4 py-2 text-sm font-medium text-white transition-all"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 14px rgba(124,58,237,0.3)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 22px rgba(124,58,237,0.5)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 14px rgba(124,58,237,0.3)' }}
+                >
                   Subir primer PDF
                 </button>
               )}
               {carpetaActiva && (
-                <p className="mt-2 text-xs text-neutral-600">
+                <p className="mt-2 text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
                   Subí un PDF y usá "Mover a carpeta" para asignarlo aquí.
                 </p>
               )}
@@ -957,19 +1121,19 @@ export default function BibliotecaClient() {
             vista === 'lista' ? (
               <div className="space-y-0">
                 {[...Array(8)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 border-b border-neutral-800/50 px-4 py-2.5">
-                    <div className="h-4 w-4 animate-pulse rounded bg-neutral-800" />
-                    <div className="h-3 flex-1 animate-pulse rounded bg-neutral-800" />
-                    <div className="h-3 w-32 animate-pulse rounded bg-neutral-800" />
-                    <div className="h-3 w-24 animate-pulse rounded bg-neutral-800" />
-                    <div className="h-5 w-20 animate-pulse rounded-full bg-neutral-800" />
+                  <div key={i} className="flex items-center gap-3 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="h-4 w-4 animate-pulse rounded" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                    <div className="h-3 flex-1 animate-pulse rounded" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                    <div className="h-3 w-32 animate-pulse rounded" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                    <div className="h-3 w-24 animate-pulse rounded" style={{ background: 'rgba(255,255,255,0.06)' }} />
+                    <div className="h-5 w-20 animate-pulse rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
                   </div>
                 ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="h-44 animate-pulse rounded-xl border border-neutral-800 bg-neutral-900" />
+                  <div key={i} className="h-44 animate-pulse rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }} />
                 ))}
               </div>
             )
@@ -979,7 +1143,10 @@ export default function BibliotecaClient() {
             vista === 'lista' ? (
               <div>
                 {/* Cabecera de columnas */}
-                <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-neutral-800 bg-neutral-950/95 px-4 py-1.5 text-xs font-medium uppercase tracking-wide text-neutral-600 backdrop-blur">
+                <div
+                  className="sticky top-0 z-10 flex items-center gap-3 px-4 py-1.5 text-xs font-medium uppercase tracking-wide backdrop-blur"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(3,3,8,0.95)', color: 'rgba(148,163,184,0.4)' }}
+                >
                   {modoSeleccion && <div className="h-4 w-4 flex-shrink-0" />}
                   <div className="h-4 w-4 flex-shrink-0" />
                   <div className="min-w-0 flex-1">Nombre</div>
