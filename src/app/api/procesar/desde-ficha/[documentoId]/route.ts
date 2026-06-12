@@ -1,6 +1,6 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
+import { initUserDrive, findFile, readJSON, writeJSON, updateDocumentMetadata } from '@/lib/drive'
 import { FichaLectura, Nota, Cita, Dato } from '@/types'
 import { generarIdZettel } from '@/lib/zettel-id'
 import { NextRequest, NextResponse } from 'next/server'
@@ -142,12 +142,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
       await writeJSON(accessToken, estructura.citasId, 'datos.json', [...datos, ...datosNuevos])
     }
 
-    // Marcar fichaGenerada en el doc
-    await fetch(`${process.env.NEXTAUTH_URL ?? ''}/api/drive/metadata/${documentoId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fichaGenerada: true }),
-    }).catch(() => {})
+    await updateDocumentMetadata(accessToken, documentoId, { fichaGenerada: true })
 
     return NextResponse.json({
       ok: true,

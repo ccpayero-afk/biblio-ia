@@ -1,6 +1,6 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON } from '@/lib/drive'
+import { initUserDrive, findFile, readJSON, updateDocumentMetadata } from '@/lib/drive'
 import { generateFicha, saveFicha } from '@/lib/ficha'
 import { geminiRateLimitMessage } from '@/lib/gemini'
 import { Fragmento } from '@/types'
@@ -41,6 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
 
     const ficha = await generateFicha(documentoId, documentoNombre, autor, año, fragmentos, accessToken)
     await saveFicha(ficha, accessToken)
+    await updateDocumentMetadata(accessToken, documentoId, { fichaGenerada: true })
     return NextResponse.json(ficha)
   } catch (e) {
     const rateLimitMsg = geminiRateLimitMessage(e)

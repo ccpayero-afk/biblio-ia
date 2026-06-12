@@ -9,6 +9,9 @@ function esFichaValida(f: unknown): f is FichaLectura {
   return !!f && typeof f === 'object' && 'tesisCentral' in (f as object)
 }
 
+const shortName = (nombre: string) =>
+  (nombre.split('/').pop() ?? nombre).replace(/\.pdf$/i, '')
+
 type Filtro = 'todas' | 'con_ficha' | 'sin_ficha'
 
 // ─── Panel detalle ────────────────────────────────────────────────────────────
@@ -26,7 +29,7 @@ function FichaDetalle({
   error: string | null
   onGenerar: () => void
 }) {
-  const titulo = doc.nombre.replace(/\.pdf$/i, '')
+  const titulo = shortName(doc.nombre)
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -247,6 +250,7 @@ export default function FichasClient() {
     if (busqueda) {
       const q = busqueda.toLowerCase()
       return (
+        shortName(d.nombre).toLowerCase().includes(q) ||
         d.nombre.toLowerCase().includes(q) ||
         (d.autor ?? '').toLowerCase().includes(q) ||
         (d.año ?? '').includes(q)
@@ -257,7 +261,7 @@ export default function FichasClient() {
     // Con ficha primero
     if (a.fichaGenerada && !b.fichaGenerada) return -1
     if (!a.fichaGenerada && b.fichaGenerada) return 1
-    return a.nombre.localeCompare(b.nombre)
+    return shortName(a.nombre).localeCompare(shortName(b.nombre))
   })
 
   const conFicha = docs.filter((d) => d.fichaGenerada).length
@@ -337,7 +341,7 @@ export default function FichasClient() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <p className="line-clamp-2 flex-1 text-xs font-medium text-neutral-200 leading-snug">
-                    {doc.nombre.replace(/\.pdf$/i, '')}
+                    {shortName(doc.nombre)}
                   </p>
                   {cargandoEsta
                     ? <Loader2 className="mt-0.5 h-3 w-3 flex-shrink-0 animate-spin text-neutral-500" />
