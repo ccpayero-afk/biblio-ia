@@ -187,8 +187,15 @@ export default function TutorClient() {
       body: JSON.stringify(body),
     })
     if (!res.ok || !res.body) {
-      const data = await res.json().catch(() => ({}))
-      onError(data.error ?? 'Error al conectar con el tutor')
+      const texto = await res.text().catch(() => '')
+      let mensaje: string
+      try {
+        const data = JSON.parse(texto)
+        mensaje = data.error ?? `Error ${res.status}`
+      } catch {
+        mensaje = `Error ${res.status}${res.statusText ? `: ${res.statusText}` : ''}`
+      }
+      onError(mensaje)
       return
     }
     const reader  = res.body.getReader()
@@ -224,13 +231,18 @@ export default function TutorClient() {
     setChatTexto('')
 
     let acum = ''
-    await consumirStream(
-      { tipo, descripcion, perspectiva },
-      (m) => setMeta(m),
-      (t) => { acum += t; setTexto(acum) },
-      () => { setGenerando(false) },
-      (e) => { setError(e); setGenerando(false) },
-    )
+    try {
+      await consumirStream(
+        { tipo, descripcion, perspectiva },
+        (m) => setMeta(m),
+        (t) => { acum += t; setTexto(acum) },
+        () => { setGenerando(false) },
+        (e) => { setError(e); setGenerando(false) },
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error de red al conectar con el tutor')
+      setGenerando(false)
+    }
   }
 
   // ── Follow-up ─────────────────────────────────────────────────────────────
@@ -242,17 +254,22 @@ export default function TutorClient() {
     setChatTexto('')
 
     let respuesta = ''
-    await consumirStream(
-      { seguimiento: pregunta, planTexto: texto },
-      () => { /* no meta in follow-up */ },
-      (t) => { respuesta += t; setChatTexto(respuesta) },
-      () => {
-        setHistorialChat((prev) => [...prev, { q: pregunta, r: respuesta }])
-        setChatTexto('')
-        setEnviando(false)
-      },
-      (e) => { setError(e); setEnviando(false) },
-    )
+    try {
+      await consumirStream(
+        { seguimiento: pregunta, planTexto: texto },
+        () => { /* no meta in follow-up */ },
+        (t) => { respuesta += t; setChatTexto(respuesta) },
+        () => {
+          setHistorialChat((prev) => [...prev, { q: pregunta, r: respuesta }])
+          setChatTexto('')
+          setEnviando(false)
+        },
+        (e) => { setError(e); setEnviando(false) },
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error de red al conectar con el tutor')
+      setEnviando(false)
+    }
   }
 
   const secciones = texto ? parsearSecciones(texto) : []
