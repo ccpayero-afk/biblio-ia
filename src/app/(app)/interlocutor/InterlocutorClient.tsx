@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, RotateCcw, Users, BookMarked } from 'lucide-react'
 import { MensajeHistorial } from '@/lib/chat'
 import { CarpetaSelector } from '@/components/CarpetaSelector'
-import type { Carpeta } from '@/types'
+import type { Carpeta, Documento } from '@/types'
 
 type Modo = 'exploración' | 'posicion' | 'debate' | 'socrático'
 
@@ -28,6 +28,8 @@ export default function InterlocutorClient() {
   const [respuestaActual, setRespuestaActual] = useState('')
   const [carpetas, setCarpetas] = useState<Carpeta[]>([])
   const [carpetasFiltro, setCarpetasFiltro] = useState<string[]>([])
+  const [docs, setDocs] = useState<Documento[]>([])
+  const [documentoSelId, setDocumentoSelId] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -37,6 +39,14 @@ export default function InterlocutorClient() {
       .then(data => { if (Array.isArray(data)) setCarpetas(data) })
       .catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (modo !== 'posicion') return
+    fetch('/api/drive/pdfs')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setDocs(data) })
+      .catch(() => {})
+  }, [modo])
 
   const historial: MensajeHistorial[] = turnos.flatMap((t) => [
     { rol: 'user' as const, contenido: t.pregunta },
@@ -55,7 +65,7 @@ export default function InterlocutorClient() {
       const res = await fetch('/api/interlocutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: texto, modo, historial, carpetasIds: carpetasFiltro.length ? carpetasFiltro : undefined }),
+        body: JSON.stringify({ query: texto, modo, historial, carpetasIds: carpetasFiltro.length ? carpetasFiltro : undefined, documentoId: documentoSelId ?? undefined }),
       })
       if (!res.body) throw new Error('Sin respuesta')
 
@@ -103,7 +113,7 @@ export default function InterlocutorClient() {
           {MODOS.map((m) => (
             <button
               key={m.id}
-              onClick={() => { setModo(m.id); setTurnos([]); setRespuestaActual('') }}
+              onClick={() => { setModo(m.id); setTurnos([]); setRespuestaActual(''); setDocumentoSelId(null) }}
               className="flex-shrink-0 rounded-lg px-3 py-2 text-xs transition-all"
               style={modo === m.id
                 ? { background: 'linear-gradient(90deg, rgba(109,40,217,0.3), rgba(30,58,138,0.2))', color: '#fff', border: '1px solid rgba(139,92,246,0.3)' }
@@ -124,6 +134,43 @@ export default function InterlocutorClient() {
         <div className="mt-2">
           <CarpetaSelector carpetas={carpetas} filtro={carpetasFiltro} onChange={setCarpetasFiltro} />
         </div>
+
+        {/* Selector de documento para modo posición */}
+        {modo === 'posicion' && (
+          <div className="mt-2">
+            <div className="flex items-center gap-1.5 mb-1">
+              <BookMarked className="h-3.5 w-3.5 flex-shrink-0" style={{ color: 'rgba(139,92,246,0.6)' }} />
+              <span className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Seleccioná el documento del autor</span>
+            </div>
+            <div style={{ maxHeight: '200px', overflowY: 'auto', borderRadius: '8px', border: '1px solid rgba(139,92,246,0.2)', background: 'rgba(255,255,255,0.03)' }}>
+              {docs.length === 0 ? (
+                <p className="px-3 py-2 text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>Cargando documentos…</p>
+              ) : (
+                docs.map((d) => {
+                  const nombre = (d.nombre.split('/').pop() ?? d.nombre).replace(/\.pdf$/i, '')
+                  const activo = documentoSelId === d.id
+                  return (
+                    <button
+                      key={d.id}
+                      onClick={() => setDocumentoSelId(activo ? null : d.id)}
+                      className="block w-full text-left px-3 py-2 text-xs transition-all"
+                      style={{
+                        background: activo ? 'rgba(139,92,246,0.15)' : 'transparent',
+                        color: activo ? '#c4b5fd' : 'rgba(203,213,225,0.7)',
+                        borderBottom: '1px solid rgba(255,255,255,0.03)',
+                      }}
+                      onMouseEnter={(e) => { if (!activo) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)' }}
+                      onMouseLeave={(e) => { if (!activo) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                    >
+                      <span className="line-clamp-1">{nombre}</span>
+                      {d.autor && <span className="block truncate mt-0.5" style={{ color: 'rgba(148,163,184,0.4)', fontSize: '10px' }}>{d.autor}{d.año ? ` · ${d.año}` : ''}</span>}
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Chat */}

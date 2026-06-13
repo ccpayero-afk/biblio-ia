@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Carpeta, Documento } from '@/types'
-import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch, ScanText, Wand2, Settings2, Download } from 'lucide-react'
+import { Upload, RefreshCw, Zap, AlertCircle, FolderPlus, FolderOpen, Folder, MoreHorizontal, X, ChevronRight, ChevronDown, FolderInput, Trash2, CheckSquare2, LayoutList, LayoutGrid, PanelLeftClose, PanelLeftOpen, ChevronsDownUp, ChevronsUpDown, ScanSearch, ScanText, Wand2, Settings2, Download, BrainCircuit, Loader2, Search } from 'lucide-react'
 import DocumentoCard from './DocumentoCard'
 import MetadatosModal from './MetadatosModal'
 import ImportarCarpetaModal from './ImportarCarpetaModal'
@@ -380,6 +380,11 @@ export default function BibliotecaClient() {
   const [todosColapsados, setTodosColapsados] = useState(false)
   const [panelWidth, setPanelWidth] = useState(208)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [busqueda, setBusqueda] = useState('')
+  const [mostrarBusquedaSemantica, setMostrarBusquedaSemantica] = useState(false)
+  const [busquedaSemantica, setBusquedaSemantica] = useState('')
+  const [buscandoSemantica, setBuscandoSemantica] = useState(false)
+  const [resultadosSemanticos, setResultadosSemanticos] = useState<{ documentoId: string; score: number }[] | null>(null)
 
   const PANEL_MIN = 150
   const PANEL_MAX = 420
@@ -671,12 +676,57 @@ export default function BibliotecaClient() {
     if (carpetaActiva && subtreeSet.has(carpetaActiva)) setCarpetaActiva(null)
   }
 
+  async function ejecutarBusquedaSemantica() {
+    if (!busquedaSemantica.trim() || buscandoSemantica) return
+    setBuscandoSemantica(true)
+    try {
+      const res = await fetch('/api/biblioteca/semantica', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ q: busquedaSemantica.trim() }),
+      })
+      const data = await res.json()
+      setResultadosSemanticos(Array.isArray(data) ? data : null)
+    } catch {
+      setResultadosSemanticos(null)
+    } finally {
+      setBuscandoSemantica(false)
+    }
+  }
+
+  function limpiarBusquedaSemantica() {
+    setBusquedaSemantica('')
+    setResultadosSemanticos(null)
+    setMostrarBusquedaSemantica(false)
+  }
+
   // Documentos filtrados por carpeta activa (incluye subcarpetas)
   const documentosFiltrados = (() => {
     if (carpetaActiva === 'sin-carpeta') return documentos.filter((d) => !d.carpetaId)
     if (!carpetaActiva) return documentos
     const ids = new Set(getSubtreeIds(carpetaActiva, carpetas))
     return documentos.filter((d) => d.carpetaId && ids.has(d.carpetaId))
+  })()
+
+  // Apply text search filter
+  const documentosBuscados = (() => {
+    if (!busqueda.trim()) return documentosFiltrados
+    const q = busqueda.toLowerCase()
+    return documentosFiltrados.filter((d) =>
+      d.nombre.toLowerCase().includes(q) ||
+      (d.titulo ?? '').toLowerCase().includes(q) ||
+      (d.autor ?? '').toLowerCase().includes(q)
+    )
+  })()
+
+  // Apply semantic reordering if results exist
+  const documentosParaMostrar = (() => {
+    if (!resultadosSemanticos) return documentosBuscados
+    const scoreMap = new Map(resultadosSemanticos.map((r) => [r.documentoId, r.score]))
+    const conScore = documentosBuscados.filter((d) => scoreMap.has(d.id))
+    const sinScore = documentosBuscados.filter((d) => !scoreMap.has(d.id))
+    conScore.sort((a, b) => (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0))
+    return [...conScore, ...sinScore]
   })()
 
   const sinIndexar = documentosFiltrados.filter((d) => d.estado === 'sin_indexar').length
@@ -1128,6 +1178,96 @@ export default function BibliotecaClient() {
           </div>
         </div>
 
+        {/* Barra de búsqueda */}
+        <div className="flex flex-col gap-1.5 px-4 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 pointer-events-none" style={{ color: 'rgba(148,163,184,0.4)' }} />
+              <input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Filtrar por nombre, autor…"
+                className="w-full rounded-lg py-1.5 pl-8 pr-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)' }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)' }}
+              />
+              {busqueda && (
+                <button
+                  onClick={() => setBusqueda('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2"
+                  style={{ color: 'rgba(148,163,184,0.4)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => { setMostrarBusquedaSemantica((v) => !v); if (mostrarBusquedaSemantica) limpiarBusquedaSemantica() }}
+              title="Búsqueda semántica"
+              className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all"
+              style={mostrarBusquedaSemantica || resultadosSemanticos
+                ? { border: '1px solid rgba(167,139,250,0.5)', background: 'rgba(167,139,250,0.1)', color: '#a78bfa' }
+                : { border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(148,163,184,0.5)' }
+              }
+              onMouseEnter={(e) => { if (!mostrarBusquedaSemantica && !resultadosSemanticos) { e.currentTarget.style.borderColor = 'rgba(167,139,250,0.4)'; e.currentTarget.style.color = '#a78bfa' } }}
+              onMouseLeave={(e) => { if (!mostrarBusquedaSemantica && !resultadosSemanticos) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' } }}
+            >
+              <BrainCircuit className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Semántica</span>
+            </button>
+          </div>
+
+          {mostrarBusquedaSemantica && (
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <BrainCircuit className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 pointer-events-none" style={{ color: '#a78bfa', opacity: 0.5 }} />
+                <input
+                  value={busquedaSemantica}
+                  onChange={(e) => setBusquedaSemantica(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') ejecutarBusquedaSemantica() }}
+                  placeholder="Buscar por significado… (Enter para buscar)"
+                  className="w-full rounded-lg py-1.5 pl-8 pr-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none"
+                  style={{ background: 'rgba(167,139,250,0.05)', border: '1px solid rgba(167,139,250,0.2)' }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167,139,250,0.5)' }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(167,139,250,0.2)' }}
+                  autoFocus
+                />
+              </div>
+              <button
+                onClick={ejecutarBusquedaSemantica}
+                disabled={buscandoSemantica || !busquedaSemantica.trim()}
+                className="flex h-8 items-center gap-1.5 rounded-lg px-3 text-xs font-medium text-white transition-all disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.7), rgba(8,145,178,0.5))' }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85' }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
+              >
+                {buscandoSemantica ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Buscar'}
+              </button>
+              {resultadosSemanticos && (
+                <button
+                  onClick={limpiarBusquedaSemantica}
+                  title="Limpiar búsqueda semántica"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg transition-all"
+                  style={{ border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(148,163,184,0.5)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)' }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {resultadosSemanticos && (
+            <p className="text-xs" style={{ color: 'rgba(167,139,250,0.6)' }}>
+              {resultadosSemanticos.length} coincidencia{resultadosSemanticos.length !== 1 ? 's' : ''} semántica{resultadosSemanticos.length !== 1 ? 's' : ''} · Los demás aparecen al final con menor opacidad
+            </p>
+          )}
+        </div>
+
         {/* Barra de selección */}
         {modoSeleccion && (
           <div className="flex items-center gap-3 px-6 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(3,3,8,0.6)' }}>
@@ -1226,7 +1366,7 @@ export default function BibliotecaClient() {
             </div>
           )}
 
-          {!cargando && documentosFiltrados.length === 0 && (
+          {!cargando && documentosParaMostrar.length === 0 && (
             <div
               className={`flex flex-col items-center justify-center rounded-2xl py-20 ${vista === 'lista' ? 'mx-6 mt-6' : ''}`}
               style={{ border: '1px dashed rgba(139,92,246,0.2)', background: 'rgba(255,255,255,0.015)' }}
@@ -1281,7 +1421,7 @@ export default function BibliotecaClient() {
             )
           )}
 
-          {!cargando && documentosFiltrados.length > 0 && (
+          {!cargando && documentosParaMostrar.length > 0 && (
             vista === 'lista' ? (
               <div>
                 {/* Cabecera de columnas */}
@@ -1299,43 +1439,51 @@ export default function BibliotecaClient() {
                   <div className="w-16 flex-shrink-0 text-right">Frags.</div>
                   {!modoSeleccion && <div className="w-16 flex-shrink-0" />}
                 </div>
-                {documentosFiltrados.map((doc) => (
-                  <DocumentoCard
-                    key={doc.id}
-                    documento={doc}
-                    carpeta={carpetas.find((c) => c.id === doc.carpetaId)}
-                    onEditar={() => setEditando(doc)}
-                    onMover={() => setMoviendo(doc)}
-                    onEliminar={() => eliminarDocumento(doc)}
-                    onIndexadoOk={onDocumentIndexado}
-                    onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
-                    onMetadatosExtraidos={onMetadatosExtraidos}
-                    modoSeleccion={modoSeleccion}
-                    seleccionado={seleccionados.has(doc.id)}
-                    onToggleSeleccion={() => toggleSeleccion(doc.id)}
-                    vista="lista"
-                  />
-                ))}
+                {documentosParaMostrar.map((doc) => {
+                  const esMatch = !resultadosSemanticos || resultadosSemanticos.some((r) => r.documentoId === doc.id)
+                  return (
+                    <div key={doc.id} style={!esMatch ? { opacity: 0.35 } : undefined}>
+                      <DocumentoCard
+                        documento={doc}
+                        carpeta={carpetas.find((c) => c.id === doc.carpetaId)}
+                        onEditar={() => setEditando(doc)}
+                        onMover={() => setMoviendo(doc)}
+                        onEliminar={() => eliminarDocumento(doc)}
+                        onIndexadoOk={onDocumentIndexado}
+                        onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
+                        onMetadatosExtraidos={onMetadatosExtraidos}
+                        modoSeleccion={modoSeleccion}
+                        seleccionado={seleccionados.has(doc.id)}
+                        onToggleSeleccion={() => toggleSeleccion(doc.id)}
+                        vista="lista"
+                      />
+                    </div>
+                  )
+                })}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {documentosFiltrados.map((doc) => (
-                  <DocumentoCard
-                    key={doc.id}
-                    documento={doc}
-                    carpeta={carpetas.find((c) => c.id === doc.carpetaId)}
-                    onEditar={() => setEditando(doc)}
-                    onMover={() => setMoviendo(doc)}
-                    onEliminar={() => eliminarDocumento(doc)}
-                    onIndexadoOk={onDocumentIndexado}
-                    onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
-                    onMetadatosExtraidos={onMetadatosExtraidos}
-                    modoSeleccion={modoSeleccion}
-                    seleccionado={seleccionados.has(doc.id)}
-                    onToggleSeleccion={() => toggleSeleccion(doc.id)}
-                    vista="grilla"
-                  />
-                ))}
+                {documentosParaMostrar.map((doc) => {
+                  const esMatch = !resultadosSemanticos || resultadosSemanticos.some((r) => r.documentoId === doc.id)
+                  return (
+                    <div key={doc.id} style={!esMatch ? { opacity: 0.35 } : undefined}>
+                      <DocumentoCard
+                        documento={doc}
+                        carpeta={carpetas.find((c) => c.id === doc.carpetaId)}
+                        onEditar={() => setEditando(doc)}
+                        onMover={() => setMoviendo(doc)}
+                        onEliminar={() => eliminarDocumento(doc)}
+                        onIndexadoOk={onDocumentIndexado}
+                        onRegistrarIndexar={(fn) => { indexarRefs.current[doc.id] = fn }}
+                        onMetadatosExtraidos={onMetadatosExtraidos}
+                        modoSeleccion={modoSeleccion}
+                        seleccionado={seleccionados.has(doc.id)}
+                        onToggleSeleccion={() => toggleSeleccion(doc.id)}
+                        vista="grilla"
+                      />
+                    </div>
+                  )
+                })}
               </div>
             )
           )}

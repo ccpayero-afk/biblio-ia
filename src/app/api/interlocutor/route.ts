@@ -3,7 +3,8 @@ import { getAccessToken } from '@/lib/auth-helpers'
 import { semanticSearch } from '@/lib/search'
 import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { MensajeHistorial } from '@/lib/chat'
-import { initUserDrive, listPDFs } from '@/lib/drive'
+import { initUserDrive, listPDFs, findFile, readJSON } from '@/lib/drive'
+import { FichaLectura } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
 type Modo = 'exploración' | 'posicion' | 'debate' | 'socrático'
@@ -35,7 +36,8 @@ export async function POST(req: NextRequest) {
       modo = 'exploración',
       historial = [],
       carpetasIds,
-    } = (await req.json()) as { query: string; modo?: Modo; historial?: MensajeHistorial[]; carpetasIds?: string[] }
+      documentoId,
+    } = (await req.json()) as { query: string; modo?: Modo; historial?: MensajeHistorial[]; carpetasIds?: string[]; documentoId?: string }
 
     if (!query?.trim()) {
       return NextResponse.json({ error: 'Falta la pregunta' }, { status: 400 })
@@ -43,19 +45,55 @@ export async function POST(req: NextRequest) {
 
     let filteredDocIds: string[] | undefined
     if (carpetasIds?.length) {
-      const estructura = await initUserDrive(accessToken)
-      const todos = await listPDFs(accessToken, estructura.pdfsId)
+      const estructuraCarpetas = await initUserDrive(accessToken)
+      const todos = await listPDFs(accessToken, estructuraCarpetas.pdfsId)
       filteredDocIds = todos
         .filter((d) => carpetasIds.includes(d.carpetaId ?? '__sin_carpeta__'))
         .map((d) => d.id)
     }
 
-    const fragmentos = await semanticSearch(query, accessToken, { topK: 6, documentoIds: filteredDocIds })
+    // Para modo posicion con documento seleccionado: restringir búsqueda al documento
+    let searchDocIds = filteredDocIds
+    if (modo === 'posicion' && documentoId) {
+      searchDocIds = [documentoId]
+    }
+
+    const fragmentos = await semanticSearch(query, accessToken, { topK: 6, documentoIds: searchDocIds })
     const contexto = fragmentos
       .map((f, i) => `[${i + 1}] ${f.autor || 'Autor'} (${f.año || 's.f.'}), p.${f.pagina}:\n"${f.texto}"`)
       .join('\n\n')
 
-    const sistema = SISTEMAS[modo] ?? SISTEMAS['exploración']
+    let sistema = SISTEMAS[modo] ?? SISTEMAS['exploración']
+
+    // Enriquecer sistema prompt cuando hay documento seleccionado en modo posicion
+    if (modo === 'posicion' && documentoId) {
+      try {
+        const estructura = await initUserDrive(accessToken)
+        const fichaFileId = await findFile(accessToken, `ficha_${documentoId}.json`, estructura.notasId)
+        if (fichaFileId) {
+          const ficha = await readJSON<FichaLectura>(accessToken, fichaFileId)
+          const docNombre = fragmentos[0]?.documentoNombre ?? documentoId
+          const autorLabel = ficha.tesisCentral ? (fragmentos[0]?.autor || 'el autor del texto') : `el autor del texto "${docNombre}"`
+          const conceptosStr = ficha.conceptosClave?.slice(0, 3)
+            .map(c => `"${c.concepto}": ${c.definicion}`)
+            .join(' / ') ?? ''
+          sistema = `Sos ${autorLabel}.
+
+Tu obra central: "${ficha.tesisCentral}"
+
+Tu argumento: "${ficha.argumentoPrincipal}"
+
+Tu marco teórico: "${ficha.marcoTeorico ?? 'no especificado'}"
+
+Tu posición en el debate: "${ficha.posicionDebate ?? 'no especificada'}"
+${conceptosStr ? `\nConceptos que usás: ${conceptosStr}` : ''}
+
+Respondés en primera persona como este autor, defendiendo estas ideas con los fragmentos disponibles. Citás tu propia obra cuando corresponde. Español académico.`
+        }
+      } catch {
+        // Si falla la carga de ficha, usar sistema genérico
+      }
+    }
 
     const genAI = await getGeminiClient(accessToken)
     const model = genAI.getGenerativeModel({

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, useMemo, Component, ReactNode } from 'react'
 import * as d3 from 'd3'
-import { RefreshCw, Loader2, GitFork, AlertCircle, Network, BookOpen } from 'lucide-react'
+import { RefreshCw, Loader2, GitFork, AlertCircle, Network, BookOpen, Crosshair } from 'lucide-react'
 import { Cita, Grafo, NodoGrafo, Nota, VinculoZettel } from '@/types'
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
@@ -285,6 +285,10 @@ export default function GrafoClient() {
   const [tiposActivos, setTiposActivos] = useState<Set<string>>(
     new Set(TIPOS_FILTRO.map((t) => t.key))
   )
+  const [tiposNodoFiltro, setTiposNodoFiltro] = useState<Set<NodoGrafo['tipo']>>(
+    new Set(['documento', 'autor', 'concepto', 'nota'] as NodoGrafo['tipo'][])
+  )
+  const [enfocarNodo, setEnfocarNodo] = useState(false)
   const [dimensiones, setDimensiones] = useState({ width: 900, height: 650 })
 
   useEffect(() => {
@@ -334,6 +338,14 @@ export default function GrafoClient() {
     setTiposActivos(todos ? new Set(TIPOS_FILTRO.map(t => t.key)) : new Set())
   }
 
+  function toggleTipoNodo(tipo: NodoGrafo['tipo']) {
+    setTiposNodoFiltro((prev) => {
+      const next = new Set(prev)
+      next.has(tipo) ? next.delete(tipo) : next.add(tipo)
+      return next
+    })
+  }
+
   // ── Datos Zettelkasten ────────────────────────────────────────────────────
 
   const notasVisibles = notas.filter(n => {
@@ -377,17 +389,41 @@ export default function GrafoClient() {
     ],
   }
 
+  const nodosBiblioFiltrados = (grafo?.nodos ?? []).filter(n => tiposNodoFiltro.has(n.tipo))
+  const idsBiblio = new Set(nodosBiblioFiltrados.map(n => n.id))
   const graphDataBiblio: { nodes: GNode[]; links: GLink[] } = {
-    nodes: (grafo?.nodos ?? []).map(n => ({
+    nodes: nodosBiblioFiltrados.map(n => ({
       id: n.id, label: n.label, tipo: n.tipo, val: n.peso,
       color: COLOR_NODO[n.tipo] ?? '#888',
     })),
-    links: (grafo?.aristas ?? []).map(a => ({
-      source: a.source, target: a.target, value: a.peso, color: '#374151',
-    })),
+    links: (grafo?.aristas ?? [])
+      .filter(a => idsBiblio.has(a.source) && idsBiblio.has(a.target))
+      .map(a => ({
+        source: a.source, target: a.target, value: a.peso, color: '#374151',
+      })),
   }
 
-  const graphData = modo === 'zettelkasten' ? graphDataZettel : graphDataBiblio
+  const graphDataBase = modo === 'zettelkasten' ? graphDataZettel : graphDataBiblio
+
+  // Filtro "solo vecinos" — cuando está activo y hay nodo seleccionado, muestra solo el nodo + sus vecinos directos
+  const graphData = (() => {
+    if (!enfocarNodo || !nodoSel) return graphDataBase
+    const linksDelNodo = graphDataBase.links.filter(
+      l => (typeof l.source === 'string' ? l.source : (l.source as GNode).id) === nodoSel.id ||
+           (typeof l.target === 'string' ? l.target : (l.target as GNode).id) === nodoSel.id
+    )
+    const vecinoIds = new Set<string>([nodoSel.id])
+    for (const l of linksDelNodo) {
+      const s = typeof l.source === 'string' ? l.source : (l.source as GNode).id
+      const t = typeof l.target === 'string' ? l.target : (l.target as GNode).id
+      vecinoIds.add(s)
+      vecinoIds.add(t)
+    }
+    return {
+      nodes: graphDataBase.nodes.filter(n => vecinoIds.has(n.id)),
+      links: linksDelNodo,
+    }
+  })()
 
   const conteoPorTipo: Record<string, number> = {}
   for (const n of notas) {
@@ -500,18 +536,59 @@ export default function GrafoClient() {
           {graphData.nodes.length} nodos · {graphData.links.length} conexiones
         </p>
 
-        <button
-          onClick={() => cargar(true)}
-          className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs transition-all"
-          style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#fff' }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
-        >
-          <RefreshCw className="h-3.5 w-3.5" /> Reconstruir
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setEnfocarNodo((v) => !v)}
+            title={enfocarNodo ? 'Mostrar todo el grafo' : 'Enfocar nodo seleccionado y vecinos'}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs transition-all"
+            style={enfocarNodo
+              ? { background: 'rgba(139,92,246,0.2)', border: '1px solid rgba(139,92,246,0.5)', color: '#a78bfa' }
+              : { border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }
+            }
+            onMouseEnter={(e) => { if (!enfocarNodo) { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#a78bfa' } }}
+            onMouseLeave={(e) => { if (!enfocarNodo) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' } }}
+          >
+            <Crosshair className="h-3.5 w-3.5" /> Enfocar
+          </button>
+          <button
+            onClick={() => cargar(true)}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs transition-all"
+            style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#fff' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> Reconstruir
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Panel filtros Bibliográfico */}
+        {modo === 'bibliografico' && (
+          <div
+            className="w-44 flex-shrink-0 overflow-y-auto p-3"
+            style={{ borderRight: '1px solid rgba(255,255,255,0.05)', background: 'rgba(5,5,12,0.8)' }}
+          >
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.4)' }}>Tipos de nodo</p>
+            <div className="space-y-1">
+              {(Object.entries(COLOR_NODO) as [NodoGrafo['tipo'], string][]).map(([tipo, color]) => (
+                <button
+                  key={tipo}
+                  onClick={() => toggleTipoNodo(tipo)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-all"
+                  style={tiposNodoFiltro.has(tipo)
+                    ? { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }
+                    : { color: 'rgba(148,163,184,0.4)', border: '1px solid transparent' }
+                  }
+                >
+                  <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: tiposNodoFiltro.has(tipo) ? color : 'rgba(55,65,81,0.6)' }} />
+                  <span className="flex-1 capitalize text-left">{tipo}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Panel filtros Zettelkasten */}
         {modo === 'zettelkasten' && (
           <div
@@ -572,7 +649,7 @@ export default function GrafoClient() {
             <ForceGraphSVG
               nodes={graphData.nodes}
               links={graphData.links}
-              width={dimensiones.width - (modo === 'zettelkasten' ? 176 : 0) - (nodoSel ? 256 : 0)}
+              width={dimensiones.width - 176 - (nodoSel ? 256 : 0)}
               height={dimensiones.height}
               selectedId={nodoSel?.id ?? null}
               onNodeClick={(id, tipo) => setNodoSel(prev => prev?.id === id ? null : { id, tipo })}

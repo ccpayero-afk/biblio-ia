@@ -3,6 +3,7 @@ import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, listPDFs, findFile, readJSON } from '@/lib/drive'
 import { google } from 'googleapis'
 import DashboardView from './DashboardView'
+import type { Nota, Proyecto } from '@/types'
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -10,6 +11,7 @@ export default async function DashboardPage() {
   const nombre = session?.user?.name?.split(' ')[0] ?? 'Investigador'
 
   let docCount = 0, indexados = 0, fichaCount = 0, notaCount = 0, proyectoCount = 0
+  let docsNoIndexados = 0, docsSinFicha = 0, notasEfimeras = 0, proyectosSinBorrador = 0
 
   try {
     const estructura = await initUserDrive(accessToken)
@@ -41,6 +43,17 @@ export default async function DashboardPage() {
     notaCount = Array.isArray(notasData) ? notasData.length : 0
     proyectoCount = Array.isArray(proyectosData) ? proyectosData.length : 0
 
+    docsNoIndexados = docCount - indexados
+    docsSinFicha = Math.max(0, indexados - fichaCount)
+    notasEfimeras = Array.isArray(notasData)
+      ? (notasData as Nota[]).filter((n) => n.tipo === 'efimera').length
+      : 0
+    proyectosSinBorrador = Array.isArray(proyectosData)
+      ? (proyectosData as Proyecto[]).filter(
+          (p) => !p.secciones?.some((s) => s.borrador?.trim())
+        ).length
+      : 0
+
   } catch {
     // Drive API unavailable — show zeros gracefully
   }
@@ -53,6 +66,10 @@ export default async function DashboardPage() {
       fichaCount={fichaCount}
       notaCount={notaCount}
       proyectoCount={proyectoCount}
+      docsNoIndexados={docsNoIndexados}
+      docsSinFicha={docsSinFicha}
+      notasEfimeras={notasEfimeras}
+      proyectosSinBorrador={proyectosSinBorrador}
     />
   )
 }

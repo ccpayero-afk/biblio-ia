@@ -4,6 +4,7 @@ import Link from 'next/link'
 import {
   Library, FileText, StickyNote, FolderOpen,
   Coffee, BookOpen, MessageSquare, ArrowRight, Sparkles,
+  AlertCircle, ScanText,
 } from 'lucide-react'
 import NeuralCanvas from './NeuralCanvas'
 
@@ -44,9 +45,13 @@ interface Props {
   fichaCount: number
   notaCount: number
   proyectoCount: number
+  docsNoIndexados: number
+  docsSinFicha: number
+  notasEfimeras: number
+  proyectosSinBorrador: number
 }
 
-export default function DashboardView({ nombre, docCount, indexados, fichaCount, notaCount, proyectoCount }: Props) {
+export default function DashboardView({ nombre, docCount, indexados, fichaCount, notaCount, proyectoCount, docsNoIndexados, docsSinFicha, notasEfimeras, proyectosSinBorrador }: Props) {
   const stats = [
     { ...STAT_CARDS[0], valor: docCount,      desc: `${indexados} indexado${indexados !== 1 ? 's' : ''}` },
     { ...STAT_CARDS[1], valor: fichaCount,     desc: fichaCount === 1 ? '1 ficha generada' : `${fichaCount} fichas generadas` },
@@ -180,6 +185,54 @@ export default function DashboardView({ nombre, docCount, indexados, fichaCount,
           </Link>
         ))}
       </div>
+
+      {/* ── PENDIENTES ── */}
+      {(docsNoIndexados > 0 || docsSinFicha > 0 || notasEfimeras > 0 || proyectosSinBorrador > 0) && (
+        <div style={{
+          background: 'rgba(245,158,11,0.06)',
+          border: '1px solid rgba(245,158,11,0.15)',
+          borderRadius: '16px',
+          padding: '16px',
+        }}>
+          <h2 style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            margin: '0 0 12px', fontSize: '12px', fontWeight: 600, color: 'rgba(251,191,36,0.8)',
+          }}>
+            <AlertCircle style={{ height: '14px', width: '14px', color: '#fbbf24' }} />
+            Pendientes
+          </h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {([
+              { valor: docsNoIndexados, label: 'documento', sufijo: 'sin indexar', href: '/biblioteca', Icon: ScanText, color: '#f97316' },
+              { valor: docsSinFicha,    label: 'documento', sufijo: 'sin ficha',   href: '/fichas',    Icon: FileText,  color: '#fbbf24' },
+              { valor: notasEfimeras,   label: 'nota',      sufijo: 'efímera',     href: '/notas',     Icon: StickyNote, color: '#94a3b8' },
+              { valor: proyectosSinBorrador, label: 'proyecto', sufijo: 'sin borrador', href: '/proyectos', Icon: FolderOpen, color: '#34d399' },
+            ] as const).filter((item) => item.valor > 0).map(({ valor, label, sufijo, href, Icon, color }) => (
+              <Link
+                key={href}
+                href={href}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '10px',
+                  padding: '8px 10px', borderRadius: '10px',
+                  textDecoration: 'none', transition: 'background 0.12s ease',
+                  background: 'transparent',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+              >
+                <div style={{ background: `${color}18`, borderRadius: '7px', padding: '5px', flexShrink: 0 }}>
+                  <Icon style={{ height: '13px', width: '13px', color }} />
+                </div>
+                <span style={{ fontSize: '13px', color: 'rgba(203,213,225,0.75)', flex: 1 }}>
+                  <span style={{ fontWeight: 600, color }}>{valor}</span>
+                  {' '}{label}{valor !== 1 ? 's' : ''} {sufijo}{valor !== 1 && sufijo.endsWith('a') ? 's' : sufijo.endsWith('or') ? 'es' : ''}
+                </span>
+                <ArrowRight style={{ height: '12px', width: '12px', color: 'rgba(148,163,184,0.3)', flexShrink: 0 }} />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── QUICK LINKS ── */}
       <div>

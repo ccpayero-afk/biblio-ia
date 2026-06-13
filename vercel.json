@@ -10,6 +10,7 @@
     "src/app/api/drive/pdf/[id]/route.ts": { "maxDuration": 30 },
     "src/app/api/highlights/procesar/[documentoId]/route.ts": { "maxDuration": 60 },
     "src/app/api/buscar/route.ts": { "maxDuration": 15 },
-    "src/app/api/tutor/sesiones/route.ts": { "maxDuration": 15 }
+    "src/app/api/tutor/sesiones/route.ts": { "maxDuration": 15 },
+    "src/app/api/biblioteca/semantica/route.ts": { "maxDuration": 30 }
   }
 }

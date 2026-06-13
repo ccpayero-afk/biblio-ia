@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { FileText, Sparkles, Loader2, Search, ChevronRight, RefreshCw, BookOpen, Tag } from 'lucide-react'
+import { FileText, Sparkles, Loader2, Search, ChevronRight, RefreshCw, BookOpen, Tag, Pencil } from 'lucide-react'
 import Link from 'next/link'
 import { Documento, FichaLectura } from '@/types'
 import { CarpetaSelector } from '@/components/CarpetaSelector'
@@ -36,20 +36,121 @@ function Sec({ titulo, texto }: { titulo: string; texto?: string | null }) {
   )
 }
 
+const TEXTAREA_STYLE: React.CSSProperties = {
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(139,92,246,0.3)',
+  borderRadius: '8px',
+  color: '#f1f5f9',
+  fontSize: '14px',
+  lineHeight: '1.6',
+  padding: '8px 10px',
+  width: '100%',
+  resize: 'vertical',
+}
+
+const STRING_FIELDS: (keyof FichaLectura)[] = [
+  'tesisCentral', 'argumentoPrincipal', 'contextoProduccion', 'problemaInvestigacion',
+  'objetivos', 'hipotesis', 'posicionDebate', 'limitaciones', 'relevancia',
+  'metodologia', 'relacionOtrasObras', 'utilidadInvestigacion', 'evaluacionCritica',
+]
+
+const FIELD_LABELS: Partial<Record<keyof FichaLectura, string>> = {
+  tesisCentral: 'Tesis central',
+  argumentoPrincipal: 'Argumento principal',
+  contextoProduccion: 'Contexto de producción',
+  problemaInvestigacion: 'Problema de investigación',
+  objetivos: 'Objetivos',
+  hipotesis: 'Hipótesis',
+  posicionDebate: 'Posición en el debate',
+  limitaciones: 'Limitaciones',
+  relevancia: 'Relevancia',
+  metodologia: 'Metodología',
+  relacionOtrasObras: 'Relación con otras obras',
+  utilidadInvestigacion: 'Utilidad para la investigación',
+  evaluacionCritica: 'Evaluación crítica',
+  preguntasInvestigacion: 'Preguntas de investigación',
+  palabrasClave: 'Palabras clave',
+}
+
 function FichaDetalle({
   doc,
   ficha,
   cargando,
   error,
   onGenerar,
+  onGuardar,
 }: {
   doc: Documento
   ficha: FichaLectura | null
   cargando: boolean
   error: string | null
   onGenerar: () => void
+  onGuardar: (updates: Partial<FichaLectura>) => Promise<void>
 }) {
   const titulo = shortName(doc.nombre)
+  const [editando, setEditando] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [draft, setDraft] = useState<Partial<Record<keyof FichaLectura, string>>>({})
+
+  function iniciarEdicion() {
+    if (!ficha) return
+    const initial: Partial<Record<keyof FichaLectura, string>> = {}
+    for (const f of STRING_FIELDS) {
+      initial[f] = (ficha[f] as string | undefined) ?? ''
+    }
+    initial['preguntasInvestigacion'] = (ficha.preguntasInvestigacion ?? []).join('\n')
+    initial['palabrasClave'] = (ficha.palabrasClave ?? []).join('\n')
+    setDraft(initial)
+    setEditando(true)
+  }
+
+  function cancelar() {
+    setEditando(false)
+    setDraft({})
+  }
+
+  async function guardar() {
+    if (!ficha) return
+    setGuardando(true)
+    try {
+      const updates: Partial<FichaLectura> = {}
+      for (const f of STRING_FIELDS) {
+        const val = draft[f] ?? ''
+        if (val !== ((ficha[f] as string | undefined) ?? '')) {
+          (updates as Record<string, unknown>)[f] = val
+        }
+      }
+      const preguntasDraft = (draft['preguntasInvestigacion'] ?? '').split('\n').map(s => s.trim()).filter(Boolean)
+      const preguntasOrig = ficha.preguntasInvestigacion ?? []
+      if (JSON.stringify(preguntasDraft) !== JSON.stringify(preguntasOrig)) {
+        updates.preguntasInvestigacion = preguntasDraft
+      }
+      const palabrasDraft = (draft['palabrasClave'] ?? '').split('\n').map(s => s.trim()).filter(Boolean)
+      const palabrasOrig = ficha.palabrasClave ?? []
+      if (JSON.stringify(palabrasDraft) !== JSON.stringify(palabrasOrig)) {
+        updates.palabrasClave = palabrasDraft
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const res = await fetch(`/api/fichas/${doc.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        })
+        if (!res.ok) {
+          const data = await res.json()
+          throw new Error(data.error ?? 'Error al guardar')
+        }
+        await onGuardar(updates)
+      }
+      setEditando(false)
+      setDraft({})
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setGuardando(false)
+    }
+  }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -75,23 +176,41 @@ function FichaDetalle({
             </Link>
           </div>
         </div>
-        <button
-          onClick={onGenerar}
-          disabled={cargando}
-          className="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-40"
-          style={{
-            background: 'rgba(139,92,246,0.1)',
-            border: '1px solid rgba(139,92,246,0.25)',
-            color: '#a78bfa',
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,92,246,0.2)' }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,92,246,0.1)' }}
-        >
-          {cargando
-            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            : <RefreshCw className="h-3.5 w-3.5" />}
-          {ficha ? 'Regenerar' : 'Generar ficha'}
-        </button>
+        <div className="flex flex-shrink-0 gap-2">
+          {ficha && !editando && (
+            <button
+              onClick={iniciarEdicion}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+              style={{
+                background: 'rgba(99,102,241,0.1)',
+                border: '1px solid rgba(99,102,241,0.25)',
+                color: '#818cf8',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.2)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.1)' }}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Editar
+            </button>
+          )}
+          <button
+            onClick={onGenerar}
+            disabled={cargando || editando}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-40"
+            style={{
+              background: 'rgba(139,92,246,0.1)',
+              border: '1px solid rgba(139,92,246,0.25)',
+              color: '#a78bfa',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,92,246,0.2)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(139,92,246,0.1)' }}
+          >
+            {cargando
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <RefreshCw className="h-3.5 w-3.5" />}
+            {ficha ? 'Regenerar' : 'Generar ficha'}
+          </button>
+        </div>
       </div>
 
       {/* Contenido */}
@@ -135,7 +254,52 @@ function FichaDetalle({
           </div>
         )}
 
-        {ficha && (
+        {ficha && editando && (
+          <div className="space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(139,92,246,0.6)' }}>Modo edición</p>
+            {([...STRING_FIELDS, 'preguntasInvestigacion', 'palabrasClave'] as (keyof FichaLectura)[]).map((field) => (
+              <div key={field}>
+                <label className="block mb-1 text-xs font-medium" style={{ color: 'rgba(148,163,184,0.6)' }}>
+                  {FIELD_LABELS[field] ?? String(field)}
+                </label>
+                <textarea
+                  value={draft[field as keyof typeof draft] ?? ''}
+                  onChange={(e) => setDraft(prev => ({ ...prev, [field]: e.target.value }))}
+                  rows={field === 'tesisCentral' || field === 'argumentoPrincipal' ? 4 : 3}
+                  style={TEXTAREA_STYLE}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.6)' }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)' }}
+                  placeholder={
+                    field === 'preguntasInvestigacion' || field === 'palabrasClave'
+                      ? 'Una por línea'
+                      : ''
+                  }
+                />
+              </div>
+            ))}
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={guardar}
+                disabled={guardando}
+                className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium text-white transition-all disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 14px rgba(124,58,237,0.3)' }}
+              >
+                {guardando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Guardar cambios
+              </button>
+              <button
+                onClick={cancelar}
+                disabled={guardando}
+                className="rounded-lg px-4 py-2 text-xs font-medium transition-all disabled:opacity-40"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.7)' }}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {ficha && !editando && (
           <div className="space-y-6">
             {/* 1. Datos bibliográficos */}
             <div
@@ -584,6 +748,13 @@ export default function FichasClient() {
             cargando={!!cargandoFicha[docSelObj.id]}
             error={errores[docSelObj.id] ?? null}
             onGenerar={() => generarFicha(docSelObj)}
+            onGuardar={async (updates) => {
+              setFichas((p) => {
+                const prev = p[docSelObj.id]
+                if (!prev) return p
+                return { ...p, [docSelObj.id]: { ...prev, ...updates } }
+              })
+            }}
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center text-center px-8">

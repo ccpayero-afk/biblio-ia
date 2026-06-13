@@ -79,6 +79,54 @@ function Editor({
   const [mostrarBusqueda, setMostrarBusqueda] = useState(false)
   const [sugerencias, setSugerencias] = useState<VinculoSugerido[]>([])
   const [buscandoSugerencias, setBuscandoSugerencias] = useState(false)
+  const [autocomplete, setAutocomplete] = useState<{ query: string; pos: number } | null>(null)
+  const [acIndex, setAcIndex] = useState(0)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const acSugerencias = autocomplete
+    ? todasLasNotas
+        .filter((n) => n.id !== nota.id && n.titulo.toLowerCase().includes(autocomplete.query.toLowerCase()))
+        .slice(0, 8)
+    : []
+
+  function onContenidoChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setContenido(val)
+    const cursor = e.target.selectionStart ?? val.length
+    const before = val.slice(0, cursor)
+    const match = before.match(/\[\[([^\]]*)?$/)
+    if (match) {
+      setAutocomplete({ query: match[1] ?? '', pos: before.lastIndexOf('[[') })
+      setAcIndex(0)
+    } else {
+      setAutocomplete(null)
+    }
+  }
+
+  function insertarNotaAc(n: Nota) {
+    if (!textareaRef.current || !autocomplete) return
+    const cursor = textareaRef.current.selectionStart ?? contenido.length
+    const antes = contenido.slice(0, autocomplete.pos)
+    const despues = contenido.slice(cursor)
+    const nuevo = `${antes}[[${n.id}]]${despues}`
+    setContenido(nuevo)
+    setAutocomplete(null)
+    // restaurar foco y posición del cursor después del link insertado
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return
+      textareaRef.current.focus()
+      const pos = antes.length + `[[${n.id}]]`.length
+      textareaRef.current.setSelectionRange(pos, pos)
+    })
+  }
+
+  function onContenidoKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (!autocomplete || acSugerencias.length === 0) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setAcIndex((i) => (i + 1) % acSugerencias.length) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setAcIndex((i) => (i - 1 + acSugerencias.length) % acSugerencias.length) }
+    else if (e.key === 'Enter') { e.preventDefault(); insertarNotaAc(acSugerencias[acIndex]) }
+    else if (e.key === 'Escape') { e.preventDefault(); setAutocomplete(null) }
+  }
 
   const candidatas = todasLasNotas.filter(
     (n) =>
@@ -210,19 +258,50 @@ function Editor({
                 <span>Nota de captura. Escribí la idea, después convertila en permanente.</span>
               </div>
             )}
-            <textarea
-              value={contenido}
-              onChange={(e) => setContenido(e.target.value)}
-              placeholder="Escribí una sola idea. Si tenés más de una, creá otra nota."
-              rows={10}
-              className="w-full resize-none rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 focus:outline-none"
-              style={{
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid rgba(255,255,255,0.07)',
-              }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.08)' }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.boxShadow = '' }}
-            />
+            <div className="relative">
+              <textarea
+                ref={textareaRef}
+                value={contenido}
+                onChange={onContenidoChange}
+                onKeyDown={onContenidoKeyDown}
+                placeholder="Escribí una sola idea. Si tenés más de una, creá otra nota."
+                rows={10}
+                className="w-full resize-none rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder:text-neutral-600 focus:outline-none"
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.08)' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'; e.currentTarget.style.boxShadow = '' }}
+              />
+              {autocomplete && acSugerencias.length > 0 && (
+                <div
+                  className="absolute left-0 right-0 z-50 overflow-y-auto rounded-lg"
+                  style={{
+                    top: '100%',
+                    marginTop: 4,
+                    background: '#0d0d1a',
+                    border: '1px solid rgba(139,92,246,0.4)',
+                    borderRadius: 8,
+                    maxHeight: 280,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                  }}
+                >
+                  {acSugerencias.map((n, i) => (
+                    <button
+                      key={n.id}
+                      onMouseDown={(e) => { e.preventDefault(); insertarNotaAc(n) }}
+                      className="block w-full px-3 py-2 text-left text-sm text-white"
+                      style={{ background: i === acIndex ? 'rgba(139,92,246,0.15)' : '' }}
+                      onMouseEnter={() => setAcIndex(i)}
+                    >
+                      <span className="font-mono text-xs" style={{ color: 'rgba(139,92,246,0.7)' }}>{n.id}</span>
+                      <span className="ml-2">{n.titulo}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <input
               value={etiquetas}
               onChange={(e) => setEtiquetas(e.target.value)}

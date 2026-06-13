@@ -1,9 +1,9 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON, updateDocumentMetadata } from '@/lib/drive'
+import { initUserDrive, findFile, readJSON, writeJSON, updateDocumentMetadata } from '@/lib/drive'
 import { generateFicha, saveFicha } from '@/lib/ficha'
 import { geminiRateLimitMessage } from '@/lib/gemini'
-import { Fragmento } from '@/types'
+import { Fragmento, FichaLectura } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ documentoId: string }> }) {
@@ -15,6 +15,26 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ doc
     const fileId = await findFile(accessToken, `ficha_${documentoId}.json`, estructura.notasId)
     if (!fileId) return NextResponse.json(null)
     return NextResponse.json(await readJSON(accessToken, fileId))
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ documentoId: string }> }) {
+  try {
+    const { documentoId } = await params
+    const session = await auth()
+    const accessToken = getAccessToken(session)
+    const updates = await req.json() as Partial<FichaLectura>
+
+    const estructura = await initUserDrive(accessToken)
+    const fileId = await findFile(accessToken, `ficha_${documentoId}.json`, estructura.notasId)
+    if (!fileId) return NextResponse.json({ error: 'Ficha no encontrada' }, { status: 404 })
+
+    const existing = await readJSON<FichaLectura>(accessToken, fileId)
+    const updated: FichaLectura = { ...existing, ...updates, documentoId, generadaEn: existing.generadaEn }
+    await writeJSON(accessToken, estructura.notasId, `ficha_${documentoId}.json`, updated)
+    return NextResponse.json(updated)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
