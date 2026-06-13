@@ -201,6 +201,7 @@ export default function TutorClient() {
     const reader  = res.body.getReader()
     const decoder = new TextDecoder()
     let buf = ''
+    let doneCalled = false
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -213,11 +214,13 @@ export default function TutorClient() {
           const d = JSON.parse(linea.slice(6))
           if (d.meta)   onMeta(d.meta)
           if (d.texto)  onTexto(d.texto)
-          if (d.done)   onDone()
+          if (d.done)   { doneCalled = true; onDone() }
           if (d.error)  onError(d.error)
         } catch { /* skip malformed */ }
       }
     }
+    // Stream closed — ensure generando is always reset even if done event was missed
+    if (!doneCalled) onDone()
   }
 
   // ── Planificar ────────────────────────────────────────────────────────────
