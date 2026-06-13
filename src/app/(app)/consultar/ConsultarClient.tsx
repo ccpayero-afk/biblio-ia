@@ -4,6 +4,8 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, BookMarked, RotateCcw, MessageSquare, ChevronDown, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { MensajeHistorial } from '@/lib/chat'
+import { CarpetaSelector } from '@/components/CarpetaSelector'
+import type { Carpeta } from '@/types'
 
 interface Fuente {
   documentoId: string
@@ -85,6 +87,8 @@ export default function ConsultarClient() {
   const [convId, setConvId] = useState<string>(() => nuevaId())
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([])
   const [panelAbierto, setPanelAbierto] = useState(false)
+  const [carpetas, setCarpetas] = useState<Carpeta[]>([])
+  const [carpetasFiltro, setCarpetasFiltro] = useState<string[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -113,6 +117,11 @@ export default function ConsultarClient() {
         })
       })
       .catch(() => { /* offline o sin Drive */ })
+
+    fetch('/api/carpetas')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setCarpetas(data) })
+      .catch(() => {})
   }, [])
 
   // Cerrar panel al hacer clic fuera
@@ -191,7 +200,7 @@ export default function ConsultarClient() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: texto, historial }),
+        body: JSON.stringify({ query: texto, historial, carpetasIds: carpetasFiltro.length ? carpetasFiltro : undefined }),
       })
 
       if (!res.body) throw new Error('Sin respuesta del servidor')
@@ -526,6 +535,10 @@ export default function ConsultarClient() {
               <RotateCcw className="h-3 w-3" /> Nueva conversación
             </button>
           )}
+          {/* Filtro carpetas */}
+          <div className="mb-3">
+            <CarpetaSelector carpetas={carpetas} filtro={carpetasFiltro} onChange={setCarpetasFiltro} />
+          </div>
           <div className="flex gap-3">
             <textarea
               ref={textareaRef}

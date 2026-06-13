@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Documento } from '@/types'
 import { displayNombre } from '@/lib/nombre'
 import {
   FileText, Sparkles, Check, X, Loader2, AlertCircle,
-  ChevronLeft, CheckSquare, Square, Clock,
+  ChevronLeft, CheckSquare, Square, Clock, Search,
 } from 'lucide-react'
+import { CarpetaSelector } from '@/components/CarpetaSelector'
+import type { Carpeta } from '@/types'
 
 interface ResultadoDoc {
   anotaciones: number
@@ -39,6 +41,30 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [estados, setEstados] = useState<Record<string, EstadoDoc>>({})
   const [procesando, setProcesando] = useState(false)
+  const [busqueda, setBusqueda] = useState('')
+  const [carpetas, setCarpetas] = useState<Carpeta[]>([])
+  const [carpetasFiltro, setCarpetasFiltro] = useState<string[]>([])
+
+  useEffect(() => {
+    fetch('/api/carpetas')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setCarpetas(data) })
+      .catch(() => {})
+  }, [])
+
+  // Filtrado por búsqueda y carpetas
+  const docsFiltrados = documentos.filter((d) => {
+    if (carpetasFiltro.length && !carpetasFiltro.includes(d.carpetaId ?? '__sin_carpeta__')) return false
+    if (busqueda) {
+      const q = busqueda.toLowerCase()
+      return (
+        displayNombre(d).toLowerCase().includes(q) ||
+        (d.autor ?? '').toLowerCase().includes(q) ||
+        (d.titulo ?? '').toLowerCase().includes(q)
+      )
+    }
+    return true
+  })
 
   function toggleDoc(id: string) {
     setSeleccionados((prev) => {
@@ -50,10 +76,10 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
   }
 
   function toggleTodos() {
-    if (seleccionados.size === documentos.length) {
+    if (seleccionados.size === docsFiltrados.length) {
       setSeleccionados(new Set())
     } else {
-      setSeleccionados(new Set(documentos.map((d) => d.id)))
+      setSeleccionados(new Set(docsFiltrados.map((d) => d.id)))
     }
   }
 
@@ -176,6 +202,25 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
         </p>
       </div>
 
+      {/* Búsqueda */}
+      <div className="mb-3 relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: 'rgba(148,163,184,0.3)' }} />
+        <input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre o autor…"
+          className="w-full rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder-neutral-600 focus:outline-none"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)' }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}
+        />
+      </div>
+
+      {/* Filtro carpetas */}
+      <div className="mb-4">
+        <CarpetaSelector carpetas={carpetas} filtro={carpetasFiltro} onChange={setCarpetasFiltro} />
+      </div>
+
       {/* Controles */}
       <div className="mb-4 flex items-center gap-3">
         <button
@@ -186,13 +231,13 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
           onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
           onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
         >
-          {seleccionados.size === documentos.length
+          {seleccionados.size === docsFiltrados.length && docsFiltrados.length > 0
             ? <CheckSquare className="h-4 w-4" style={{ color: 'rgba(139,92,246,0.8)' }} />
             : <Square className="h-4 w-4" />
           }
-          {seleccionados.size === documentos.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+          {seleccionados.size === docsFiltrados.length && docsFiltrados.length > 0 ? 'Deseleccionar todos' : 'Seleccionar todos'}
         </button>
-        <span className="text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>{seleccionados.size} de {documentos.length} seleccionados</span>
+        <span className="text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>{seleccionados.size} de {docsFiltrados.length} seleccionados</span>
         <div className="flex-1" />
         <button
           onClick={procesarSeleccionados}
@@ -225,7 +270,10 @@ export default function ProcesarHighlightsClient({ documentos }: { documentos: D
 
       {/* Lista de documentos */}
       <div className="space-y-2">
-        {documentos.map((doc) => {
+        {docsFiltrados.length === 0 && (
+          <p className="py-8 text-center text-sm" style={{ color: 'rgba(148,163,184,0.4)' }}>Sin resultados para la búsqueda o filtro.</p>
+        )}
+        {docsFiltrados.map((doc) => {
           const estadoDoc = estados[doc.id]
           const seleccionado = seleccionados.has(doc.id)
 

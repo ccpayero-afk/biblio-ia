@@ -3,6 +3,7 @@ import { getAccessToken } from '@/lib/auth-helpers'
 import { semanticSearch } from '@/lib/search'
 import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { MensajeHistorial } from '@/lib/chat'
+import { initUserDrive, listPDFs } from '@/lib/drive'
 import { NextRequest, NextResponse } from 'next/server'
 
 type Modo = 'exploración' | 'posicion' | 'debate' | 'socrático'
@@ -33,13 +34,23 @@ export async function POST(req: NextRequest) {
       query,
       modo = 'exploración',
       historial = [],
-    } = (await req.json()) as { query: string; modo?: Modo; historial?: MensajeHistorial[] }
+      carpetasIds,
+    } = (await req.json()) as { query: string; modo?: Modo; historial?: MensajeHistorial[]; carpetasIds?: string[] }
 
     if (!query?.trim()) {
       return NextResponse.json({ error: 'Falta la pregunta' }, { status: 400 })
     }
 
-    const fragmentos = await semanticSearch(query, accessToken, { topK: 6 })
+    let filteredDocIds: string[] | undefined
+    if (carpetasIds?.length) {
+      const estructura = await initUserDrive(accessToken)
+      const todos = await listPDFs(accessToken, estructura.pdfsId)
+      filteredDocIds = todos
+        .filter((d) => carpetasIds.includes(d.carpetaId ?? '__sin_carpeta__'))
+        .map((d) => d.id)
+    }
+
+    const fragmentos = await semanticSearch(query, accessToken, { topK: 6, documentoIds: filteredDocIds })
     const contexto = fragmentos
       .map((f, i) => `[${i + 1}] ${f.autor || 'Autor'} (${f.año || 's.f.'}), p.${f.pagina}:\n"${f.texto}"`)
       .join('\n\n')

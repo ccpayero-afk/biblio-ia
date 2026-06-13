@@ -2,6 +2,7 @@ import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { semanticSearch } from '@/lib/search'
 import { askLibrary, MensajeHistorial } from '@/lib/chat'
+import { initUserDrive, listPDFs } from '@/lib/drive'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
@@ -9,9 +10,10 @@ export async function POST(req: NextRequest) {
     const session = await auth()
     const accessToken = getAccessToken(session)
 
-    const { query, documentoIds, historial = [] } = await req.json() as {
+    const { query, documentoIds, carpetasIds, historial = [] } = await req.json() as {
       query: string
       documentoIds?: string[]
+      carpetasIds?: string[]
       historial?: MensajeHistorial[]
     }
 
@@ -19,8 +21,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Falta la pregunta' }, { status: 400 })
     }
 
+    // Resolver carpetasIds a documentoIds si se proveen
+    let filteredDocIds = documentoIds
+    if (carpetasIds?.length) {
+      const estructura = await initUserDrive(accessToken)
+      const todos = await listPDFs(accessToken, estructura.pdfsId)
+      filteredDocIds = todos
+        .filter((d) => carpetasIds.includes(d.carpetaId ?? '__sin_carpeta__'))
+        .map((d) => d.id)
+    }
+
     // Búsqueda semántica
-    const fragmentos = await semanticSearch(query, accessToken, { documentoIds })
+    const fragmentos = await semanticSearch(query, accessToken, { documentoIds: filteredDocIds })
 
     // Streaming de la respuesta
     const encoder = new TextEncoder()

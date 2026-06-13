@@ -1,8 +1,10 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, RotateCcw, Users, BookMarked } from 'lucide-react'
 import { MensajeHistorial } from '@/lib/chat'
+import { CarpetaSelector } from '@/components/CarpetaSelector'
+import type { Carpeta } from '@/types'
 
 type Modo = 'exploración' | 'posicion' | 'debate' | 'socrático'
 
@@ -24,8 +26,17 @@ export default function InterlocutorClient() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [consultando, setConsultando] = useState(false)
   const [respuestaActual, setRespuestaActual] = useState('')
+  const [carpetas, setCarpetas] = useState<Carpeta[]>([])
+  const [carpetasFiltro, setCarpetasFiltro] = useState<string[]>([])
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    fetch('/api/carpetas')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setCarpetas(data) })
+      .catch(() => {})
+  }, [])
 
   const historial: MensajeHistorial[] = turnos.flatMap((t) => [
     { rol: 'user' as const, contenido: t.pregunta },
@@ -44,7 +55,7 @@ export default function InterlocutorClient() {
       const res = await fetch('/api/interlocutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: texto, modo, historial }),
+        body: JSON.stringify({ query: texto, modo, historial, carpetasIds: carpetasFiltro.length ? carpetasFiltro : undefined }),
       })
       if (!res.body) throw new Error('Sin respuesta')
 
@@ -108,6 +119,10 @@ export default function InterlocutorClient() {
           <span className="flex-shrink-0 ml-2 self-center text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
             {MODOS.find((m) => m.id === modo)?.desc}
           </span>
+        </div>
+        {/* Filtro carpetas */}
+        <div className="mt-2">
+          <CarpetaSelector carpetas={carpetas} filtro={carpetasFiltro} onChange={setCarpetasFiltro} />
         </div>
       </div>
 

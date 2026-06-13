@@ -119,7 +119,7 @@ Evaluá la propuesta del usuario: qué sabe, qué le falta construir, qué tensi
 
 ## Bibliografía recomendada
 
-Para cada texto de la biblioteca que sea relevante explicá: (a) por qué es útil para este trabajo específico, (b) qué aporta teórica o empíricamente, (c) cómo puede articularse con los demás. Indicá explícitamente si faltan textos centrales para el tema (gap bibliográfico).
+Para cada texto de la biblioteca que sea relevante explicá: (a) por qué es útil para este trabajo específico, (b) qué aporta teórica o empíricamente, (c) cómo puede articularse con los demás. Indicá explícitamente si faltan textos centrales para el tema (gap bibliográfico). Cuando cites un documento de la BIBLIOGRAFÍA COMPLETA DISPONIBLE, incluí el link tal como aparece en esa lista ([ver en biblioteca](/lector/DOCID)) para que el usuario pueda navegar directamente.
 
 ## Bibliografía sugerida
 
@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
 
     const biblioStr = docsParaUsar
       .filter((d) => d.autor || d.titulo)
-      .map((d) => `• ${d.autor || 'Anónimo'} (${d.año || 's.f.'}). ${d.titulo ?? d.nombre.replace(/\.pdf$/i, '')}${d.revista ? `. *${d.revista}*` : ''}${d.doi ? `. DOI: ${d.doi}` : ''}.`)
+      .map((d) => `• ${d.autor || 'Anónimo'} (${d.año || 's.f.'}). ${d.titulo ?? d.nombre.replace(/\.pdf$/i, '')}${d.revista ? `. *${d.revista}*` : ''}. [ver en biblioteca](/lector/${d.id})`)
       .join('\n')
 
     const notasStr = notasRelevantes.length

@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Quote, Trash2, Download, Search, BookMarked, Copy, Check, ChevronDown, X } from 'lucide-react'
 import Link from 'next/link'
-import { Cita } from '@/types'
+import { Cita, Documento } from '@/types'
+import { CarpetaSelector } from '@/components/CarpetaSelector'
+import type { Carpeta } from '@/types'
 
 function norm(str: string): string {
   return (str ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -130,10 +132,13 @@ function CitaCard({ cita, accentColor, onEliminar }: { cita: Cita; accentColor: 
 
 export default function CitasClient() {
   const [citas, setCitas] = useState<Cita[]>([])
+  const [docs, setDocs] = useState<Documento[]>([])
   const [filtro, setFiltro] = useState('')
   const [cargando, setCargando] = useState(true)
   const [menuExport, setMenuExport] = useState(false)
   const [filtroDoc, setFiltroDoc] = useState<string | null>(null)
+  const [carpetas, setCarpetas] = useState<Carpeta[]>([])
+  const [carpetasFiltro, setCarpetasFiltro] = useState<string[]>([])
   const exportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -141,6 +146,16 @@ export default function CitasClient() {
       .then((r) => r.json())
       .then((data: Cita[]) => { setCitas(data); setCargando(false) })
       .catch(() => setCargando(false))
+
+    fetch('/api/drive/pdfs')
+      .then(r => r.json())
+      .then((data: Documento[]) => { if (Array.isArray(data)) setDocs(data) })
+      .catch(() => {})
+
+    fetch('/api/carpetas')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setCarpetas(data) })
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -156,7 +171,13 @@ export default function CitasClient() {
     setCitas((prev) => prev.filter((c) => c.id !== id))
   }
 
+  // Ids de docs en las carpetas seleccionadas
+  const docIdsEnCarpetas = carpetasFiltro.length
+    ? new Set(docs.filter(d => carpetasFiltro.includes(d.carpetaId ?? '__sin_carpeta__')).map(d => d.id))
+    : null
+
   const citasFiltradas = citas.filter((c) => {
+    if (docIdsEnCarpetas && !docIdsEnCarpetas.has(c.documentoId)) return false
     if (filtroDoc && c.documentoId !== filtroDoc) return false
     if (!filtro) return true
     const q = norm(filtro)
@@ -269,6 +290,10 @@ export default function CitasClient() {
               <X className="h-4 w-4" />
             </button>
           )}
+        </div>
+        {/* Filtro carpetas */}
+        <div className="mt-2">
+          <CarpetaSelector carpetas={carpetas} filtro={carpetasFiltro} onChange={setCarpetasFiltro} />
         </div>
         {filtroDoc && (
           <div className="mt-2 flex items-center gap-2">

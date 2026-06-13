@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { FileText, Sparkles, Loader2, Search, ChevronRight, RefreshCw, BookOpen, Tag } from 'lucide-react'
 import Link from 'next/link'
 import { Documento, FichaLectura } from '@/types'
+import { CarpetaSelector } from '@/components/CarpetaSelector'
+import type { Carpeta } from '@/types'
 
 function esFichaValida(f: unknown): f is FichaLectura {
   return !!f && typeof f === 'object' && ('tesisCentral' in (f as object) || 'contenidoRico' in (f as object))
@@ -370,6 +372,8 @@ export default function FichasClient() {
   const [busqueda, setBusqueda] = useState('')
   const [filtro, setFiltro] = useState<Filtro>('todas')
   const [docSel, setDocSel] = useState<string | null>(null)
+  const [carpetas, setCarpetas] = useState<Carpeta[]>([])
+  const [carpetasFiltro, setCarpetasFiltro] = useState<string[]>([])
 
   useEffect(() => {
     Promise.all([
@@ -383,6 +387,11 @@ export default function FichasClient() {
         setCargando(false)
       })
       .catch(() => setCargando(false))
+
+    fetch('/api/carpetas')
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setCarpetas(data) })
+      .catch(() => {})
   }, [])
 
   const cargarFicha = useCallback(async (docId: string) => {
@@ -427,6 +436,7 @@ export default function FichasClient() {
 
   // Filtros y búsqueda
   const docsFiltrados = docs.filter((d) => {
+    if (carpetasFiltro.length && !carpetasFiltro.includes(d.carpetaId ?? '__sin_carpeta__')) return false
     if (filtro === 'con_ficha' && !d.fichaGenerada) return false
     if (filtro === 'sin_ficha' && d.fichaGenerada) return false
     if (busqueda) {
@@ -514,6 +524,11 @@ export default function FichasClient() {
               {label}
             </button>
           ))}
+        </div>
+
+        {/* Filtro carpetas */}
+        <div className="p-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          <CarpetaSelector carpetas={carpetas} filtro={carpetasFiltro} onChange={setCarpetasFiltro} />
         </div>
 
         {/* Lista */}
