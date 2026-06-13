@@ -8,6 +8,60 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 60
 
+// ─── Búsqueda académica via OpenAlex ─────────────────────────────────────────
+
+interface WorkAcademico {
+  titulo: string
+  autores: string
+  año: number | null
+  revista: string
+  citas: number
+  doi: string | null
+  urlAbierto: string | null
+  abstract: string
+}
+
+function reconstruirAbstract(invertedIndex: Record<string, number[]> | null): string {
+  if (!invertedIndex) return ''
+  const mapa: [number, string][] = []
+  for (const [palabra, posiciones] of Object.entries(invertedIndex)) {
+    for (const pos of posiciones) mapa.push([pos, palabra])
+  }
+  return mapa.sort((a, b) => a[0] - b[0]).map(([, p]) => p).join(' ').slice(0, 400)
+}
+
+async function buscarFuentesAcademicas(query: string): Promise<WorkAcademico[]> {
+  try {
+    const q = encodeURIComponent(query.slice(0, 400))
+    const url = `https://api.openalex.org/works?search=${q}&filter=type:article&sort=cited_by_count:desc&per-page=15&select=title,authorships,publication_year,primary_location,cited_by_count,open_access,doi,abstract_inverted_index`
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'BiblioIA/1.0 (mailto:payero.cristian@gmail.com)' },
+      signal: AbortSignal.timeout(9000),
+    })
+    if (!res.ok) return []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: { results?: any[] } = await res.json()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data.results ?? []).slice(0, 12).map((w: any): WorkAcademico => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const autoresList = (w.authorships ?? []).slice(0, 3).map((a: any) => a.author?.display_name ?? '').filter(Boolean)
+      const autores = autoresList.join(', ') + ((w.authorships?.length ?? 0) > 3 ? ' et al.' : '')
+      return {
+        titulo: w.title ?? 'Sin título',
+        autores: autores || 'Autor desconocido',
+        año: w.publication_year ?? null,
+        revista: w.primary_location?.source?.display_name ?? '',
+        citas: w.cited_by_count ?? 0,
+        doi: w.doi ? w.doi.replace('https://doi.org/', '') : null,
+        urlAbierto: w.open_access?.oa_url ?? null,
+        abstract: reconstruirAbstract(w.abstract_inverted_index),
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
 const TIPO_LABEL: Record<string, string> = {
   articulo:  'artículo académico',
   tesis:     'tesis / disertación doctoral',
@@ -159,16 +213,17 @@ export async function POST(req: NextRequest) {
     const palabras = descripcion.toLowerCase().split(/\s+/).filter((w) => w.length > 4)
     const matchTexto = (text: string) => palabras.some((p) => text.toLowerCase().includes(p))
 
-    // 1. Semantic search + drive init in parallel (12s timeout for search)
+    // 1. Semantic search + drive init + academic search in parallel
     const timeout12s = <T>(fallback: T) =>
       new Promise<T>((resolve) => setTimeout(() => resolve(fallback), 12_000))
 
-    const [fragmentos, estructura] = await Promise.all([
+    const [fragmentos, estructura, fuentesAcademicas] = await Promise.all([
       Promise.race([
         semanticSearch(descripcion, accessToken, { topK: 15 }).catch(() => []),
         timeout12s([] as Awaited<ReturnType<typeof semanticSearch>>),
       ]),
       initUserDrive(accessToken),
+      buscarEnWeb ? buscarFuentesAcademicas(descripcion) : Promise.resolve([] as WorkAcademico[]),
     ])
 
     // 2. Bibliography + notas + citas in parallel
@@ -225,6 +280,7 @@ ${biblioStr || '(Biblioteca vacía o sin metadatos)'}
 
 ${notasStr ? `---\n## NOTAS PROPIAS RELACIONADAS\n\n${notasStr}` : ''}
 ${citasStr ? `---\n## CITAS GUARDADAS RELACIONADAS\n\n${citasStr}` : ''}
+${fuentesAcademicas.length ? `\n---\n## FUENTES ACADÉMICAS EXTERNAS (OpenAlex — NO en la biblioteca del usuario)\n\nEstos textos fueron hallados por búsqueda masiva. El usuario NO los tiene. Para cada uno relevante indicá por qué sería útil y cómo conseguirlo.\n\n${fuentesAcademicas.map((f) => `• ${f.autores} (${f.año ?? 's.f.'}). "${f.titulo}".${f.revista ? ` *${f.revista}*.` : ''}${f.citas > 0 ? ` [${f.citas} citas]` : ''}${f.doi ? ` DOI: ${f.doi}` : ''}${f.urlAbierto ? ` [ACCESO ABIERTO]` : ''}${f.abstract ? `\n  Resumen: ${f.abstract}` : ''}`).join('\n\n')}` : ''}
 
 ---
 ${SECCIONES_PROMPT}`
@@ -248,19 +304,14 @@ ${SECCIONES_PROMPT}`
       async start(controller) {
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ meta: metadatos })}\n\n`))
+          // Send academic sources immediately so the UI can display them while text streams
+          if (fuentesAcademicas.length) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ fuentesAcademicas })}\n\n`))
+          }
           const result = await model.generateContentStream(prompt)
           for await (const chunk of result.stream) {
             const text = chunk.text()
             if (text) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ texto: text })}\n\n`))
-          }
-          // Stream grounding sources if web search returned any
-          if (buscarEnWeb) {
-            const resp = await result.response
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const chunks = (resp.candidates?.[0] as any)?.groundingMetadata?.groundingChunks ?? []
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const fuentes = chunks.filter((c: any) => c.web?.uri).map((c: any) => ({ titulo: c.web.title ?? c.web.uri, url: c.web.uri }))
-            if (fuentes.length) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ fuentes })}\n\n`))
           }
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`))
         } catch (e) {
