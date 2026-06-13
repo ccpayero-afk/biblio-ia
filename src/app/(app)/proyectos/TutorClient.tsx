@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import {
   GraduationCap, Send, RotateCcw, BookOpen, FileText,
@@ -288,6 +288,208 @@ function FuentesAcademicasPanel({ fuentes }: { fuentes: FuenteAcademica[] }) {
   )
 }
 
+// ─── Árbol de carpetas ────────────────────────────────────────────────────────
+
+interface CarpetaNode { c: Carpeta; children: CarpetaNode[]; totalDocs: number }
+
+function buildTree(carpetas: Carpeta[]): CarpetaNode[] {
+  const map = new Map<string, CarpetaNode>()
+  for (const c of carpetas) map.set(c.id, { c, children: [], totalDocs: c.documentosIds.length })
+  const roots: CarpetaNode[] = []
+  for (const node of map.values()) {
+    const p = node.c.carpetaPadreId
+    if (p && map.has(p)) map.get(p)!.children.push(node)
+    else roots.push(node)
+  }
+  function calcTotal(n: CarpetaNode): number {
+    n.totalDocs = n.children.reduce((a, ch) => a + calcTotal(ch), n.c.documentosIds.length)
+    return n.totalDocs
+  }
+  roots.forEach(calcTotal)
+  function sort(ns: CarpetaNode[]) {
+    ns.sort((a, b) => b.totalDocs - a.totalDocs || a.c.nombre.localeCompare(b.c.nombre, 'es'))
+    ns.forEach(n => sort(n.children))
+  }
+  sort(roots)
+  return roots.filter(n => n.totalDocs > 0)
+}
+
+function getAllLeafIds(node: CarpetaNode): string[] {
+  const own = node.c.documentosIds.length > 0 ? [node.c.id] : []
+  return [...own, ...node.children.flatMap(getAllLeafIds)]
+}
+
+// ─── Chip de carpeta hoja ─────────────────────────────────────────────────────
+
+function LeafChip({ node, filtro, onToggle }: { node: CarpetaNode; filtro: string[]; onToggle: (id: string) => void }) {
+  const color = CARPETA_COLORS[node.c.color] ?? '#94a3b8'
+  const sel = filtro.includes(node.c.id)
+  return (
+    <button onClick={() => onToggle(node.c.id)}
+      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition-all"
+      style={{
+        background: sel ? `${color}22` : 'rgba(255,255,255,0.04)',
+        border: `1px solid ${sel ? `${color}55` : 'rgba(255,255,255,0.08)'}`,
+        color: sel ? color : 'rgba(148,163,184,0.7)',
+      }}>
+      <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: color }} />
+      <span className="max-w-[130px] truncate">{node.c.nombre}</span>
+      <span className="opacity-40">({node.c.documentosIds.length})</span>
+    </button>
+  )
+}
+
+// ─── Nodo de segundo nivel (puede tener hijos) ────────────────────────────────
+
+function ChildNode({ node, filtro, onToggle, onToggleBranch }: { node: CarpetaNode; filtro: string[]; onToggle: (id: string) => void; onToggleBranch: (ids: string[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const color = CARPETA_COLORS[node.c.color] ?? '#94a3b8'
+  const kids = node.children.filter(c => c.totalDocs > 0)
+
+  if (kids.length === 0) return <LeafChip node={node} filtro={filtro} onToggle={onToggle} />
+
+  const branchIds = getAllLeafIds(node)
+  const allSel = branchIds.length > 0 && branchIds.every(id => filtro.includes(id))
+  const someSel = branchIds.some(id => filtro.includes(id))
+  return (
+    <div className="w-full">
+      <div className="flex items-center gap-1.5 rounded-lg px-2 py-1.5"
+        style={{ background: someSel ? `${color}0d` : 'transparent' }}>
+        <button onClick={() => setOpen(v => !v)}>
+          <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`}
+            style={{ color: `${color}80` }} />
+        </button>
+        <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: color }} />
+        <span className="flex-1 text-xs truncate" style={{ color: someSel ? color : 'rgba(203,213,225,0.7)' }}>
+          {node.c.nombre} <span className="opacity-40">· {node.totalDocs}</span>
+        </span>
+        <button onClick={() => onToggleBranch(branchIds)}
+          className="rounded px-1.5 py-0.5 text-[10px] transition-all flex-shrink-0"
+          style={{ background: allSel ? `${color}22` : 'rgba(255,255,255,0.05)', color: allSel ? color : 'rgba(148,163,184,0.45)', border: `1px solid ${allSel ? `${color}44` : 'rgba(255,255,255,0.07)'}` }}>
+          {allSel ? 'Quitar' : someSel ? 'Completar' : 'Sel. todo'}
+        </button>
+      </div>
+      {open && (
+        <div className="ml-5 mt-1 mb-1 flex flex-wrap gap-1.5">
+          {node.c.documentosIds.length > 0 && <LeafChip node={node} filtro={filtro} onToggle={onToggle} />}
+          {kids.map(gc => <LeafChip key={gc.c.id} node={gc} filtro={filtro} onToggle={onToggle} />)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Selector de carpetas ─────────────────────────────────────────────────────
+
+function CarpetaSelector({ carpetas, filtro, onChange }: { carpetas: Carpeta[]; filtro: string[]; onChange: (ids: string[]) => void }) {
+  const [abierto, setAbierto] = useState(false)
+  const tree = useMemo(() => buildTree(carpetas), [carpetas])
+
+  const toggle = (id: string) =>
+    onChange(filtro.includes(id) ? filtro.filter(x => x !== id) : [...filtro, id])
+
+  const toggleBranch = (ids: string[]) => {
+    const allIn = ids.length > 0 && ids.every(id => filtro.includes(id))
+    onChange(allIn ? filtro.filter(id => !ids.includes(id)) : Array.from(new Set([...filtro, ...ids])))
+  }
+
+  if (tree.length === 0) return null
+
+  const selCount = filtro.length
+  const docsCount = carpetas.filter(c => filtro.includes(c.id)).reduce((a, c) => a + c.documentosIds.length, 0)
+
+  return (
+    <div className="rounded-xl overflow-hidden"
+      style={{ border: selCount > 0 ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(255,255,255,0.07)', background: selCount > 0 ? 'rgba(139,92,246,0.05)' : 'rgba(255,255,255,0.03)' }}>
+      <button onClick={() => setAbierto(v => !v)} className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left">
+        <Folder className="h-4 w-4 flex-shrink-0" style={{ color: selCount > 0 ? '#a78bfa' : 'rgba(148,163,184,0.4)' }} />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium" style={{ color: selCount > 0 ? '#a78bfa' : 'rgba(148,163,184,0.6)' }}>
+            {selCount > 0 ? `${selCount} carpeta${selCount > 1 ? 's' : ''} · ${docsCount} docs` : 'Filtrar por carpetas'}
+          </p>
+          <p className="text-[10px]" style={{ color: 'rgba(148,163,184,0.35)' }}>
+            {selCount > 0 ? 'Solo esas carpetas se analizan' : 'Todas incluidas por defecto'}
+          </p>
+        </div>
+        {selCount > 0 && (
+          <button onClick={(e) => { e.stopPropagation(); onChange([]) }}
+            className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px]"
+            style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>
+            Limpiar
+          </button>
+        )}
+        <ChevronDown className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${abierto ? 'rotate-180' : ''}`}
+          style={{ color: 'rgba(148,163,184,0.4)' }} />
+      </button>
+
+      {abierto && (
+        <div className="max-h-60 overflow-y-auto px-3 pt-1 pb-3 space-y-0.5"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          {tree.map((node) => (
+            <RootNode key={node.c.id} node={node} filtro={filtro} onToggle={toggle} onToggleBranch={toggleBranch} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RootNode({ node, filtro, onToggle, onToggleBranch }: { node: CarpetaNode; filtro: string[]; onToggle: (id: string) => void; onToggleBranch: (ids: string[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const color = CARPETA_COLORS[node.c.color] ?? '#94a3b8'
+  const kids = node.children.filter(c => c.totalDocs > 0)
+  const branchIds = getAllLeafIds(node)
+  const allSel = branchIds.length > 0 && branchIds.every(id => filtro.includes(id))
+  const someSel = branchIds.some(id => filtro.includes(id))
+  const isLeaf = kids.length === 0
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors"
+        style={{ background: someSel ? `${color}0d` : 'transparent' }}>
+        {!isLeaf && (
+          <button onClick={() => setOpen(v => !v)} className="flex-shrink-0">
+            <ChevronDown className={`h-3 w-3 transition-transform ${open ? 'rotate-180' : ''}`}
+              style={{ color: `${color}70` }} />
+          </button>
+        )}
+        {isLeaf && <span className="w-3 flex-shrink-0" />}
+        <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ background: color }} />
+        <span className="flex-1 min-w-0 text-xs truncate font-medium"
+          style={{ color: someSel ? color : 'rgba(203,213,225,0.8)' }}>
+          {node.c.nombre}
+        </span>
+        <span className="text-[10px] flex-shrink-0" style={{ color: 'rgba(148,163,184,0.35)' }}>
+          {node.totalDocs}
+        </span>
+        {isLeaf ? (
+          <button onClick={() => onToggle(node.c.id)}
+            className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] transition-all"
+            style={{ background: filtro.includes(node.c.id) ? `${color}22` : 'rgba(255,255,255,0.05)', color: filtro.includes(node.c.id) ? color : 'rgba(148,163,184,0.5)', border: `1px solid ${filtro.includes(node.c.id) ? `${color}44` : 'rgba(255,255,255,0.07)'}` }}>
+            {filtro.includes(node.c.id) ? '✓ Activa' : '+ Agregar'}
+          </button>
+        ) : (
+          <button onClick={() => onToggleBranch(branchIds)}
+            className="flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] transition-all"
+            style={{ background: allSel ? `${color}22` : 'rgba(255,255,255,0.05)', color: allSel ? color : someSel ? `${color}cc` : 'rgba(148,163,184,0.5)', border: `1px solid ${allSel ? `${color}44` : 'rgba(255,255,255,0.07)'}` }}>
+            {allSel ? '✓ Todo' : someSel ? 'Completar' : 'Sel. todo'}
+          </button>
+        )}
+      </div>
+      {open && kids.length > 0 && (
+        <div className="ml-7 mt-0.5 mb-1 flex flex-wrap gap-1.5">
+          {node.c.documentosIds.length > 0 && (
+            <LeafChip node={node} filtro={filtro} onToggle={onToggle} />
+          )}
+          {kids.map(ch => (
+            <ChildNode key={ch.c.id} node={ch} filtro={filtro} onToggle={onToggle} onToggleBranch={onToggleBranch} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function TutorClient() {
@@ -313,9 +515,8 @@ export default function TutorClient() {
   const [cargandoSesiones, setCargandoSesiones] = useState(false)
 
   // Carpetas
-  const [carpetas, setCarpetas]                   = useState<Carpeta[]>([])
-  const [carpetasFiltro, setCarpetasFiltro]       = useState<string[]>([])
-  const [carpetasSelectorAbierto, setCarpetasSelectorAbierto] = useState(false)
+  const [carpetas, setCarpetas]             = useState<Carpeta[]>([])
+  const [carpetasFiltro, setCarpetasFiltro] = useState<string[]>([])
 
   const textareaRef   = useRef<HTMLTextAreaElement>(null)
   const chatRef       = useRef<HTMLInputElement>(null)
@@ -561,81 +762,7 @@ export default function TutorClient() {
           </div>
 
           {/* Selector de carpetas */}
-          {carpetas.length > 0 && (() => {
-            const sinCarpeta = carpetas.reduce((acc, c) => acc - c.documentosIds.length, meta?.totalDocs ?? 0)
-            const toggleCarpeta = (id: string) =>
-              setCarpetasFiltro((prev) =>
-                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-              )
-            const seleccionadas = carpetasFiltro.length
-            return (
-              <div className="rounded-xl overflow-hidden" style={{ border: seleccionadas > 0 ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(255,255,255,0.07)', background: seleccionadas > 0 ? 'rgba(139,92,246,0.05)' : 'rgba(255,255,255,0.03)' }}>
-                <button onClick={() => setCarpetasSelectorAbierto((v) => !v)}
-                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left">
-                  <Folder className="h-4 w-4 flex-shrink-0" style={{ color: seleccionadas > 0 ? '#a78bfa' : 'rgba(148,163,184,0.4)' }} />
-                  <div className="flex-1">
-                    <p className="text-xs font-medium" style={{ color: seleccionadas > 0 ? '#a78bfa' : 'rgba(148,163,184,0.6)' }}>
-                      {seleccionadas > 0 ? `${seleccionadas} carpeta${seleccionadas > 1 ? 's' : ''} seleccionada${seleccionadas > 1 ? 's' : ''}` : 'Filtrar por carpetas'}
-                    </p>
-                    <p className="text-[10px]" style={{ color: 'rgba(148,163,184,0.35)' }}>
-                      {seleccionadas > 0 ? 'Solo esas carpetas van al tutor' : 'Todas incluidas por defecto'}
-                    </p>
-                  </div>
-                  {seleccionadas > 0 && (
-                    <button onClick={(e) => { e.stopPropagation(); setCarpetasFiltro([]) }}
-                      className="rounded px-1.5 py-0.5 text-[10px] flex-shrink-0"
-                      style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>
-                      Limpiar
-                    </button>
-                  )}
-                  <ChevronDown className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${carpetasSelectorAbierto ? 'rotate-180' : ''}`} style={{ color: 'rgba(148,163,184,0.4)' }} />
-                </button>
-
-                {carpetasSelectorAbierto && (
-                  <div className="px-3 pb-3 space-y-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                    <p className="pt-2 pb-1 text-[10px]" style={{ color: 'rgba(148,163,184,0.4)' }}>
-                      Elegí qué carpetas usar. Vacío = todas.
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {carpetas.map((c) => {
-                        const color = CARPETA_COLORS[c.color] ?? '#94a3b8'
-                        const activa = carpetasFiltro.includes(c.id)
-                        return (
-                          <button key={c.id} onClick={() => toggleCarpeta(c.id)}
-                            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-all"
-                            style={{
-                              background: activa ? `${color}22` : 'rgba(255,255,255,0.04)',
-                              border: activa ? `1px solid ${color}55` : '1px solid rgba(255,255,255,0.08)',
-                              color: activa ? color : 'rgba(148,163,184,0.6)',
-                            }}>
-                            <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-                            {c.nombre}
-                            <span className="opacity-50">({c.documentosIds.length})</span>
-                          </button>
-                        )
-                      })}
-                      {sinCarpeta > 0 && (() => {
-                        const activa = carpetasFiltro.includes(SIN_CARPETA_ID)
-                        return (
-                          <button onClick={() => toggleCarpeta(SIN_CARPETA_ID)}
-                            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-all"
-                            style={{
-                              background: activa ? 'rgba(148,163,184,0.12)' : 'rgba(255,255,255,0.04)',
-                              border: activa ? '1px solid rgba(148,163,184,0.35)' : '1px solid rgba(255,255,255,0.08)',
-                              color: activa ? '#94a3b8' : 'rgba(148,163,184,0.5)',
-                            }}>
-                            <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#94a3b8' }} />
-                            Sin carpeta
-                            <span className="opacity-50">({sinCarpeta})</span>
-                          </button>
-                        )
-                      })()}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })()}
+          <CarpetaSelector carpetas={carpetas} filtro={carpetasFiltro} onChange={setCarpetasFiltro} />
 
           {/* Toggle web */}
           <button onClick={() => setBuscarEnWeb((v) => !v)}
