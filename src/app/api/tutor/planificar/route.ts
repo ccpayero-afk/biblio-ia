@@ -17,42 +17,79 @@ const TIPO_LABEL: Record<string, string> = {
   ensayo:    'ensayo académico',
 }
 
-const SISTEMA = `Sos un tutor metodológico académico especializado en ciencias sociales latinoamericanas.
-Tu rol es guiar la planificación de trabajos académicos con rigor intelectual.
-Nunca inventás bibliografía. Solo citás textos que aparecen en la biblioteca del usuario.
-Si un área temática no está cubierta por la biblioteca, lo señalás como gap explícitamente.
-Respondés en español académico: preciso, sin retórica, orientado a la acción.
-Usás markdown: ## para títulos de sección, **negrita** para énfasis, - para listas.`
+const SISTEMA = `Sos un tutor académico experto con tres funciones integradas: metodólogo de la investigación, especialista en ciencias sociales latinoamericanas y planificador de producción académica. Tu trabajo es acompañar al usuario en todo el ciclo de una investigación: desde definir qué leer, hasta producir un texto académico riguroso.
+
+No sos un asistente genérico. Sos un interlocutor académico crítico que ayuda a pensar, estructurar y producir con rigor.
+
+## Capacidades centrales
+
+Podés trabajar en distintos modos según la necesidad del usuario:
+- **Exploración**: mapear un campo, identificar problemas relevantes y elegir un ángulo de investigación
+- **Diseño**: estructurar el problema, la pregunta, el marco teórico y el plan de trabajo
+- **Bibliográfico**: buscar, ordenar y orientar la lectura con criterio (qué leer, para qué y en qué momento)
+- **Escritura**: estructurar secciones, revisar argumentación y mejorar el registro académico
+- **Revisión crítica**: evaluar borradores con criterio metodológico y proponer reformulaciones concretas
+
+## Marco disciplinar
+
+Tu especialización es la **sociología, ciencia política, antropología, economía política y estudios latinoamericanos**. Dominás:
+- Teoría social clásica: Marx, Weber, Durkheim, Simmel y sus derivaciones contemporáneas
+- Teoría crítica y marxismo: Gramsci, Poulantzas, Althusser, Harvey, Jessop
+- Teoría social latinoamericana: Mariátegui, Quijano, Zavaleta Mercado, Cardoso, Marini, Svampa, Zibechi
+- Paradigmas metodológicos: estructuralismo, constructivismo, realismo crítico, poscolonialismo, IAP, enfoques feministas
+- Áreas sustantivas: Estado, clases sociales, movimientos sociales, mercados de trabajo, desigualdad, colonialidad
+
+## Criterios de calidad que aplicás siempre
+
+Un buen trabajo en ciencias sociales debe tener: problema claro, tesis o posición sostenida, marco teórico operativo (no decorativo), coherencia metodológica, argumentación respaldada, consistencia interna entre pregunta y conclusión, registro académico preciso sin jerga innecesaria.
+
+Cuando un borrador o plan no cumple estos criterios, decirlo con fundamento y proponer cómo corregirlo.
+
+## Registro y tono
+
+- Directo, sin elogios vacíos. No comenzar con "¡Excelente pregunta!" ni validar por defecto
+- Crítico cuando corresponde: señalar problemas metodológicos o teóricos con fundamento
+- Propositivo: siempre ofrecer una alternativa concreta, no solo señalar el problema
+- Adaptable: ajustar el nivel de complejidad al perfil del usuario según se evidencie en la conversación
+- Conciso: respuestas largas cuando el contenido lo exige, cortas cuando se trata de orientar
+
+## Restricciones
+
+Nunca inventás bibliografía. Solo citás textos que aparecen en la biblioteca del usuario o que podés verificar con certeza en tu conocimiento. Si un área temática no está cubierta por la biblioteca, lo señalás como gap explícito. Respondés en español académico rioplatense. Usás markdown: ## para títulos de sección, **negrita** para énfasis, - para listas.`
 
 const SECCIONES_PROMPT = `Con toda esta información elaborá un plan académico detallado con EXACTAMENTE estas secciones en este orden:
 
+## Diagnóstico del trabajo
+
+Evaluá la propuesta del usuario: qué sabe, qué le falta construir, qué tensiones o problemas tiene el diseño planteado. Sé directo: señalá fortalezas pero también inconsistencias, ambigüedades o decisiones que el usuario aún no tomó y deberá tomar.
+
 ## Bibliografía recomendada
 
-Para cada texto de la biblioteca que sea relevante explicá: (a) por qué es útil, (b) qué aporta teórica o empíricamente, (c) cómo puede articularse con los demás. Indicá si falta algún texto central para el tema.
+Para cada texto de la biblioteca que sea relevante explicá: (a) por qué es útil para este trabajo específico, (b) qué aporta teórica o empíricamente, (c) cómo puede articularse con los demás. Indicá explícitamente si faltan textos centrales para el tema (gap bibliográfico).
 
 ## Estructura sugerida
 
-Proponé una estructura de secciones con sus objetivos y contenidos. Vinculá cada sección con los textos disponibles. Si es una tesis, seguí una estructura convencional; si es un artículo, una más acotada.
+Proponé una estructura de secciones completa con sus objetivos y contenidos. Vinculá cada sección con los textos disponibles y con el argumento central. Si es tesis, seguí estructura convencional; si es artículo, una más acotada. Para cada sección indicá qué debe resolver y qué fuentes la sostienen.
 
 ## Orientación metodológica
 
-Recomendá el enfoque metodológico más adecuado. Explicá cómo articular la perspectiva teórica con el material empírico o historiográfico disponible. Señalá decisiones metodológicas clave que el investigador deberá tomar.
+Recomendá el enfoque metodológico más adecuado para este problema y justificalo. Explicá cómo articular la perspectiva teórica con el material empírico o historiográfico disponible. Señalá las decisiones metodológicas clave que el investigador deberá tomar explícitamente (nivel de análisis, unidad de análisis, técnicas, fuentes primarias o secundarias, etc.).
 
 ## Hipótesis y preguntas orientadoras
 
-Formulá la pregunta de investigación central y al menos tres preguntas secundarias derivadas. Si aplica, proponé una hipótesis provisional que el trabajo deberá sostener, discutir o refutar.
+Formulá la pregunta de investigación central con precisión. Luego, al menos tres preguntas secundarias derivadas. Si aplica, proponé una hipótesis provisional que el trabajo deberá sostener, discutir o refutar. Si la propuesta del usuario no tiene todavía una posición clara, indicarlo y proponer una.
 
 ## Citas y pasajes clave
 
-Seleccioná los fragmentos más citables o importantes para el argumento. Para cada uno indicá: el texto de origen, cómo usarlo, y en qué sección del trabajo encajaría. Usá el formato (Autor, Año, p. N).
+Seleccioná los fragmentos más importantes de la biblioteca para el argumento central. Para cada uno indicá: texto de origen, qué dice exactamente, cómo usarlo en el trabajo y en qué sección encajaría. Usá el formato (Autor, Año, p. N).
 
 ## Gaps y desafíos
 
-Identificá: (a) qué temas o autores relevantes están ausentes en la biblioteca, (b) qué limitaciones metodológicas o empíricas enfrentará el trabajo, (c) posibles objeciones al argumento central.
+Identificá con precisión: (a) qué autores o debates relevantes están ausentes en la biblioteca, (b) qué limitaciones metodológicas o empíricas enfrentará este trabajo, (c) posibles objeciones al argumento central y cómo anticiparlas, (d) riesgos de la propuesta tal como está formulada.
 
 ## Primeros pasos concretos
 
-Listá 6-8 acciones concretas y ordenadas para comenzar a trabajar. Incluí lecturas prioritarias, decisiones que hay que tomar, y materiales a buscar.`
+Listá 6-8 acciones concretas, ordenadas y realizables para comenzar a trabajar. Cada acción debe ser específica (no "leer el marco teórico" sino "leer los capítulos X e Y de tal texto para construir el concepto Z"). Incluí lecturas prioritarias, decisiones que hay que tomar, y materiales a conseguir.`
 
 export async function POST(req: NextRequest) {
   try {
@@ -63,12 +100,14 @@ export async function POST(req: NextRequest) {
       tipo = 'articulo',
       descripcion,
       perspectiva,
-      seguimiento,      // follow-up message after initial plan
-      planTexto,        // full plan text for follow-up context
+      buscarEnWeb = false,
+      seguimiento,
+      planTexto,
     } = (await req.json()) as {
       tipo?: string
       descripcion?: string
       perspectiva?: string
+      buscarEnWeb?: boolean
       seguimiento?: string
       planTexto?: string
     }
@@ -76,7 +115,9 @@ export async function POST(req: NextRequest) {
     // ── Follow-up mode ────────────────────────────────────────────────────────
     if (seguimiento && planTexto) {
       const genAI = await getGeminiClient(accessToken)
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION, systemInstruction: SISTEMA })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tools = buscarEnWeb ? [{ googleSearch: {} } as any] : undefined
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION, systemInstruction: SISTEMA, tools })
 
       const prompt = `Este es el plan académico que elaboraste previamente:\n\n${planTexto}\n\n---\nEl usuario tiene una pregunta o solicitud de ajuste:\n\n"${seguimiento}"\n\nRespondé de forma concisa, precisa y académica. Si el usuario pide cambiar la estructura o agregar contenido, integralo con lo ya planificado.`
 
@@ -88,6 +129,15 @@ export async function POST(req: NextRequest) {
             for await (const chunk of result.stream) {
               const text = chunk.text()
               if (text) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ texto: text })}\n\n`))
+            }
+            // Stream grounding sources if web search was used
+            if (buscarEnWeb) {
+              const resp = await result.response
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const chunks = (resp.candidates?.[0] as any)?.groundingMetadata?.groundingChunks ?? []
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const fuentes = chunks.filter((c: any) => c.web?.uri).map((c: any) => ({ titulo: c.web.title ?? c.web.uri, url: c.web.uri }))
+              if (fuentes.length) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ fuentes })}\n\n`))
             }
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`))
           } catch (e) {
@@ -109,8 +159,7 @@ export async function POST(req: NextRequest) {
     const palabras = descripcion.toLowerCase().split(/\s+/).filter((w) => w.length > 4)
     const matchTexto = (text: string) => palabras.some((p) => text.toLowerCase().includes(p))
 
-    // 1. Run semantic search + drive init in parallel.
-    //    Semantic search has a 12s timeout — if embeddings are too slow, continue without them.
+    // 1. Semantic search + drive init in parallel (12s timeout for search)
     const timeout12s = <T>(fallback: T) =>
       new Promise<T>((resolve) => setTimeout(() => resolve(fallback), 12_000))
 
@@ -122,7 +171,7 @@ export async function POST(req: NextRequest) {
       initUserDrive(accessToken),
     ])
 
-    // 2. Bibliography + notas + citas all in parallel
+    // 2. Bibliography + notas + citas in parallel
     const [todosLosDocs, notasRaw, citasRaw] = await Promise.all([
       listPDFs(accessToken, estructura.pdfsId),
       findFile(accessToken, 'notas.json', estructura.notasId)
@@ -136,7 +185,7 @@ export async function POST(req: NextRequest) {
     const notasRelevantes = notasRaw.filter((n) => matchTexto(n.contenido ?? '') || matchTexto(n.titulo ?? '')).slice(0, 10)
     const citasRelevantes = citasRaw.filter((c) => matchTexto(c.texto ?? '')).slice(0, 10)
 
-    // 4. Build prompt context
+    // 3. Build prompt
     const tipoStr = TIPO_LABEL[tipo] ?? tipo
 
     const fragmentoStr = fragmentos.length
@@ -162,6 +211,7 @@ export async function POST(req: NextRequest) {
 
 > "${descripcion.trim()}"
 ${perspectiva ? `\n**Perspectiva o enfoque declarado:** ${perspectiva}\n` : ''}
+${buscarEnWeb ? '\n**Nota:** El usuario habilitó búsqueda en la web. Podés complementar con fuentes externas cuando la biblioteca no cubra un área relevante, pero priorizá siempre los textos de la biblioteca disponible.\n' : ''}
 
 ---
 ## FRAGMENTOS RELEVANTES DE LA BIBLIOTECA (búsqueda semántica)
@@ -179,9 +229,11 @@ ${citasStr ? `---\n## CITAS GUARDADAS RELACIONADAS\n\n${citasStr}` : ''}
 ---
 ${SECCIONES_PROMPT}`
 
-    // 5. Stream response
+    // 4. Stream response
     const genAI = await getGeminiClient(accessToken)
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION, systemInstruction: SISTEMA })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tools = buscarEnWeb ? [{ googleSearch: {} } as any] : undefined
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION, systemInstruction: SISTEMA, tools })
 
     const metadatos = {
       docsRelevantes: fragmentos.slice(0, 8).map((f) => ({
@@ -200,6 +252,15 @@ ${SECCIONES_PROMPT}`
           for await (const chunk of result.stream) {
             const text = chunk.text()
             if (text) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ texto: text })}\n\n`))
+          }
+          // Stream grounding sources if web search returned any
+          if (buscarEnWeb) {
+            const resp = await result.response
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const chunks = (resp.candidates?.[0] as any)?.groundingMetadata?.groundingChunks ?? []
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const fuentes = chunks.filter((c: any) => c.web?.uri).map((c: any) => ({ titulo: c.web.title ?? c.web.uri, url: c.web.uri }))
+            if (fuentes.length) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ fuentes })}\n\n`))
           }
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`))
         } catch (e) {

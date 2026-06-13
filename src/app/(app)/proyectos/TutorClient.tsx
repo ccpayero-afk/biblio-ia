@@ -6,6 +6,7 @@ import {
   GraduationCap, Send, RotateCcw, BookOpen, FileText,
   Lightbulb, ListOrdered, FlaskConical, HelpCircle,
   AlertTriangle, Footprints, ChevronDown, Loader2, Sparkles,
+  Globe, ExternalLink, Stethoscope,
 } from 'lucide-react'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -21,6 +22,18 @@ const TIPOS = [
 
 interface DocRelevante { id: string; nombre: string; autor: string; año: string }
 interface Meta { docsRelevantes: DocRelevante[]; totalDocs: number; fragmentosAnalizados: number }
+interface FuenteWeb { titulo: string; url: string }
+
+const SECCIONES_ESPERADAS = [
+  'Diagnóstico del trabajo',
+  'Bibliografía recomendada',
+  'Estructura sugerida',
+  'Orientación metodológica',
+  'Hipótesis y preguntas orientadoras',
+  'Citas y pasajes clave',
+  'Gaps y desafíos',
+  'Primeros pasos concretos',
+]
 
 // ─── Parseo de secciones markdown ────────────────────────────────────────────
 
@@ -36,7 +49,8 @@ function parsearSecciones(texto: string): Seccion[] {
   })
 }
 
-// Renderiza markdown básico (negrita, listas, inline code)
+// ─── Renderizador markdown mejorado ──────────────────────────────────────────
+
 function renderMd(texto: string): string {
   return texto
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -44,98 +58,172 @@ function renderMd(texto: string): string {
     .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
 }
 
-function Parrafo({ texto }: { texto: string }) {
+function Parrafo({ texto, color }: { texto: string; color: string }) {
   const lineas = texto.split('\n').filter((l) => l.trim())
   const elementos: React.ReactNode[] = []
   let lista: string[] = []
+  let enumerada: string[] = []
 
   function flushLista() {
-    if (!lista.length) return
-    elementos.push(
-      <ul key={`ul-${elementos.length}`} className="ml-4 mt-1 space-y-1">
-        {lista.map((li, i) => (
-          <li key={i} className="flex gap-2 text-sm" style={{ color: 'rgba(203,213,225,0.85)' }}>
-            <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: 'rgba(139,92,246,0.6)' }} />
-            <span dangerouslySetInnerHTML={{ __html: renderMd(li) }} />
-          </li>
-        ))}
-      </ul>,
-    )
-    lista = []
+    if (lista.length) {
+      elementos.push(
+        <ul key={`ul-${elementos.length}`} className="mt-2 space-y-1.5 pl-1">
+          {lista.map((li, i) => (
+            <li key={i} className="flex gap-2.5 text-sm leading-relaxed" style={{ color: 'rgba(203,213,225,0.82)' }}>
+              <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ background: color }} />
+              <span dangerouslySetInnerHTML={{ __html: renderMd(li) }} />
+            </li>
+          ))}
+        </ul>,
+      )
+      lista = []
+    }
+    if (enumerada.length) {
+      elementos.push(
+        <ol key={`ol-${elementos.length}`} className="mt-2 space-y-1.5 pl-1">
+          {enumerada.map((li, i) => (
+            <li key={i} className="flex gap-2.5 text-sm leading-relaxed" style={{ color: 'rgba(203,213,225,0.82)' }}>
+              <span className="flex-shrink-0 text-xs font-bold mt-0.5" style={{ color, minWidth: 18 }}>{i + 1}.</span>
+              <span dangerouslySetInnerHTML={{ __html: renderMd(li) }} />
+            </li>
+          ))}
+        </ol>,
+      )
+      enumerada = []
+    }
   }
 
   for (const linea of lineas) {
     if (linea.startsWith('- ') || linea.startsWith('• ')) {
+      enumerada.length && flushLista()
       lista.push(linea.slice(2))
     } else if (/^\d+\.\s/.test(linea)) {
-      lista.push(linea.replace(/^\d+\.\s/, ''))
+      lista.length && flushLista()
+      enumerada.push(linea.replace(/^\d+\.\s/, ''))
+    } else if (linea.startsWith('### ')) {
+      flushLista()
+      elementos.push(
+        <p key={`h3-${elementos.length}`} className="mt-4 mb-1 text-xs font-bold uppercase tracking-wider" style={{ color }}>
+          {linea.slice(4)}
+        </p>,
+      )
     } else {
       flushLista()
       elementos.push(
-        <p key={`p-${elementos.length}`} className="mt-2 text-sm leading-relaxed" style={{ color: 'rgba(203,213,225,0.85)' }}
+        <p key={`p-${elementos.length}`} className="mt-2 text-sm leading-relaxed" style={{ color: 'rgba(203,213,225,0.82)' }}
           dangerouslySetInnerHTML={{ __html: renderMd(linea) }}
         />,
       )
     }
   }
   flushLista()
-  return <div>{elementos}</div>
+  return <div className="space-y-0.5">{elementos}</div>
 }
 
-// ─── Iconos por sección ───────────────────────────────────────────────────────
+// ─── Config visual por sección ───────────────────────────────────────────────
 
-const ICONO_SECCION: Record<string, React.ReactNode> = {
-  'Bibliografía recomendada':       <BookOpen className="h-4 w-4" />,
-  'Estructura sugerida':            <ListOrdered className="h-4 w-4" />,
-  'Orientación metodológica':       <FlaskConical className="h-4 w-4" />,
-  'Hipótesis y preguntas orientadoras': <HelpCircle className="h-4 w-4" />,
-  'Citas y pasajes clave':          <FileText className="h-4 w-4" />,
-  'Gaps y desafíos':                <AlertTriangle className="h-4 w-4" />,
-  'Primeros pasos concretos':       <Footprints className="h-4 w-4" />,
+const SECCION_CONFIG: Record<string, { icono: React.ReactNode; color: string; desc: string }> = {
+  'Diagnóstico del trabajo':         { icono: <Stethoscope className="h-4 w-4" />,  color: '#e879f9', desc: 'Evaluación crítica de la propuesta' },
+  'Bibliografía recomendada':        { icono: <BookOpen className="h-4 w-4" />,      color: '#a78bfa', desc: 'Textos clave y cómo usarlos' },
+  'Estructura sugerida':             { icono: <ListOrdered className="h-4 w-4" />,   color: '#22d3ee', desc: 'Organización del trabajo' },
+  'Orientación metodológica':        { icono: <FlaskConical className="h-4 w-4" />,  color: '#34d399', desc: 'Enfoque y estrategia' },
+  'Hipótesis y preguntas orientadoras': { icono: <HelpCircle className="h-4 w-4" />, color: '#fbbf24', desc: 'Preguntas e hipótesis de trabajo' },
+  'Citas y pasajes clave':           { icono: <FileText className="h-4 w-4" />,      color: '#818cf8', desc: 'Fragmentos citables del corpus' },
+  'Gaps y desafíos':                 { icono: <AlertTriangle className="h-4 w-4" />, color: '#fb7185', desc: 'Ausencias y riesgos del diseño' },
+  'Primeros pasos concretos':        { icono: <Footprints className="h-4 w-4" />,    color: '#60a5fa', desc: 'Plan de acción inmediato' },
 }
 
-const COLOR_SECCION: Record<string, string> = {
-  'Bibliografía recomendada':       'rgba(139,92,246,0.7)',
-  'Estructura sugerida':            'rgba(6,182,212,0.7)',
-  'Orientación metodológica':       'rgba(16,185,129,0.7)',
-  'Hipótesis y preguntas orientadoras': 'rgba(245,158,11,0.7)',
-  'Citas y pasajes clave':          'rgba(167,139,250,0.7)',
-  'Gaps y desafíos':                'rgba(239,68,68,0.7)',
-  'Primeros pasos concretos':       'rgba(99,102,241,0.7)',
+function getConfig(titulo: string) {
+  return SECCION_CONFIG[titulo] ?? { icono: <Lightbulb className="h-4 w-4" />, color: 'rgba(139,92,246,0.9)', desc: '' }
 }
 
 // ─── Card de sección ─────────────────────────────────────────────────────────
 
 function SeccionCard({ seccion, index }: { seccion: Seccion; index: number }) {
   const [abierta, setAbierta] = useState(true)
-  const icono  = ICONO_SECCION[seccion.titulo]  ?? <Lightbulb className="h-4 w-4" />
-  const color  = COLOR_SECCION[seccion.titulo]  ?? 'rgba(139,92,246,0.7)'
+  const { icono, color, desc } = getConfig(seccion.titulo)
+  const colorBg   = `${color}1a`  // ~10% opacity
+  const colorBord = `${color}33`  // ~20% opacity
+
+  const preview = seccion.cuerpo
+    .replace(/\*\*/g, '').replace(/\*/g, '').replace(/^[-•]\s/gm, '').replace(/^#+\s/gm, '').replace(/\n/g, ' ').trim()
+    .slice(0, 130)
 
   return (
     <div
-      className="overflow-hidden rounded-2xl"
+      className="overflow-hidden rounded-2xl transition-all"
       style={{
-        background: 'rgba(255,255,255,0.025)',
-        border: `1px solid rgba(255,255,255,0.07)`,
-        animationDelay: `${index * 80}ms`,
+        background: 'rgba(15,15,20,0.6)',
+        border: `1px solid ${colorBord}`,
+        borderLeft: `3px solid ${color}`,
+        backdropFilter: 'blur(8px)',
       }}
     >
+      {/* Header */}
       <button
         onClick={() => setAbierta((v) => !v)}
-        className="flex w-full items-center gap-3 px-5 py-4 text-left"
+        className="flex w-full items-start gap-3.5 px-5 py-4 text-left"
       >
-        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg" style={{ background: `${color.replace('0.7', '0.15')}`, color }}>
+        <span
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl mt-0.5"
+          style={{ background: colorBg, color }}
+        >
           {icono}
         </span>
-        <span className="flex-1 text-sm font-semibold text-white">{seccion.titulo}</span>
-        <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform text-neutral-500 ${abierta ? 'rotate-180' : ''}`} />
+        <div className="flex-1 min-w-0 pr-2">
+          <div className="flex items-baseline gap-2">
+            <p className="text-sm font-semibold text-white">{seccion.titulo}</p>
+            <span className="text-xs hidden sm:block" style={{ color: `${color}99` }}>{desc}</span>
+          </div>
+          {!abierta && preview && (
+            <p className="mt-0.5 text-xs line-clamp-1" style={{ color: 'rgba(148,163,184,0.45)' }}>
+              {preview}…
+            </p>
+          )}
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 flex-shrink-0 transition-transform mt-1 ${abierta ? 'rotate-180' : ''}`}
+          style={{ color: `${color}66` }}
+        />
       </button>
+
+      {/* Contenido */}
       {abierta && (
         <div className="px-5 pb-5">
-          <div className="h-px mb-4" style={{ background: 'rgba(255,255,255,0.05)' }} />
-          <Parrafo texto={seccion.cuerpo} />
+          <div className="h-px mb-4" style={{ background: colorBord }} />
+          <Parrafo texto={seccion.cuerpo} color={color} />
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Indicador de progreso ────────────────────────────────────────────────────
+
+function ProgresoSecciones({ secciones, generando }: { secciones: Seccion[]; generando: boolean }) {
+  const total = SECCIONES_ESPERADAS.length
+  const cargadas = secciones.length
+  return (
+    <div className="flex items-center gap-3 rounded-xl px-4 py-2.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+      <div className="flex gap-1.5">
+        {SECCIONES_ESPERADAS.map((s, i) => {
+          const loaded = i < cargadas
+          const cfg = getConfig(s)
+          return (
+            <div
+              key={s}
+              title={s}
+              className="h-2 w-2 rounded-full transition-all duration-500"
+              style={{ background: loaded ? cfg.color : 'rgba(255,255,255,0.1)', boxShadow: loaded ? `0 0 6px ${cfg.color}88` : 'none' }}
+            />
+          )
+        })}
+      </div>
+      <p className="text-xs" style={{ color: 'rgba(148,163,184,0.45)' }}>
+        {generando
+          ? `${cargadas} / ${total} secciones…`
+          : `Plan completo · ${cargadas} secciones`}
+      </p>
     </div>
   )
 }
@@ -146,26 +234,26 @@ export default function TutorClient() {
   const [tipo, setTipo]               = useState('articulo')
   const [descripcion, setDescripcion] = useState('')
   const [perspectiva, setPerspectiva] = useState('')
+  const [buscarEnWeb, setBuscarEnWeb] = useState(false)
   const [generando, setGenerando]     = useState(false)
-  const [texto, setTexto]             = useState('')       // full streamed plan
+  const [texto, setTexto]             = useState('')
   const [meta, setMeta]               = useState<Meta | null>(null)
+  const [fuentes, setFuentes]         = useState<FuenteWeb[]>([])
   const [error, setError]             = useState<string | null>(null)
 
-  // Follow-up chat
   const [seguimiento, setSeguimiento] = useState('')
-  const [chatTexto, setChatTexto]     = useState('')       // streamed follow-up
+  const [chatTexto, setChatTexto]     = useState('')
   const [enviando, setEnviando]       = useState(false)
   const [historialChat, setHistorialChat] = useState<Array<{ q: string; r: string }>>([])
 
-  const textareaRef    = useRef<HTMLTextAreaElement>(null)
-  const chatRef        = useRef<HTMLInputElement>(null)
-  const planBottomRef  = useRef<HTMLDivElement>(null)
+  const textareaRef   = useRef<HTMLTextAreaElement>(null)
+  const chatRef       = useRef<HTMLInputElement>(null)
+  const planBottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (generando || enviando) planBottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [texto, chatTexto, generando, enviando])
 
-  // ── Auto-resize textarea ──────────────────────────────────────────────────
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
@@ -178,6 +266,7 @@ export default function TutorClient() {
     body: object,
     onMeta: (m: Meta) => void,
     onTexto: (t: string) => void,
+    onFuentes: (f: FuenteWeb[]) => void,
     onDone: () => void,
     onError: (e: string) => void,
   ) {
@@ -212,14 +301,14 @@ export default function TutorClient() {
         if (!linea.startsWith('data: ')) continue
         try {
           const d = JSON.parse(linea.slice(6))
-          if (d.meta)   onMeta(d.meta)
-          if (d.texto)  onTexto(d.texto)
-          if (d.done)   { doneCalled = true; onDone() }
-          if (d.error)  onError(d.error)
+          if (d.meta)    onMeta(d.meta)
+          if (d.texto)   onTexto(d.texto)
+          if (d.fuentes) onFuentes(d.fuentes)
+          if (d.done)    { doneCalled = true; onDone() }
+          if (d.error)   onError(d.error)
         } catch { /* skip malformed */ }
       }
     }
-    // Stream closed — ensure generando is always reset even if done event was missed
     if (!doneCalled) onDone()
   }
 
@@ -229,6 +318,7 @@ export default function TutorClient() {
     setGenerando(true)
     setTexto('')
     setMeta(null)
+    setFuentes([])
     setError(null)
     setHistorialChat([])
     setChatTexto('')
@@ -236,9 +326,10 @@ export default function TutorClient() {
     let acum = ''
     try {
       await consumirStream(
-        { tipo, descripcion, perspectiva },
+        { tipo, descripcion, perspectiva, buscarEnWeb },
         (m) => setMeta(m),
         (t) => { acum += t; setTexto(acum) },
+        (f) => setFuentes(f),
         () => { setGenerando(false) },
         (e) => { setError(e); setGenerando(false) },
       )
@@ -259,9 +350,10 @@ export default function TutorClient() {
     let respuesta = ''
     try {
       await consumirStream(
-        { seguimiento: pregunta, planTexto: texto },
-        () => { /* no meta in follow-up */ },
+        { seguimiento: pregunta, planTexto: texto, buscarEnWeb },
+        () => {},
         (t) => { respuesta += t; setChatTexto(respuesta) },
+        (f) => setFuentes((prev) => [...prev, ...f]),
         () => {
           setHistorialChat((prev) => [...prev, { q: pregunta, r: respuesta }])
           setChatTexto('')
@@ -281,7 +373,7 @@ export default function TutorClient() {
   return (
     <div className="mx-auto flex h-full max-w-7xl flex-col gap-6 lg:flex-row">
 
-      {/* ── Panel izquierdo: formulario ─────────────────────────────────── */}
+      {/* ── Panel izquierdo ─────────────────────────────────────────────── */}
       <aside className="w-full flex-shrink-0 lg:w-80 xl:w-96">
         <div
           className="sticky top-0 rounded-2xl p-5 space-y-5"
@@ -293,8 +385,8 @@ export default function TutorClient() {
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-sm font-bold text-white">Tutor Metodológico</h1>
-              <p className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Asistente de planificación académica</p>
+              <h1 className="text-sm font-bold text-white">Tutor Académico</h1>
+              <p className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Metodología · Bibliografía · Planificación</p>
             </div>
           </div>
 
@@ -318,11 +410,9 @@ export default function TutorClient() {
             </div>
           </div>
 
-          {/* Descripción del tema */}
+          {/* Descripción */}
           <div>
-            <label className="mb-2 block text-xs font-medium" style={{ color: 'rgba(148,163,184,0.6)' }}>
-              Describí tu trabajo
-            </label>
+            <label className="mb-2 block text-xs font-medium" style={{ color: 'rgba(148,163,184,0.6)' }}>Describí tu trabajo</label>
             <textarea
               ref={textareaRef}
               value={descripcion}
@@ -345,7 +435,9 @@ export default function TutorClient() {
 
           {/* Perspectiva */}
           <div>
-            <label className="mb-2 block text-xs font-medium" style={{ color: 'rgba(148,163,184,0.6)' }}>Perspectiva / enfoque <span style={{ color: 'rgba(148,163,184,0.35)' }}>(opcional)</span></label>
+            <label className="mb-2 block text-xs font-medium" style={{ color: 'rgba(148,163,184,0.6)' }}>
+              Perspectiva / enfoque <span style={{ color: 'rgba(148,163,184,0.35)' }}>(opcional)</span>
+            </label>
             <input
               type="text"
               value={perspectiva}
@@ -357,6 +449,38 @@ export default function TutorClient() {
               onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
             />
           </div>
+
+          {/* Toggle web search */}
+          <button
+            onClick={() => setBuscarEnWeb((v) => !v)}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition-all"
+            style={{
+              background: buscarEnWeb ? 'rgba(6,182,212,0.08)' : 'rgba(255,255,255,0.03)',
+              border: buscarEnWeb ? '1px solid rgba(6,182,212,0.3)' : '1px solid rgba(255,255,255,0.07)',
+            }}
+          >
+            <Globe className="h-4 w-4 flex-shrink-0" style={{ color: buscarEnWeb ? '#22d3ee' : 'rgba(148,163,184,0.4)' }} />
+            <div className="flex-1 text-left">
+              <p className="text-xs font-medium" style={{ color: buscarEnWeb ? '#22d3ee' : 'rgba(148,163,184,0.6)' }}>
+                Buscar en la web
+              </p>
+              <p className="text-[10px]" style={{ color: 'rgba(148,163,184,0.35)' }}>
+                {buscarEnWeb ? 'Activo — Gemini puede consultar Google' : 'Solo biblioteca personal'}
+              </p>
+            </div>
+            <div
+              className="h-5 w-9 rounded-full transition-all flex-shrink-0 relative"
+              style={{ background: buscarEnWeb ? 'rgba(6,182,212,0.5)' : 'rgba(255,255,255,0.1)' }}
+            >
+              <span
+                className="absolute top-0.5 h-4 w-4 rounded-full transition-all"
+                style={{
+                  background: buscarEnWeb ? '#22d3ee' : 'rgba(148,163,184,0.5)',
+                  left: buscarEnWeb ? '18px' : '2px',
+                }}
+              />
+            </div>
+          </button>
 
           {/* Botón principal */}
           <button
@@ -411,7 +535,7 @@ export default function TutorClient() {
       </aside>
 
       {/* ── Panel derecho: plan + chat ──────────────────────────────────── */}
-      <div className="flex-1 min-w-0 space-y-4">
+      <div className="flex-1 min-w-0 space-y-3">
 
         {/* Estado vacío */}
         {!hayPlan && !error && (
@@ -423,11 +547,11 @@ export default function TutorClient() {
             <div>
               <h2 className="text-base font-semibold text-white">Tu tutor está listo</h2>
               <p className="mt-1 max-w-xs text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>
-                Describí tu trabajo académico en el panel izquierdo y la IA analizará tu biblioteca para guiarte.
+                Describí tu trabajo en el panel izquierdo y la IA analizará tu biblioteca para guiarte.
               </p>
             </div>
             <div className="flex flex-wrap justify-center gap-2 text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>
-              {['Estructura argumentativa', 'Bibliografía priorizada', 'Orientación metodológica', 'Preguntas de investigación'].map((tag) => (
+              {['Diagnóstico crítico', 'Bibliografía priorizada', 'Diseño metodológico', 'Preguntas de investigación'].map((tag) => (
                 <span key={tag} className="rounded-full px-3 py-1" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>{tag}</span>
               ))}
             </div>
@@ -446,7 +570,7 @@ export default function TutorClient() {
           </div>
         )}
 
-        {/* Generando — streaming */}
+        {/* Generando — antes del primer ## */}
         {generando && !secciones.length && (
           <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="flex items-center gap-3 mb-4">
@@ -454,23 +578,58 @@ export default function TutorClient() {
               <p className="text-sm text-white">Analizando tu biblioteca y construyendo el plan…</p>
             </div>
             {texto && (
-              <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'rgba(148,163,184,0.6)' }}>
+              <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: 'rgba(148,163,184,0.5)' }}>
                 {texto.slice(-400)}
               </p>
             )}
           </div>
         )}
 
-        {/* Secciones del plan */}
-        {secciones.map((s, i) => (
-          <SeccionCard key={`${s.titulo}-${i}`} seccion={s} index={i} />
-        ))}
+        {/* Progreso + secciones */}
+        {hayPlan && secciones.length > 0 && (
+          <>
+            <ProgresoSecciones secciones={secciones} generando={generando} />
 
-        {/* Streaming en curso dentro del plan */}
-        {generando && secciones.length > 0 && (
-          <div className="flex items-center gap-2 rounded-2xl px-5 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" />
-            <p className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Completando el plan…</p>
+            {secciones.map((s, i) => (
+              <SeccionCard key={`${s.titulo}-${i}`} seccion={s} index={i} />
+            ))}
+
+            {/* Streaming en curso — última sección aún cargando */}
+            {generando && (
+              <div className="flex items-center gap-2 rounded-2xl px-5 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-400" />
+                <p className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
+                  Completando sección {secciones.length} de {SECCIONES_ESPERADAS.length}…
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Fuentes web */}
+        {fuentes.length > 0 && !generando && (
+          <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(6,182,212,0.04)', border: '1px solid rgba(6,182,212,0.15)' }}>
+            <div className="flex items-center gap-2 px-5 py-3" style={{ borderBottom: '1px solid rgba(6,182,212,0.1)' }}>
+              <Globe className="h-3.5 w-3.5 text-cyan-400" />
+              <p className="text-xs font-semibold text-cyan-400">Fuentes web consultadas</p>
+            </div>
+            <div className="px-5 py-3 space-y-1.5">
+              {fuentes.map((f, i) => (
+                <a
+                  key={i}
+                  href={f.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-2 rounded-lg px-2 py-1.5 transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.7)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(6,182,212,0.08)'; e.currentTarget.style.color = '#22d3ee' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(148,163,184,0.7)' }}
+                >
+                  <ExternalLink className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                  <span className="text-xs line-clamp-1">{f.titulo}</span>
+                </a>
+              ))}
+            </div>
           </div>
         )}
 
@@ -478,7 +637,6 @@ export default function TutorClient() {
         {!generando && texto && (
           <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
 
-            {/* Historial de seguimiento */}
             {historialChat.length > 0 && (
               <div className="space-y-4 p-5">
                 {historialChat.map((turno, i) => (
@@ -489,14 +647,13 @@ export default function TutorClient() {
                       </div>
                     </div>
                     <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <Parrafo texto={turno.r} />
+                      <Parrafo texto={turno.r} color="rgba(139,92,246,0.9)" />
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Respuesta streaming del chat */}
             {enviando && chatTexto && (
               <div className="px-5 pb-4">
                 <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -505,7 +662,6 @@ export default function TutorClient() {
               </div>
             )}
 
-            {/* Input de seguimiento */}
             <div className="flex items-center gap-3 border-t px-4 py-3" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
               <GraduationCap className="h-4 w-4 flex-shrink-0" style={{ color: 'rgba(139,92,246,0.6)' }} />
               <input
@@ -535,10 +691,10 @@ export default function TutorClient() {
           </div>
         )}
 
-        {/* Botón de reset */}
+        {/* Reset */}
         {texto && !generando && (
           <button
-            onClick={() => { setTexto(''); setMeta(null); setHistorialChat([]); setChatTexto('') }}
+            onClick={() => { setTexto(''); setMeta(null); setHistorialChat([]); setChatTexto(''); setFuentes([]) }}
             className="flex items-center gap-2 text-xs transition-colors"
             style={{ color: 'rgba(148,163,184,0.35)' }}
             onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.7)' }}
