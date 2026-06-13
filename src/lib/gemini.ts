@@ -68,16 +68,29 @@ export async function validateGeminiKey(apiKey: string): Promise<{ valid: boolea
   }
 }
 
-export async function getGeminiClient(accessToken: string): Promise<GoogleGenerativeAI> {
-  const estructura = await initUserDrive(accessToken)
-  const configFileId = await findFile(accessToken, 'config.json', estructura.rootId)
-  if (!configFileId) throw new Error('No hay API key configurada. Configurá tu clave de Gemini en Configuración.')
+// Promise-based cache — concurrent callers share the same in-flight request.
+const geminiClientCache = new Map<string, { promise: Promise<GoogleGenerativeAI>; ts: number }>()
+const GEMINI_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
-  const config = await readJSON<ConfigUsuario>(accessToken, configFileId)
-  if (!config.geminiKeyEncriptada) throw new Error('No hay API key configurada.')
+export function getGeminiClient(accessToken: string): Promise<GoogleGenerativeAI> {
+  const cached = geminiClientCache.get(accessToken)
+  if (cached && Date.now() - cached.ts < GEMINI_CACHE_TTL) return cached.promise
 
-  const apiKey = await decryptApiKey(config.geminiKeyEncriptada)
-  return new GoogleGenerativeAI(apiKey)
+  const promise = (async () => {
+    const estructura = await initUserDrive(accessToken)
+    const configFileId = await findFile(accessToken, 'config.json', estructura.rootId)
+    if (!configFileId) throw new Error('No hay API key configurada. Configurá tu clave de Gemini en Configuración.')
+
+    const config = await readJSON<ConfigUsuario>(accessToken, configFileId)
+    if (!config.geminiKeyEncriptada) throw new Error('No hay API key configurada.')
+
+    const apiKey = await decryptApiKey(config.geminiKeyEncriptada)
+    return new GoogleGenerativeAI(apiKey)
+  })()
+
+  promise.catch(() => geminiClientCache.delete(accessToken))
+  geminiClientCache.set(accessToken, { promise, ts: Date.now() })
+  return promise
 }
 
 export async function saveApiKey(accessToken: string, apiKey: string): Promise<void> {

@@ -109,10 +109,16 @@ export async function POST(req: NextRequest) {
     const palabras = descripcion.toLowerCase().split(/\s+/).filter((w) => w.length > 4)
     const matchTexto = (text: string) => palabras.some((p) => text.toLowerCase().includes(p))
 
-    // 1. Run semantic search + drive init in parallel (initUserDrive is now cached so subsequent
-    //    calls inside semanticSearch/getGeminiClient are near-instant)
+    // 1. Run semantic search + drive init in parallel.
+    //    Semantic search has a 12s timeout — if embeddings are too slow, continue without them.
+    const timeout12s = <T>(fallback: T) =>
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), 12_000))
+
     const [fragmentos, estructura] = await Promise.all([
-      semanticSearch(descripcion, accessToken, { topK: 15 }),
+      Promise.race([
+        semanticSearch(descripcion, accessToken, { topK: 15 }).catch(() => []),
+        timeout12s([] as Awaited<ReturnType<typeof semanticSearch>>),
+      ]),
       initUserDrive(accessToken),
     ])
 

@@ -34,38 +34,44 @@ async function getOrCreateFolder(drive: ReturnType<typeof google.drive>, name: s
   return createFolder(drive, name, parentId)
 }
 
-// Per-process cache — eliminates redundant Drive API calls within a warm serverless invocation.
-const estructuraCache = new Map<string, { value: DriveStructure; ts: number }>()
+// Promise-based cache — stores the in-flight Promise so concurrent callers share it,
+// eliminating redundant Drive API calls within a warm serverless invocation.
+const estructuraCache = new Map<string, { promise: Promise<DriveStructure>; ts: number }>()
 const ESTRUCTURA_TTL = 5 * 60 * 1000 // 5 minutes
 
-export async function initUserDrive(accessToken: string): Promise<DriveStructure> {
+export function initUserDrive(accessToken: string): Promise<DriveStructure> {
   const cached = estructuraCache.get(accessToken)
-  if (cached && Date.now() - cached.ts < ESTRUCTURA_TTL) return cached.value
+  if (cached && Date.now() - cached.ts < ESTRUCTURA_TTL) return cached.promise
 
-  const drive = getDriveClient(accessToken)
+  const promise = (async () => {
+    const drive = getDriveClient(accessToken)
 
-  // Find or create root in My Drive
-  const rootRes = await drive.files.list({
-    q: `name='BibliografíaIA' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`,
-    fields: 'files(id)',
-  })
-  const rootId = rootRes.data.files?.[0]?.id ?? await createFolder(drive, 'BibliografíaIA')
+    // Find or create root in My Drive
+    const rootRes = await drive.files.list({
+      q: `name='BibliografíaIA' and mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false`,
+      fields: 'files(id)',
+    })
+    const rootId = rootRes.data.files?.[0]?.id ?? await createFolder(drive, 'BibliografíaIA')
 
-  const [pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId] = await Promise.all([
-    getOrCreateFolder(drive, 'pdfs', rootId),
-    getOrCreateFolder(drive, 'highlights', rootId),
-    getOrCreateFolder(drive, 'citas', rootId),
-    getOrCreateFolder(drive, 'notas', rootId),
-    getOrCreateFolder(drive, 'conceptos', rootId),
-    getOrCreateFolder(drive, 'proyectos', rootId),
-    getOrCreateFolder(drive, 'index', rootId),
-    getOrCreateFolder(drive, 'carpetas', rootId),
-    getOrCreateFolder(drive, 'por-leer', rootId),
-  ])
+    const [pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId] = await Promise.all([
+      getOrCreateFolder(drive, 'pdfs', rootId),
+      getOrCreateFolder(drive, 'highlights', rootId),
+      getOrCreateFolder(drive, 'citas', rootId),
+      getOrCreateFolder(drive, 'notas', rootId),
+      getOrCreateFolder(drive, 'conceptos', rootId),
+      getOrCreateFolder(drive, 'proyectos', rootId),
+      getOrCreateFolder(drive, 'index', rootId),
+      getOrCreateFolder(drive, 'carpetas', rootId),
+      getOrCreateFolder(drive, 'por-leer', rootId),
+    ])
 
-  const value = { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId }
-  estructuraCache.set(accessToken, { value, ts: Date.now() })
-  return value
+    return { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId }
+  })()
+
+  // On error remove so next call retries; on success keep for TTL
+  promise.catch(() => estructuraCache.delete(accessToken))
+  estructuraCache.set(accessToken, { promise, ts: Date.now() })
+  return promise
 }
 
 export async function listPDFs(accessToken: string, pdfsId: string): Promise<Documento[]> {
