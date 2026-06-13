@@ -45,8 +45,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       try { lista = await readJSON<Nota[]>(accessToken, fileId) } catch { lista = [] }
     }
 
+    // Buscar incluyendo eliminadas
     const idx = lista.findIndex((n) => n.id === id)
     if (idx === -1) return NextResponse.json({ error: 'No encontrada' }, { status: 404 })
+
+    if (body.action === 'restore') {
+      const nota = lista[idx] as Nota & { eliminadaEn?: string }
+      delete nota.eliminadaEn
+      lista[idx] = nota
+      await writeJSON(accessToken, estructura.notasId, NOMBRE, lista)
+      return NextResponse.json(lista[idx])
+    }
 
     lista[idx] = { ...lista[idx], ...body, id, actualizadaEn: new Date().toISOString() }
     await writeJSON(accessToken, estructura.notasId, NOMBRE, lista)
@@ -69,7 +78,15 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       try { lista = await readJSON<Nota[]>(accessToken, fileId) } catch { lista = [] }
     }
 
-    // Eliminar la nota y limpiar vínculos que apunten a ella
+    const idx = lista.findIndex((n) => n.id === id)
+    if (idx !== -1 && !(lista[idx] as Nota & { eliminadaEn?: string }).eliminadaEn) {
+      // Soft delete: agregar eliminadaEn en lugar de eliminar
+      ;(lista[idx] as Nota & { eliminadaEn?: string }).eliminadaEn = new Date().toISOString()
+      await writeJSON(accessToken, estructura.notasId, NOMBRE, lista)
+      return NextResponse.json({ ok: true, soft: true })
+    }
+
+    // Hard delete (definitivo): eliminar del array y limpiar vínculos
     lista = lista
       .filter((n) => n.id !== id)
       .map((n) => ({

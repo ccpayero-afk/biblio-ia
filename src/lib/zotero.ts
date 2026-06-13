@@ -171,3 +171,87 @@ export async function validateZoteroCredentials(userId: string, apiKey: string):
   })
   return res.ok
 }
+
+// ─── Import from Zotero ───────────────────────────────────────────────────────
+
+export interface ZoteroItem {
+  id: string
+  titulo: string
+  autor: string
+  año: string
+  tipo: string
+  abstract: string
+  doi: string
+  url: string
+  importadoEn: string
+}
+
+export interface ZoteroImportResult {
+  importados: number
+  omitidos: number
+  total: number
+  items: ZoteroItem[]
+}
+
+export async function importFromZotero(accessToken: string): Promise<ZoteroImportResult> {
+  const config = await getZoteroConfig(accessToken)
+  if (!config) throw new Error('Zotero no configurado')
+
+  const { userId, apiKey } = config
+  const headers = { 'Zotero-API-Key': apiKey, 'Zotero-API-Version': '3' }
+
+  // Paginar todos los items
+  const todos: Array<{ key: string; data: Record<string, unknown> }> = []
+  let start = 0
+  while (true) {
+    const res = await fetch(`${ZOTERO_API}/users/${userId}/items?format=json&limit=100&start=${start}`, { headers })
+    if (!res.ok) break
+    const items = await res.json() as Array<{ key: string; data: Record<string, unknown> }>
+    if (!Array.isArray(items) || items.length === 0) break
+    todos.push(...items)
+    if (items.length < 100) break
+    start += 100
+  }
+
+  // Filtrar attachments y notes
+  const filtrados = todos.filter((item) => {
+    const tipo = item.data?.itemType as string
+    return tipo !== 'attachment' && tipo !== 'note'
+  })
+
+  // Mapear a ZoteroItem
+  const importadoEn = new Date().toISOString()
+  const mapeados: ZoteroItem[] = filtrados.map((item) => {
+    const d = item.data
+    const creators = (Array.isArray(d.creators) ? d.creators as Array<{ lastName?: string }> : []).slice(0, 3)
+    return {
+      id: item.key,
+      titulo: (d.title as string) ?? '',
+      autor: creators.map((c) => c.lastName ?? '').filter(Boolean).join('; '),
+      año: ((d.date as string) ?? '').slice(0, 4),
+      tipo: (d.itemType as string) ?? '',
+      abstract: (d.abstractNote as string) ?? '',
+      doi: (d.DOI as string) ?? '',
+      url: (d.url as string) ?? '',
+      importadoEn,
+    }
+  })
+
+  // Leer lista existente
+  const estructura = await initUserDrive(accessToken)
+  const fileId = await findFile(accessToken, 'zotero_importados.json', estructura.notasId)
+  let existentes: ZoteroItem[] = []
+  if (fileId) {
+    try { existentes = await readJSON<ZoteroItem[]>(accessToken, fileId) } catch { existentes = [] }
+  }
+
+  const existentesIds = new Set(existentes.map((e) => e.id))
+  const nuevos = mapeados.filter((m) => !existentesIds.has(m.id))
+  const omitidos = mapeados.length - nuevos.length
+
+  if (nuevos.length > 0) {
+    await writeJSON(accessToken, estructura.notasId, 'zotero_importados.json', [...existentes, ...nuevos])
+  }
+
+  return { importados: nuevos.length, omitidos, total: mapeados.length, items: nuevos }
+}

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Eye, EyeOff, CheckCircle, XCircle, ExternalLink } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, XCircle, ExternalLink, Download } from 'lucide-react'
+import type { ZoteroItem, ZoteroImportResult } from '@/lib/zotero'
 
 interface Props {
   apiKeyConfigurada: boolean
@@ -26,6 +27,10 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
   const [zoteroError, setZoteroError] = useState('')
   const [zoteroConfigurado, setZoteroConfigurado] = useState(false)
   const [zoteroUserIdActual, setZoteroUserIdActual] = useState<string | null>(null)
+  const [importando, setImportando] = useState(false)
+  const [importResult, setImportResult] = useState<ZoteroImportResult | null>(null)
+  const [importados, setImportados] = useState<ZoteroItem[]>([])
+  const [mostrarImportados, setMostrarImportados] = useState(false)
 
   useEffect(() => {
     fetch('/api/config/zotero')
@@ -34,6 +39,10 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
         setZoteroConfigurado(d.configurado ?? false)
         setZoteroUserIdActual(d.userId ?? null)
       })
+      .catch(() => { /* ignore */ })
+    fetch('/api/zotero/importar')
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setImportados(d) })
       .catch(() => { /* ignore */ })
   }, [])
 
@@ -64,6 +73,24 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
     } finally {
       setZoteroGuardando(false)
     }
+  }
+
+  async function importarDesdeZotero() {
+    setImportando(true)
+    setImportResult(null)
+    try {
+      const res = await fetch('/api/zotero/importar', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setImportResult(data)
+        if (Array.isArray(data.items) && data.items.length > 0) {
+          setImportados((prev) => [...data.items, ...prev])
+        }
+      } else {
+        setImportResult({ importados: 0, omitidos: 0, total: 0, items: [] })
+      }
+    } catch { /* silencioso */ }
+    setImportando(false)
   }
 
   async function guardar() {
@@ -270,6 +297,81 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
             <p className="flex items-center gap-1.5 text-xs text-red-400">
               <XCircle className="h-3.5 w-3.5" /> {zoteroError}
             </p>
+          )}
+        </div>
+      </div>
+
+      {/* Importar desde Zotero */}
+      <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <h2 className="text-sm font-medium text-white">Importar desde Zotero</h2>
+        <p className="mt-1 text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
+          Importá las referencias de tu biblioteca Zotero hacia BiblioIA. Las referencias ya importadas no se duplican.
+        </p>
+        <div className="mt-4 space-y-3">
+          <button
+            onClick={importarDesdeZotero}
+            disabled={importando || !zoteroConfigurado}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-all disabled:opacity-50"
+            style={{ background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.3)', color: '#22d3ee' }}
+            onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = 'rgba(34,211,238,0.2)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(34,211,238,0.12)' }}
+          >
+            <Download className="h-4 w-4" />
+            {importando ? 'Importando…' : 'Importar bibliografía de Zotero'}
+          </button>
+          {!zoteroConfigurado && (
+            <p className="text-xs" style={{ color: 'rgba(245,158,11,0.8)' }}>Configurá Zotero primero para poder importar.</p>
+          )}
+          {importResult && (
+            <p className="text-xs" style={{ color: 'rgba(148,163,184,0.7)' }}>
+              {importResult.importados} referencias importadas, {importResult.omitidos} ya existían
+            </p>
+          )}
+          {importados.length > 0 && (
+            <div>
+              <button
+                onClick={() => setMostrarImportados((v) => !v)}
+                className="text-xs transition-colors"
+                style={{ color: 'rgba(34,211,238,0.8)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#22d3ee' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(34,211,238,0.8)' }}
+              >
+                {mostrarImportados ? 'Ocultar' : `Ver ${importados.length} referencias importadas`}
+              </button>
+              {mostrarImportados && (
+                <div className="mt-3 max-h-80 overflow-y-auto space-y-2">
+                  {importados.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-lg p-3"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                    >
+                      <p className="text-sm font-medium text-white">{item.titulo || '(sin título)'}</p>
+                      <div className="mt-1 flex items-center gap-2 flex-wrap">
+                        {item.autor && <span className="text-xs" style={{ color: 'rgba(148,163,184,0.6)' }}>{item.autor}</span>}
+                        {item.año && <span className="text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>{item.año}</span>}
+                        {item.tipo && (
+                          <span className="rounded-full px-1.5 py-px text-xs" style={{ background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.2)', color: 'rgba(34,211,238,0.8)' }}>
+                            {item.tipo}
+                          </span>
+                        )}
+                        {(item.doi || item.url) && (
+                          <a
+                            href={item.doi ? `https://doi.org/${item.doi}` : item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-0.5 text-xs hover:underline"
+                            style={{ color: 'rgba(34,211,238,0.6)' }}
+                          >
+                            <ExternalLink className="h-2.5 w-2.5" /> Ver
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

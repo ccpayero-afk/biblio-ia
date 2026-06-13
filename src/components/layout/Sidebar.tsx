@@ -25,6 +25,7 @@ const NAV_GROUPS = [
       { href: '/consultar',   label: 'Consultar',   icon: MessageSquare },
       { href: '/fichas',      label: 'Fichas',       icon: FileText },
       { href: '/notas',       label: 'Notas',        icon: StickyNote },
+      { href: '/diario',      label: 'Diario',       icon: BookMarked },
       { href: '/bandeja',     label: 'Bandeja',      icon: Inbox },
       { href: '/citas',       label: 'Citas',        icon: Quote },
       { href: '/datos',       label: 'Datos',        icon: BarChart2 },

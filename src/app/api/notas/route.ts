@@ -43,7 +43,9 @@ export async function GET(req: NextRequest) {
     const tipo = req.nextUrl.searchParams.get('tipo')
     const q = req.nextUrl.searchParams.get('q')
 
+    const incluirEliminadas = req.nextUrl.searchParams.get('incluir_eliminadas') === 'true'
     let resultado = notas.map(normalizarNota)
+    if (!incluirEliminadas) resultado = resultado.filter((n) => !(n as Nota & { eliminadaEn?: string }).eliminadaEn)
     if (tipo) resultado = resultado.filter((n) => n.tipo === tipo)
     if (q) {
       const qLower = q.toLowerCase()
