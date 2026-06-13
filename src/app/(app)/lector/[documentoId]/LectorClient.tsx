@@ -375,6 +375,29 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
     showToast('Nota creada ✓')
   }
 
+  async function crearNotaDesdeSeleccion(titulo: string, contenido: string, tipo: 'efimera' | 'referencia' | 'permanente') {
+    try {
+      await fetch('/api/notas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo,
+          contenido,
+          tipo,
+          documentoOrigenId: documento.id,
+          paginaOrigen: paginaActual,
+          fragmentoTexto: seleccion?.texto,
+        }),
+      })
+      setSeleccion(null)
+      setToast('Nota creada ✓')
+      setTimeout(() => setToast(null), 2000)
+    } catch {
+      setToast('Error al crear nota')
+      setTimeout(() => setToast(null), 2000)
+    }
+  }
+
   async function guardarCita(datos: { notaPropia?: string; etiquetas: string[]; proyectoId?: string }) {
     if (!modalCita) return
     const cita = crearCita({
@@ -758,6 +781,8 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
           onAnotar={onAnotar}
           onCitar={() => { setModalCita(seleccion); cerrarSeleccion() }}
           onCerrar={cerrarSeleccion}
+          textoSeleccionado={seleccion?.texto}
+          onCrearNota={crearNotaDesdeSeleccion}
         />
       )}
 
