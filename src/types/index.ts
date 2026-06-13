@@ -98,6 +98,12 @@ export interface VinculoSugerido {
   confianza: 'alta' | 'media' | 'baja'
 }
 
+export interface NotaVersion {
+  contenido: string
+  titulo: string
+  guardadaEn: string
+}
+
 export interface Nota {
   id: string
   titulo: string
@@ -111,6 +117,7 @@ export interface Nota {
   creadaEn: string
   actualizadaEn: string
   comentarioPersonal?: string
+  versiones?: NotaVersion[]
   // legado — algunos de estos campos existían antes del Zettelkasten
   documentoId?: string
   pagina?: number
@@ -142,6 +149,7 @@ export interface NodoGrafo {
   tipo: 'documento' | 'concepto' | 'autor' | 'nota'
   label: string
   peso: number
+  carpetaId?: string
 }
 
 export interface AristaGrafo {

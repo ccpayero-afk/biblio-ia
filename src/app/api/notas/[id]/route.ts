@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
-import { Nota } from '@/types'
+import { Nota, NotaVersion } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
 const NOMBRE = 'notas.json'
@@ -57,7 +57,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json(lista[idx])
     }
 
-    lista[idx] = { ...lista[idx], ...body, id, actualizadaEn: new Date().toISOString() }
+    const notaActual = lista[idx]
+    const snapshot: NotaVersion = {
+      contenido: notaActual.contenido,
+      titulo: notaActual.titulo,
+      guardadaEn: notaActual.actualizadaEn,
+    }
+    const versiones = [snapshot, ...(notaActual.versiones ?? [])].slice(0, 5)
+    const notaActualizada = { ...notaActual, ...body, id, actualizadaEn: new Date().toISOString(), versiones }
+    lista[idx] = notaActualizada
     await writeJSON(accessToken, estructura.notasId, NOMBRE, lista)
     return NextResponse.json(lista[idx])
   } catch (e) {

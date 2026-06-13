@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Nota, TipoNota, VinculoZettel, VinculoSugerido, Cita } from '@/types' // VinculoSugerido usado en Editor
 import {
   Plus, Search, X, Link2, Loader2, ChevronRight,
-  AlertTriangle, Sparkles, Check, RefreshCw, Zap, BookOpen, ArrowLeft, Trash2, Download, Pin,
+  AlertTriangle, Sparkles, Check, RefreshCw, Zap, BookOpen, ArrowLeft, Trash2, Download, Pin, History,
 } from 'lucide-react'
 import Link from 'next/link'
 import { generarIdZettel } from '@/lib/zettel-id'
@@ -543,6 +543,7 @@ function NotaDetalle({
   onEliminar,
   onSeleccionarNota,
   onFiltrarEtiqueta,
+  onRefrescar,
 }: {
   nota: Nota
   todasLasNotas: Nota[]
@@ -550,10 +551,13 @@ function NotaDetalle({
   onEliminar: () => void
   onSeleccionarNota: (n: Nota) => void
   onFiltrarEtiqueta: (e: string) => void
+  onRefrescar?: () => Promise<void>
 }) {
   const [comentario, setComentario] = useState(nota.comentarioPersonal ?? '')
   const [guardandoComentario, setGuardandoComentario] = useState(false)
   const [convertiendo, setConvirtiendo] = useState(false)
+  const [mostrarHistorial, setMostrarHistorial] = useState(false)
+  const [restaurando, setRestaurando] = useState<string | null>(null)
   const [sugerencia, setSugerencia] = useState<null | {
     titulo_sugerido: string
     contenido_sugerido: string
@@ -609,6 +613,21 @@ function NotaDetalle({
           {tipoBadge(nota.tipo)}
         </div>
         <div className="flex items-center gap-2">
+          {(nota.versiones ?? []).length > 0 && (
+            <button
+              onClick={() => setMostrarHistorial((v) => !v)}
+              title="Historial de versiones"
+              className="rounded-lg px-2 py-1.5 text-xs transition-all"
+              style={mostrarHistorial
+                ? { border: '1px solid rgba(139,92,246,0.5)', color: '#a78bfa', background: 'rgba(139,92,246,0.1)' }
+                : { border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }
+              }
+              onMouseEnter={(e) => { if (!mostrarHistorial) { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)'; e.currentTarget.style.color = '#a78bfa' } }}
+              onMouseLeave={(e) => { if (!mostrarHistorial) { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' } }}
+            >
+              <History className="h-3.5 w-3.5" />
+            </button>
+          )}
           <button
             onClick={onEditar}
             className="rounded-lg px-3 py-1.5 text-xs transition-all"
@@ -905,6 +924,60 @@ function NotaDetalle({
           />
         </div>
       </div>
+
+      {/* Panel historial de versiones */}
+      {mostrarHistorial && (nota.versiones ?? []).length > 0 && (
+        <div
+          className="flex-shrink-0 overflow-y-auto p-4"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(5,5,12,0.7)', maxHeight: '260px' }}
+        >
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(167,139,250,0.7)' }}>
+            <History className="inline h-3.5 w-3.5 mr-1" />
+            Historial ({(nota.versiones ?? []).length})
+          </p>
+          <div className="space-y-2">
+            {(nota.versiones ?? []).map((v, i) => (
+              <div
+                key={i}
+                className="rounded-lg p-3"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-neutral-300 truncate">{v.titulo}</p>
+                    <p className="mt-0.5 text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                      {new Date(v.guardadaEn).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed line-clamp-2" style={{ color: 'rgba(148,163,184,0.55)' }}>
+                      {v.contenido.slice(0, 100)}{v.contenido.length > 100 ? '…' : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={async () => {
+                      setRestaurando(String(i))
+                      await fetch(`/api/notas/${nota.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contenido: v.contenido, titulo: v.titulo }),
+                      })
+                      setRestaurando(null)
+                      setMostrarHistorial(false)
+                      if (onRefrescar) await onRefrescar()
+                    }}
+                    disabled={restaurando === String(i)}
+                    className="flex-shrink-0 rounded px-2 py-1 text-xs transition-all disabled:opacity-50"
+                    style={{ border: '1px solid rgba(139,92,246,0.3)', color: 'rgba(167,139,250,0.8)' }}
+                    onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.background = 'rgba(139,92,246,0.12)'; e.currentTarget.style.color = '#a78bfa' } }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(167,139,250,0.8)' }}
+                  >
+                    {restaurando === String(i) ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Restaurar'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1474,6 +1547,15 @@ export default function NotasClient() {
             onFiltrarEtiqueta={(e) => {
               setFiltroEtiqueta(filtroEtiqueta === e ? '' : e)
               setNotaSel(null)
+            }}
+            onRefrescar={async () => {
+              await cargar()
+              // Refresh the selected nota with latest data
+              const res = await fetch(`/api/notas/${notaSel.id}`)
+              if (res.ok) {
+                const updated = await res.json()
+                setNotaSel(updated)
+              }
             }}
           />
         ) : (

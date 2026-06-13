@@ -30,17 +30,35 @@ export async function POST(req: NextRequest) {
     }
 
     const estructura = await initUserDrive(accessToken)
+
+    // Duplicate detection
+    const existingDocs = await listPDFs(accessToken, estructura.pdfsId)
+    const duplicados: { nombre: string; existingId: string }[] = []
+    const filesToUpload: File[] = []
+
+    for (const file of files) {
+      const normalizedName = file.name.toLowerCase().trim()
+      const existing = existingDocs.find((d) => d.nombre.toLowerCase().trim() === normalizedName)
+      if (existing) {
+        duplicados.push({ nombre: file.name, existingId: existing.id })
+      } else {
+        filesToUpload.push(file)
+      }
+    }
+
+    // Only upload non-duplicates
     const ids: string[] = []
-    for (let i = 0; i < files.length; i++) {
-      const fileId = await uploadPDF(accessToken, estructura.pdfsId, files[i])
+    for (let i = 0; i < filesToUpload.length; i++) {
+      const fileId = await uploadPDF(accessToken, estructura.pdfsId, filesToUpload[i])
       // carpetaId_0, carpetaId_1 … per-file; or global carpetaId fallback
+      const originalIndex = files.indexOf(filesToUpload[i])
       const carpetaId =
-        (formData.get(`carpetaId_${i}`) as string | null) ??
+        (formData.get(`carpetaId_${originalIndex}`) as string | null) ??
         (formData.get('carpetaId') as string | null)
       if (carpetaId) await updateDocumentMetadata(accessToken, fileId, { carpetaId })
       ids.push(fileId)
     }
-    return NextResponse.json({ ok: true, ids })
+    return NextResponse.json({ ok: true, ids, duplicados })
   } catch (e) {
     console.error('[POST /api/drive/pdfs]', e)
     return NextResponse.json({ error: String(e) }, { status: 500 })

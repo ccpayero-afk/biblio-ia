@@ -4,7 +4,7 @@ import Link from 'next/link'
 import {
   Library, FileText, StickyNote, FolderOpen,
   Coffee, BookOpen, MessageSquare, ArrowRight, Sparkles,
-  AlertCircle, ScanText,
+  AlertCircle, ScanText, TrendingUp,
 } from 'lucide-react'
 import NeuralCanvas from './NeuralCanvas'
 
@@ -49,9 +49,11 @@ interface Props {
   docsSinFicha: number
   notasEfimeras: number
   proyectosSinBorrador: number
+  notasEstaSemana: number
+  citasEstaSemana: number
 }
 
-export default function DashboardView({ nombre, docCount, indexados, fichaCount, notaCount, proyectoCount, docsNoIndexados, docsSinFicha, notasEfimeras, proyectosSinBorrador }: Props) {
+export default function DashboardView({ nombre, docCount, indexados, fichaCount, notaCount, proyectoCount, docsNoIndexados, docsSinFicha, notasEfimeras, proyectosSinBorrador, notasEstaSemana, citasEstaSemana }: Props) {
   const stats = [
     { ...STAT_CARDS[0], valor: docCount,      desc: `${indexados} indexado${indexados !== 1 ? 's' : ''}` },
     { ...STAT_CARDS[1], valor: fichaCount,     desc: fichaCount === 1 ? '1 ficha generada' : `${fichaCount} fichas generadas` },
@@ -143,6 +145,16 @@ export default function DashboardView({ nombre, docCount, indexados, fichaCount,
           background: 'linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.35) 35%, rgba(6,182,212,0.25) 65%, transparent 100%)',
           pointerEvents: 'none',
         }} />
+      </div>
+
+      {/* ── ACTIVIDAD ESTA SEMANA ── */}
+      <div className="mb-4 rounded-xl px-4 py-3 flex items-center gap-3"
+        style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)' }}>
+        <TrendingUp className="h-4 w-4 shrink-0" style={{ color: 'rgba(167,139,250,0.7)' }} />
+        <p className="text-sm" style={{ color: 'rgba(148,163,184,0.8)' }}>
+          Esta semana: <span className="text-white font-medium">{notasEstaSemana} nota{notasEstaSemana !== 1 ? 's' : ''}</span> y{' '}
+          <span className="text-white font-medium">{citasEstaSemana} cita{citasEstaSemana !== 1 ? 's' : ''}</span> nuevas
+        </p>
       </div>
 
       {/* ── STATS ── */}

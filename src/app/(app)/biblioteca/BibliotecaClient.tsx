@@ -458,6 +458,11 @@ export default function BibliotecaClient() {
         const err = await res.json().catch(() => ({}))
         setErrorSubida(err?.error ?? `Error al subir (${res.status})`)
       } else {
+        const data = await res.json()
+        if (data.duplicados?.length > 0) {
+          const nombres = (data.duplicados as { nombre: string }[]).map((d) => d.nombre).join(', ')
+          setErrorSubida(`Ya exist${data.duplicados.length > 1 ? 'ían' : 'ía'}: ${nombres}`)
+        }
         await cargar()
       }
     } catch (e) {

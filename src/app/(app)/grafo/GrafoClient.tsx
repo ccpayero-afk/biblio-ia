@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo, Component, ReactNode } from 'react'
 import * as d3 from 'd3'
 import { RefreshCw, Loader2, GitFork, AlertCircle, Network, BookOpen, Crosshair } from 'lucide-react'
-import { Cita, Grafo, NodoGrafo, Nota, VinculoZettel } from '@/types'
+import { Carpeta, Cita, Grafo, NodoGrafo, Nota, VinculoZettel } from '@/types'
 
 // ─── Tipos internos ───────────────────────────────────────────────────────────
 
@@ -279,6 +279,8 @@ export default function GrafoClient() {
   const [grafo, setGrafo] = useState<Grafo | null>(null)
   const [notas, setNotas] = useState<Nota[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
+  const [carpetas, setCarpetas] = useState<Carpeta[]>([])
+  const [carpetaFiltro, setCarpetaFiltro] = useState<string | null>(null)
   const [cargando, setCargando] = useState(true)
   const [errorMsg, setErrorMsg] = useState('')
   const [nodoSel, setNodoSel] = useState<{ id: string; tipo: string } | null>(null)
@@ -307,19 +309,21 @@ export default function GrafoClient() {
     setCargando(true)
     setErrorMsg('')
     try {
-      const [resGrafo, resNotas, resCitas] = await Promise.all([
+      const [resGrafo, resNotas, resCitas, resCarpetas] = await Promise.all([
         fetch(`/api/grafo${rebuild ? '?rebuild=1' : ''}`),
         fetch('/api/notas'),
         fetch('/api/citas'),
+        fetch('/api/carpetas'),
       ])
-      const [dataGrafo, dataNotas, dataCitas] = await Promise.all([
-        resGrafo.json(), resNotas.json(), resCitas.json(),
+      const [dataGrafo, dataNotas, dataCitas, dataCarpetas] = await Promise.all([
+        resGrafo.json(), resNotas.json(), resCitas.json(), resCarpetas.json(),
       ])
       if (dataGrafo.error) { setErrorMsg(dataGrafo.error); setGrafo(null) }
       else if (dataGrafo.nodos) setGrafo(dataGrafo as Grafo)
       else setGrafo(null)
       if (Array.isArray(dataNotas)) setNotas(dataNotas)
       if (Array.isArray(dataCitas)) setCitas(dataCitas)
+      if (Array.isArray(dataCarpetas)) setCarpetas(dataCarpetas)
     } catch (e) { setErrorMsg(String(e)) }
     setCargando(false)
   }, [])
@@ -389,7 +393,17 @@ export default function GrafoClient() {
     ],
   }
 
-  const nodosBiblioFiltrados = (grafo?.nodos ?? []).filter(n => tiposNodoFiltro.has(n.tipo))
+  const nodosBiblioFiltrados = useMemo(() => {
+    let nodos = (grafo?.nodos ?? []).filter(n => tiposNodoFiltro.has(n.tipo))
+    if (carpetaFiltro) {
+      const docIds = new Set(nodos.filter(n => n.tipo === 'documento' && n.carpetaId === carpetaFiltro).map(n => n.id))
+      const aristasFiltradas = (grafo?.aristas ?? []).filter(a => docIds.has(a.source) || docIds.has(a.target))
+      const nodoConectadoIds = new Set(aristasFiltradas.flatMap(a => [a.source, a.target]))
+      nodos = nodos.filter(n => n.tipo === 'documento' ? docIds.has(n.id) : nodoConectadoIds.has(n.id))
+    }
+    return nodos
+  }, [grafo, tiposNodoFiltro, carpetaFiltro])
+
   const idsBiblio = new Set(nodosBiblioFiltrados.map(n => n.id))
   const graphDataBiblio: { nodes: GNode[]; links: GLink[] } = {
     nodes: nodosBiblioFiltrados.map(n => ({
@@ -586,6 +600,22 @@ export default function GrafoClient() {
                 </button>
               ))}
             </div>
+            {carpetas.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.4)' }}>Carpeta</p>
+                <select
+                  value={carpetaFiltro ?? ''}
+                  onChange={(e) => setCarpetaFiltro(e.target.value || null)}
+                  className="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: carpetaFiltro ? '#fff' : 'rgba(148,163,184,0.5)' }}
+                >
+                  <option value="">Todas las carpetas</option>
+                  {carpetas.map(c => (
+                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         )}
 

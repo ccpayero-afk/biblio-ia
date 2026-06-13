@@ -18,6 +18,7 @@ export async function buildGrafo(accessToken: string): Promise<Grafo> {
       tipo: 'documento',
       label: doc.nombre.replace(/\.pdf$/i, '').slice(0, 40),
       peso: doc.fragmentos || 1,
+      carpetaId: doc.carpetaId,
     })
 
     // Author node

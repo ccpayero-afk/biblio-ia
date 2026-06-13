@@ -3,7 +3,7 @@ import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, listPDFs, findFile, readJSON } from '@/lib/drive'
 import { google } from 'googleapis'
 import DashboardView from './DashboardView'
-import type { Nota, Proyecto } from '@/types'
+import type { Nota, Proyecto, Cita } from '@/types'
 
 export default async function DashboardPage() {
   const session = await auth()
@@ -12,6 +12,7 @@ export default async function DashboardPage() {
 
   let docCount = 0, indexados = 0, fichaCount = 0, notaCount = 0, proyectoCount = 0
   let docsNoIndexados = 0, docsSinFicha = 0, notasEfimeras = 0, proyectosSinBorrador = 0
+  let notasEstaSemana = 0, citasEstaSemana = 0
 
   try {
     const estructura = await initUserDrive(accessToken)
@@ -54,6 +55,22 @@ export default async function DashboardPage() {
         ).length
       : 0
 
+    const hace7Dias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+    notasEstaSemana = Array.isArray(notasData)
+      ? (notasData as (Nota & { eliminadaEn?: string })[]).filter(
+          (n) => !n.eliminadaEn && n.creadaEn >= hace7Dias
+        ).length
+      : 0
+
+    const citasFileId = await findFile(accessToken, 'citas.json', estructura.citasId)
+    if (citasFileId) {
+      const citasData = await readJSON<unknown[]>(accessToken, citasFileId)
+      citasEstaSemana = Array.isArray(citasData)
+        ? (citasData as Cita[]).filter((c) => c.creadaEn && c.creadaEn >= hace7Dias).length
+        : 0
+    }
+
   } catch {
     // Drive API unavailable — show zeros gracefully
   }
@@ -70,6 +87,8 @@ export default async function DashboardPage() {
       docsSinFicha={docsSinFicha}
       notasEfimeras={notasEfimeras}
       proyectosSinBorrador={proyectosSinBorrador}
+      notasEstaSemana={notasEstaSemana}
+      citasEstaSemana={citasEstaSemana}
     />
   )
 }
