@@ -13,9 +13,10 @@ interface ResultadoComparador {
 }
 
 function docLabel(d: Documento) {
-  const autor = d.autor ? d.autor.split(',')[0].trim() : '?'
-  const nombre = d.nombre.replace(/\.pdf$/i, '').split('/').pop() ?? d.nombre
-  return { autor, nombre }
+  const nombreLimpio = (d.nombre.replace(/\.pdf$/i, '').split('/').pop() ?? d.nombre).replace(/_/g, ' ')
+  const apellido = d.autor ? d.autor.split(',')[0].trim() : null
+  const initial = (apellido ?? nombreLimpio).charAt(0).toUpperCase()
+  return { apellido, nombreLimpio, initial }
 }
 
 export default function ComparadorClient() {
@@ -97,8 +98,8 @@ export default function ComparadorClient() {
               {doc && label ? (
                 <>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate" style={{ color: hex }}>{label.autor}</p>
-                    <p className="text-[11px] truncate" style={{ color: 'rgba(148,163,184,0.6)' }}>{label.nombre}</p>
+                    <p className="text-xs font-medium truncate" style={{ color: hex }}>{label.apellido ?? label.nombreLimpio}</p>
+                    {label.apellido && <p className="text-[11px] truncate" style={{ color: 'rgba(148,163,184,0.6)' }}>{label.nombreLimpio}</p>}
                   </div>
                   <button onClick={() => slot === 'A' ? setDoc1Id('') : setDoc2Id('')}
                     className="shrink-0 rounded p-0.5 transition-colors"
@@ -143,7 +144,7 @@ export default function ComparadorClient() {
             {documentos.map(d => {
               const isA = d.id === doc1Id
               const isB = d.id === doc2Id
-              const { autor, nombre } = docLabel(d)
+              const { apellido, nombreLimpio, initial } = docLabel(d)
               const borderColor = isA ? 'rgba(139,92,246,0.4)' : isB ? 'rgba(34,211,238,0.4)' : 'transparent'
               const bgColor = isA ? 'rgba(139,92,246,0.08)' : isB ? 'rgba(34,211,238,0.08)' : 'transparent'
               const badgeColor = isA ? '#a78bfa' : '#22d3ee'
@@ -155,13 +156,13 @@ export default function ComparadorClient() {
                   onMouseLeave={e => { if (!isA && !isB) e.currentTarget.style.background = 'transparent' }}>
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
                     style={{ background: isA || isB ? `${isA ? 'rgba(139,92,246,' : 'rgba(34,211,238,'}0.2)` : 'rgba(255,255,255,0.07)', color: isA || isB ? badgeColor : 'rgba(148,163,184,0.5)' }}>
-                    {isA ? 'A' : isB ? 'B' : autor.charAt(0).toUpperCase()}
+                    {isA ? 'A' : isB ? 'B' : initial}
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium truncate" style={{ color: isA || isB ? badgeColor : 'rgba(226,232,240,0.85)' }}>
-                      {autor}
+                      {apellido ?? nombreLimpio}
                     </p>
-                    <p className="text-[11px] truncate" style={{ color: 'rgba(148,163,184,0.55)' }}>{nombre}</p>
+                    {apellido && <p className="text-[11px] truncate" style={{ color: 'rgba(148,163,184,0.55)' }}>{nombreLimpio}</p>}
                   </div>
                   {(isA || isB) && (
                     <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium"

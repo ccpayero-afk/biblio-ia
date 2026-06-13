@@ -1,8 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Eye, EyeOff, CheckCircle, XCircle, ExternalLink, Download } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, XCircle, ExternalLink, Download, RefreshCw, FileText } from 'lucide-react'
 import type { ZoteroItem, ZoteroImportResult } from '@/lib/zotero'
+
+interface PropuestaRenombrado {
+  id: string
+  nombreActual: string
+  nombrePropuesto: string
+  autor: string
+  año: string
+  titulo: string | null
+}
 
 interface Props {
   apiKeyConfigurada: boolean
@@ -31,6 +40,42 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
   const [importResult, setImportResult] = useState<ZoteroImportResult | null>(null)
   const [importados, setImportados] = useState<ZoteroItem[]>([])
   const [mostrarImportados, setMostrarImportados] = useState(false)
+
+  // ── Renombrar archivos ───────────────────────────────────────────────────────
+  const [propuestasRenombrado, setPropuestasRenombrado] = useState<PropuestaRenombrado[]>([])
+  const [cargandoPropuestas, setCargandoPropuestas] = useState(false)
+  const [seleccionadosRenombrar, setSeleccionadosRenombrar] = useState<Set<string>>(new Set())
+  const [aplicandoRenombrado, setAplicandoRenombrado] = useState(false)
+  const [resultadoRenombrado, setResultadoRenombrado] = useState<{ ok: number; errores: number } | null>(null)
+
+  async function cargarPropuestas() {
+    setCargandoPropuestas(true); setPropuestasRenombrado([]); setResultadoRenombrado(null)
+    try {
+      const res = await fetch('/api/drive/renombrar')
+      const data = await res.json()
+      if (Array.isArray(data)) {
+        setPropuestasRenombrado(data)
+        setSeleccionadosRenombrar(new Set(data.map((p: PropuestaRenombrado) => p.id)))
+      }
+    } catch { /* ignore */ }
+    setCargandoPropuestas(false)
+  }
+
+  async function aplicarRenombrado() {
+    if (seleccionadosRenombrar.size === 0) return
+    setAplicandoRenombrado(true)
+    try {
+      const res = await fetch('/api/drive/renombrar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(seleccionadosRenombrar) }),
+      })
+      const data = await res.json()
+      setResultadoRenombrado({ ok: data.ok ?? 0, errores: data.errores ?? 0 })
+      await cargarPropuestas()
+    } catch { /* ignore */ }
+    setAplicandoRenombrado(false)
+  }
 
   useEffect(() => {
     fetch('/api/config/zotero')
@@ -403,6 +448,88 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
             </li>
           ))}
         </ul>
+      </div>
+
+      {/* ── Renombrar archivos ─────────────────────────────────────────────── */}
+      <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="flex items-center gap-2 mb-1">
+          <FileText className="h-4 w-4" style={{ color: 'rgba(34,211,238,0.7)' }} />
+          <h2 className="text-sm font-semibold text-white">Renombrar archivos desde metadatos</h2>
+        </div>
+        <p className="text-xs mb-4" style={{ color: 'rgba(148,163,184,0.5)' }}>
+          Genera nombres legibles a partir del autor, año y título registrados. No usa IA.
+        </p>
+
+        <button onClick={cargarPropuestas} disabled={cargandoPropuestas}
+          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all disabled:opacity-50"
+          style={{ background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.2)', color: 'rgba(34,211,238,0.8)' }}>
+          {cargandoPropuestas ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          Analizar archivos
+        </button>
+
+        {propuestasRenombrado.length === 0 && !cargandoPropuestas && resultadoRenombrado === null && (
+          <p className="mt-3 text-xs" style={{ color: 'rgba(148,163,184,0.35)' }}>
+            Hacé clic en "Analizar archivos" para ver qué se puede renombrar.
+          </p>
+        )}
+
+        {resultadoRenombrado && (
+          <div className="mt-3 rounded-lg px-3 py-2 text-xs" style={{ background: resultadoRenombrado.errores > 0 ? 'rgba(245,158,11,0.08)' : 'rgba(34,197,94,0.08)', border: `1px solid ${resultadoRenombrado.errores > 0 ? 'rgba(245,158,11,0.2)' : 'rgba(34,197,94,0.2)'}`, color: resultadoRenombrado.errores > 0 ? '#fbbf24' : '#4ade80' }}>
+            {resultadoRenombrado.ok} archivo{resultadoRenombrado.ok !== 1 ? 's' : ''} renombrado{resultadoRenombrado.ok !== 1 ? 's' : ''} correctamente
+            {resultadoRenombrado.errores > 0 && ` · ${resultadoRenombrado.errores} error${resultadoRenombrado.errores > 1 ? 'es' : ''}`}
+          </div>
+        )}
+
+        {propuestasRenombrado.length > 0 && (
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
+                {propuestasRenombrado.length} archivo{propuestasRenombrado.length !== 1 ? 's' : ''} con renombrado propuesto
+              </p>
+              <div className="flex gap-2">
+                <button onClick={() => setSeleccionadosRenombrar(new Set(propuestasRenombrado.map(p => p.id)))}
+                  className="text-[11px] rounded px-2 py-0.5 transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.05)' }}>
+                  Todos
+                </button>
+                <button onClick={() => setSeleccionadosRenombrar(new Set())}
+                  className="text-[11px] rounded px-2 py-0.5 transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.05)' }}>
+                  Ninguno
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', maxHeight: '320px', overflowY: 'auto' }}>
+              {propuestasRenombrado.map((p) => {
+                const sel = seleccionadosRenombrar.has(p.id)
+                return (
+                  <label key={p.id} className="flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors"
+                    style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: sel ? 'rgba(34,211,238,0.04)' : 'transparent' }}
+                    onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.02)' }}
+                    onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'transparent' }}>
+                    <input type="checkbox" checked={sel} onChange={() => {
+                      const next = new Set(seleccionadosRenombrar)
+                      sel ? next.delete(p.id) : next.add(p.id)
+                      setSeleccionadosRenombrar(next)
+                    }} className="mt-0.5 accent-violet-500" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] truncate" style={{ color: 'rgba(148,163,184,0.45)' }}>{p.nombreActual}</p>
+                      <p className="text-xs font-medium truncate" style={{ color: sel ? 'rgba(34,211,238,0.85)' : 'rgba(226,232,240,0.7)' }}>→ {p.nombrePropuesto}</p>
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+
+            <button onClick={aplicarRenombrado} disabled={aplicandoRenombrado || seleccionadosRenombrar.size === 0}
+              className="mt-2 flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-40"
+              style={{ background: 'linear-gradient(135deg, #0891b2, #7c3aed)', boxShadow: '0 0 12px rgba(8,145,178,0.25)' }}>
+              {aplicandoRenombrado ? <RefreshCw className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              Renombrar {seleccionadosRenombrar.size} archivo{seleccionadosRenombrar.size !== 1 ? 's' : ''}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
