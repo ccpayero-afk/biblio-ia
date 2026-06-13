@@ -11,7 +11,7 @@ interface Seleccion { texto: string; pagina: number }
 interface Props {
   seleccion: Seleccion
   documento: Documento
-  onGuardar: (datos: { notaPropia?: string; etiquetas: string[]; proyectoId?: string }) => void
+  onGuardar: (datos: { notaPropia?: string; etiquetas: string[]; proyectoId?: string }) => Promise<{ duplicado?: boolean }>
   onCerrar: () => void
 }
 
@@ -19,6 +19,7 @@ export default function CitaModal({ seleccion, documento, onGuardar, onCerrar }:
   const [notaPropia, setNotaPropia] = useState('')
   const [etiquetas, setEtiquetas] = useState<string[]>([])
   const [guardando, setGuardando] = useState(false)
+  const [duplicado, setDuplicado] = useState(false)
 
   function toggleEtiqueta(tag: string) {
     setEtiquetas((p) => p.includes(tag) ? p.filter((t) => t !== tag) : [...p, tag])
@@ -26,8 +27,11 @@ export default function CitaModal({ seleccion, documento, onGuardar, onCerrar }:
 
   async function handleGuardar() {
     setGuardando(true)
-    await onGuardar({ notaPropia: notaPropia || undefined, etiquetas })
+    const resultado = await onGuardar({ notaPropia: notaPropia || undefined, etiquetas })
     setGuardando(false)
+    if (resultado?.duplicado) {
+      setDuplicado(true)
+    }
   }
 
   const apellido = documento.autor ? documento.autor.split(',')[0] : 'Autor'
@@ -112,25 +116,42 @@ export default function CitaModal({ seleccion, documento, onGuardar, onCerrar }:
         </div>
 
         <div className="flex justify-end gap-2 p-5" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-          <button
-            onClick={onCerrar}
-            className="rounded-lg px-4 py-2 text-sm transition-colors"
-            style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff' }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleGuardar}
-            disabled={guardando}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-50"
-            style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 10px rgba(124,58,237,0.25)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 18px rgba(124,58,237,0.45)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 10px rgba(124,58,237,0.25)' }}
-          >
-            {guardando ? 'Guardando…' : 'Guardar cita'}
-          </button>
+          {duplicado ? (
+            <div className="flex w-full items-center justify-between">
+              <p className="text-sm font-medium" style={{ color: '#fbbf24' }}>Ya tenés esta cita guardada</p>
+              <button
+                onClick={onCerrar}
+                className="rounded-lg px-4 py-2 text-sm transition-colors"
+                style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
+              >
+                Cerrar
+              </button>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={onCerrar}
+                className="rounded-lg px-4 py-2 text-sm transition-colors"
+                style={{ border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.6)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = 'rgba(148,163,184,0.6)' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleGuardar}
+                disabled={guardando}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-all disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 10px rgba(124,58,237,0.25)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 18px rgba(124,58,237,0.45)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 10px rgba(124,58,237,0.25)' }}
+              >
+                {guardando ? 'Guardando…' : 'Guardar cita'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

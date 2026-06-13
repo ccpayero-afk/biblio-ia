@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { FileText, Sparkles, Loader2, Search, ChevronRight, RefreshCw, BookOpen, Tag, Pencil } from 'lucide-react'
+import { FileText, Sparkles, Loader2, Search, ChevronRight, RefreshCw, BookOpen, Tag, Pencil, Download } from 'lucide-react'
 import Link from 'next/link'
 import { Documento, FichaLectura } from '@/types'
 import { CarpetaSelector } from '@/components/CarpetaSelector'
@@ -177,6 +177,18 @@ function FichaDetalle({
           </div>
         </div>
         <div className="flex flex-shrink-0 gap-2">
+          {ficha && !editando && (
+            <a
+              href={`/api/fichas/exportar?documentoId=${doc.id}`}
+              download
+              className="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-all"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.5)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.2)'; (e.currentTarget as HTMLElement).style.color = '#f1f5f9' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'; (e.currentTarget as HTMLElement).style.color = 'rgba(148,163,184,0.5)' }}
+            >
+              <Download className="h-3.5 w-3.5" /> .docx
+            </a>
+          )}
           {ficha && !editando && (
             <button
               onClick={iniciarEdicion}

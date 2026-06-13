@@ -36,9 +36,17 @@ export async function POST(req: NextRequest) {
     if (fileId) {
       try { lista = await readJSON<Cita[]>(accessToken, fileId) } catch { lista = [] }
     }
+    const fp = (nuevaCita.texto ?? '').trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 120)
+    if (fp.length > 10) {
+      const dup = lista.find((c) => (c.texto ?? '').trim().toLowerCase().replace(/\s+/g, ' ').slice(0, 120) === fp)
+      if (dup) {
+        return NextResponse.json({ ok: true, duplicado: true, citaExistente: dup })
+      }
+    }
+
     lista.push(nuevaCita)
     await writeJSON(accessToken, estructura.citasId, NOMBRE, lista)
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, duplicado: false })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

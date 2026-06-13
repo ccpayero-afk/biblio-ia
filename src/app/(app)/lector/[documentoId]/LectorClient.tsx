@@ -398,8 +398,8 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
     }
   }
 
-  async function guardarCita(datos: { notaPropia?: string; etiquetas: string[]; proyectoId?: string }) {
-    if (!modalCita) return
+  async function guardarCita(datos: { notaPropia?: string; etiquetas: string[]; proyectoId?: string }): Promise<{ duplicado?: boolean }> {
+    if (!modalCita) return {}
     const cita = crearCita({
       texto: modalCita.texto,
       pagina: modalCita.pagina,
@@ -409,15 +409,20 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
       año: documento.año,
       ...datos,
     })
-    setCitas((prev) => [...prev, cita])
     const sel = modalCita
-    setModalCita(null)
-    await guardarHighlight(sel, 'rojo')
-    await fetch('/api/citas', {
+    const res = await fetch('/api/citas', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(cita),
     })
+    const data = await res.json()
+    if (data?.duplicado) {
+      return { duplicado: true }
+    }
+    setCitas((prev) => [...prev, cita])
+    setModalCita(null)
+    await guardarHighlight(sel, 'rojo')
+    return { duplicado: false }
   }
 
   async function procesarHighlights() {

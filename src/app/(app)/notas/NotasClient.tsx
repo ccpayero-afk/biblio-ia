@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Nota, TipoNota, VinculoZettel, VinculoSugerido } from '@/types' // VinculoSugerido usado en Editor
+import { Nota, TipoNota, VinculoZettel, VinculoSugerido, Cita } from '@/types' // VinculoSugerido usado en Editor
 import {
   Plus, Search, X, Link2, Loader2, ChevronRight,
-  AlertTriangle, Sparkles, Check, RefreshCw, Zap, BookOpen, ArrowLeft, Trash2,
+  AlertTriangle, Sparkles, Check, RefreshCw, Zap, BookOpen, ArrowLeft, Trash2, Download, Pin,
 } from 'lucide-react'
 import Link from 'next/link'
 import { generarIdZettel } from '@/lib/zettel-id'
@@ -82,6 +82,14 @@ function Editor({
   const [autocomplete, setAutocomplete] = useState<{ query: string; pos: number } | null>(null)
   const [acIndex, setAcIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [citasBusqueda, setCitasBusqueda] = useState('')
+  const [citasDisponibles, setCitasDisponibles] = useState<Cita[]>([])
+  const [citaSelId, setCitaSelId] = useState<string | null>(nota.citaOrigenId ?? null)
+  const [citaExpandida, setCitaExpandida] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/citas').then((r) => r.json()).then((data) => setCitasDisponibles(Array.isArray(data) ? data : []))
+  }, [])
 
   const acSugerencias = autocomplete
     ? todasLasNotas
@@ -180,6 +188,7 @@ function Editor({
       tipo,
       etiquetas: etiquetas.split(',').map((e) => e.trim()).filter(Boolean),
       vinculos,
+      citaOrigenId: citaSelId ?? undefined,
     })
     setGuardando(false)
   }
@@ -240,6 +249,62 @@ function Editor({
               onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)' }}
               onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.boxShadow = '' }}
             />
+            {/* Cita de origen */}
+            <div className="rounded-lg" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+              <button
+                onClick={() => setCitaExpandida((v) => !v)}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left"
+              >
+                <Pin className="h-3.5 w-3.5 flex-shrink-0" style={{ color: citaSelId ? '#a78bfa' : 'rgba(148,163,184,0.4)' }} />
+                <span className="text-xs" style={{ color: citaSelId ? '#a78bfa' : 'rgba(148,163,184,0.5)' }}>
+                  Cita de origen{citaSelId ? '' : ' (sin vincular)'}
+                </span>
+              </button>
+              {citaExpandida && (
+                <div className="border-t px-3 pb-3 pt-2 space-y-2" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                  {citaSelId && (() => {
+                    const citaSel = citasDisponibles.find((c) => c.id === citaSelId)
+                    return citaSel ? (
+                      <div className="flex items-start justify-between gap-2 rounded-lg p-2" style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)' }}>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs text-neutral-300">{citaSel.texto.slice(0, 80)}{citaSel.texto.length > 80 ? '…' : ''}</p>
+                          <p className="text-xs" style={{ color: 'rgba(167,139,250,0.7)' }}>{citaSel.autor}</p>
+                        </div>
+                        <button onClick={() => setCitaSelId(null)} className="flex-shrink-0 text-xs text-neutral-500 hover:text-red-400">✕ Quitar vínculo</button>
+                      </div>
+                    ) : null
+                  })()}
+                  <input
+                    value={citasBusqueda}
+                    onChange={(e) => setCitasBusqueda(e.target.value)}
+                    placeholder="Buscar cita..."
+                    className="w-full rounded px-2 py-1.5 text-xs text-neutral-300 placeholder:text-neutral-600 focus:outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                  />
+                  <div className="max-h-36 space-y-1 overflow-y-auto">
+                    {citasDisponibles
+                      .filter((c) => !citasBusqueda || c.texto.toLowerCase().includes(citasBusqueda.toLowerCase()) || c.autor.toLowerCase().includes(citasBusqueda.toLowerCase()))
+                      .slice(0, 10)
+                      .map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => setCitaSelId(c.id)}
+                          className="block w-full rounded px-2 py-1.5 text-left text-xs transition-colors"
+                          style={{
+                            background: citaSelId === c.id ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.03)',
+                            border: citaSelId === c.id ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.06)',
+                            color: 'rgba(203,213,225,0.8)',
+                          }}
+                        >
+                          <span className="block truncate">{c.texto.slice(0, 80)}{c.texto.length > 80 ? '…' : ''}</span>
+                          <span className="text-xs" style={{ color: 'rgba(167,139,250,0.6)' }}>{c.autor}</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-wrap gap-2">
               {TIPOS_ZETTEL.map((t) => (
                 <button
@@ -855,11 +920,13 @@ export default function NotasClient() {
   const [notaSel, setNotaSel] = useState<Nota | null>(null)
   const [editando, setEditando] = useState<Partial<Nota> | null>(null)
   const [mostrarConvLote, setMostrarConvLote] = useState(false)
+  const [showExportMenu, setShowExportMenu] = useState(false)
   const [tipoConvLote, setTipoConvLote] = useState<TipoNota>('permanente')
   const [convirtiendo, setConvirtiendo] = useState(false)
   const [progresoConv, setProgresoConv] = useState<{ actual: number; total: number } | null>(null)
   const [vinculandoIA, setVinculandoIA] = useState(false)
   const [progresoVinc, setProgresoVinc] = useState<{ actual: number; total: number; nuevos: number; ultimoError?: string } | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
   const convRef = useRef<HTMLDivElement>(null)
 
   const cargar = useCallback(async () => {
@@ -896,10 +963,12 @@ export default function NotasClient() {
   }
 
   async function eliminarNota(id: string) {
-    if (!confirm('¿Eliminar esta nota? Se quitarán sus vínculos de otras notas.')) return
+    if (!confirm('¿Mover esta nota a la papelera?')) return
     await fetch(`/api/notas/${id}`, { method: 'DELETE' })
     if (notaSel?.id === id) setNotaSel(null)
     await cargar()
+    setToast('papelera')
+    setTimeout(() => setToast(null), 4000)
   }
 
   async function convertirLote(notasAConvertir: Nota[], tipo: TipoNota) {
@@ -994,6 +1063,17 @@ export default function NotasClient() {
 
   return (
     <div className="-m-4 md:-m-6 flex h-full overflow-hidden">
+      {/* Toast papelera */}
+      {toast === 'papelera' && (
+        <div
+          className="fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 rounded-xl px-4 py-3 text-sm shadow-2xl"
+          style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.4)', color: '#e2e8f0', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}
+        >
+          Nota enviada a la papelera{' '}
+          <Link href="/papelera" style={{ color: '#a78bfa' }}>Ver papelera</Link>
+        </div>
+      )}
+
       {/* Panel izquierdo: filtros */}
       <div
         className="hidden w-48 flex-shrink-0 overflow-y-auto p-4 lg:flex lg:flex-col"
@@ -1202,6 +1282,54 @@ export default function NotasClient() {
                     <Trash2 className="h-3 w-3" /> Eliminar todos los vínculos
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+          {/* Botón exportar */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu((v) => !v)}
+              title="Exportar notas a DOCX"
+              className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg transition-all"
+              style={{ border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.5)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; e.currentTarget.style.color = '#fff' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
+            >
+              <Download className="h-3.5 w-3.5" />
+            </button>
+            {showExportMenu && (
+              <div
+                className="absolute right-0 top-9 z-50 w-48 rounded-xl py-1 shadow-2xl"
+                style={{ background: 'rgba(10,10,22,0.97)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 16px 40px rgba(0,0,0,0.6)' }}
+                onMouseLeave={() => setShowExportMenu(false)}
+              >
+                <button
+                  onClick={() => { window.open('/api/notas/exportar', '_blank'); setShowExportMenu(false) }}
+                  className="block w-full px-4 py-2 text-left text-xs transition-colors"
+                  style={{ color: 'rgba(203,213,225,0.8)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(203,213,225,0.8)' }}
+                >
+                  Todas las notas
+                </button>
+                <button
+                  onClick={() => { window.open('/api/notas/exportar?tipo=permanente', '_blank'); setShowExportMenu(false) }}
+                  className="block w-full px-4 py-2 text-left text-xs transition-colors"
+                  style={{ color: 'rgba(203,213,225,0.8)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(203,213,225,0.8)' }}
+                >
+                  Solo permanentes
+                </button>
+                <button
+                  onClick={() => { window.open('/api/notas/exportar?tipo=referencia', '_blank'); setShowExportMenu(false) }}
+                  className="block w-full px-4 py-2 text-left text-xs transition-colors"
+                  style={{ color: 'rgba(203,213,225,0.8)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(203,213,225,0.8)' }}
+                >
+                  Solo referencias
+                </button>
               </div>
             )}
           </div>
