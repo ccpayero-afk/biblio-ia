@@ -121,6 +121,10 @@ Evaluá la propuesta del usuario: qué sabe, qué le falta construir, qué tensi
 
 Para cada texto de la biblioteca que sea relevante explicá: (a) por qué es útil para este trabajo específico, (b) qué aporta teórica o empíricamente, (c) cómo puede articularse con los demás. Indicá explícitamente si faltan textos centrales para el tema (gap bibliográfico).
 
+## Bibliografía sugerida
+
+Listá textos que el usuario NO tiene en su biblioteca pero que son centrales o muy útiles para este tema. Para cada uno indicá con precisión: **Autor/es, Año. "Título". Editorial/Revista**. Luego en 2-3 líneas: qué argumento o concepto aporta, por qué es relevante para este trabajo específico, y si hay acceso abierto o es de difícil consecución. Priorizá textos clásicos del campo, artículos con alto impacto y materiales metodológicos si aplica. No inventes títulos: solo incluí textos que podés verificar con certeza en tu conocimiento.
+
 ## Estructura sugerida
 
 Proponé una estructura de secciones completa con sus objetivos y contenidos. Vinculá cada sección con los textos disponibles y con el argumento central. Si es tesis, seguí estructura convencional; si es artículo, una más acotada. Para cada sección indicá qué debe resolver y qué fuentes la sostienen.

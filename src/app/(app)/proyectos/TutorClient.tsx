@@ -47,6 +47,7 @@ interface SesionTutor {
 const SECCIONES_ESPERADAS = [
   'Diagnóstico del trabajo',
   'Bibliografía recomendada',
+  'Bibliografía sugerida',
   'Estructura sugerida',
   'Orientación metodológica',
   'Hipótesis y preguntas orientadoras',
@@ -144,7 +145,8 @@ function Parrafo({ texto, color }: { texto: string; color: string }) {
 
 const SECCION_CONFIG: Record<string, { icono: React.ReactNode; color: string; desc: string }> = {
   'Diagnóstico del trabajo':            { icono: <Stethoscope className="h-4 w-4" />,  color: '#e879f9', desc: 'Evaluación crítica de la propuesta' },
-  'Bibliografía recomendada':           { icono: <BookOpen className="h-4 w-4" />,      color: '#a78bfa', desc: 'Textos clave y cómo usarlos' },
+  'Bibliografía recomendada':           { icono: <BookOpen className="h-4 w-4" />,      color: '#a78bfa', desc: 'Textos de tu biblioteca a priorizar' },
+  'Bibliografía sugerida':              { icono: <Globe className="h-4 w-4" />,          color: '#2dd4bf', desc: 'Textos a conseguir y por qué leerlos' },
   'Estructura sugerida':                { icono: <ListOrdered className="h-4 w-4" />,   color: '#22d3ee', desc: 'Organización del trabajo' },
   'Orientación metodológica':           { icono: <FlaskConical className="h-4 w-4" />,  color: '#34d399', desc: 'Enfoque y estrategia' },
   'Hipótesis y preguntas orientadoras': { icono: <HelpCircle className="h-4 w-4" />,   color: '#fbbf24', desc: 'Preguntas e hipótesis' },
@@ -541,9 +543,11 @@ export default function TutorClient() {
             style={{ background: buscarEnWeb ? 'rgba(6,182,212,0.08)' : 'rgba(255,255,255,0.03)', border: buscarEnWeb ? '1px solid rgba(6,182,212,0.3)' : '1px solid rgba(255,255,255,0.07)' }}>
             <Globe className="h-4 w-4 flex-shrink-0" style={{ color: buscarEnWeb ? '#22d3ee' : 'rgba(148,163,184,0.4)' }} />
             <div className="flex-1 text-left">
-              <p className="text-xs font-medium" style={{ color: buscarEnWeb ? '#22d3ee' : 'rgba(148,163,184,0.6)' }}>Buscar fuentes académicas</p>
+              <p className="text-xs font-medium" style={{ color: buscarEnWeb ? '#22d3ee' : 'rgba(148,163,184,0.6)' }}>
+                {buscarEnWeb ? 'Biblioteca + OpenAlex' : 'Agregar búsqueda académica externa'}
+              </p>
               <p className="text-[10px]" style={{ color: 'rgba(148,163,184,0.35)' }}>
-                {buscarEnWeb ? 'Activo — busca en OpenAlex (250M+ papers)' : 'Solo biblioteca personal'}
+                {buscarEnWeb ? 'Biblioteca siempre incluida · + OpenAlex 250M+ papers' : 'Biblioteca siempre incluida · activar para sumar OpenAlex'}
               </p>
             </div>
             <div className="h-5 w-9 rounded-full transition-all flex-shrink-0 relative" style={{ background: buscarEnWeb ? 'rgba(6,182,212,0.5)' : 'rgba(255,255,255,0.1)' }}>
@@ -569,6 +573,11 @@ export default function TutorClient() {
                 Analizados <strong className="text-white">{meta.fragmentosAnalizados}</strong> fragmentos de{' '}
                 <strong className="text-white">{meta.totalDocs}</strong> documentos
               </p>
+              {meta.fragmentosAnalizados === 0 && meta.totalDocs > 0 && (
+                <p className="text-[10px] leading-relaxed" style={{ color: 'rgba(251,191,36,0.65)' }}>
+                  Los documentos están en la biblioteca pero sin indexar. Indexalos desde <strong style={{ color: 'rgba(251,191,36,0.85)' }}>Biblioteca → Indexar</strong> para obtener análisis profundo de contenido. La bibliografía completa igualmente se incluye.
+                </p>
+              )}
               {meta.docsRelevantes.length > 0 && (
                 <div>
                   <p className="mb-1.5 text-xs font-medium" style={{ color: 'rgba(148,163,184,0.45)' }}>Más relevantes:</p>
