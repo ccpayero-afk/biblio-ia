@@ -258,6 +258,17 @@ export default function CitasClient() {
               >
                 <Download className="h-3.5 w-3.5" /> Word (.docx)
               </a>
+              <a
+                href="/api/citas/exportar?formato=bibtex"
+                download
+                className="flex items-center gap-2 px-3 py-2 text-sm transition-colors"
+                style={{ color: 'rgba(203,213,225,0.7)' }}
+                onClick={() => setMenuExport(false)}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(203,213,225,0.7)' }}
+              >
+                <Download className="h-3.5 w-3.5" /> BibTeX (.bib)
+              </a>
             </div>
           )}
         </div>

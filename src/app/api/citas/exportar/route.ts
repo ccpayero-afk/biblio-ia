@@ -15,6 +15,23 @@ export async function GET(req: NextRequest) {
     const fileId = await findFile(accessToken, 'citas.json', estructura.citasId)
     const citas: Cita[] = fileId ? await readJSON<Cita[]>(accessToken, fileId) : []
 
+    if (formato === 'bibtex') {
+      const bibtex = citas.map((c, index) => {
+        const rawKey = `${c.autor?.split(',')[0]?.trim().replace(/\s+/g, '') || 'Anon'}${c.año || 'sf'}${index + 1}`
+        const key = rawKey.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '')
+        const autor = c.autor || 'Anónimo'
+        const year = c.año || 's.f.'
+        const title = c.documentoNombre.replace(/\.pdf$/i, '')
+        return `@misc{${key},\n  author = {${autor}},\n  year = {${year}},\n  title = {{${title}}},\n  note = {"${c.texto}" (p. ${c.pagina})},\n  howpublished = {${c.formatoAPA}}\n}`
+      }).join('\n\n')
+      return new NextResponse(bibtex, {
+        headers: {
+          'Content-Type': 'application/x-bibtex; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="citas-biblioia.bib"',
+        },
+      })
+    }
+
     if (formato === 'docx') {
       const doc = new Document({
         sections: [{

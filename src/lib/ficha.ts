@@ -14,14 +14,30 @@ export async function generateFicha(
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
 
   const todos = fragmentos.filter((f) => f.documentoId === documentoId)
-  // Toma 20 fragmentos distribuidos uniformemente a lo largo del documento
-  // (no los primeros 20, que solo cubren la intro)
   const N = 20
-  const muestra = todos.length <= N
-    ? todos
-    : Array.from({ length: N }, (_, i) => todos[Math.floor(i * (todos.length - 1) / (N - 1))])
+  const introN = 3
+  const conclusionN = 3
+  const middleN = N - introN - conclusionN
+
+  let muestra: typeof todos
+  if (todos.length <= N || todos.length <= introN + conclusionN) {
+    muestra = todos
+  } else {
+    const intro = todos.slice(0, introN)
+    const conclusion = todos.slice(todos.length - conclusionN)
+    const middlePool = todos.slice(introN, todos.length - conclusionN)
+    const middle = Array.from(
+      { length: Math.min(middleN, middlePool.length) },
+      (_, i) => middlePool[Math.floor(i * (middlePool.length - 1) / (Math.min(middleN, middlePool.length) - 1))]
+    )
+    const seen = new Set<number>()
+    muestra = [...intro, ...middle, ...conclusion]
+      .filter((f) => { const idx = todos.indexOf(f); if (seen.has(idx)) return false; seen.add(idx); return true })
+      .sort((a, b) => a.pagina - b.pagina)
+  }
+
   const muestraTexto = muestra
-    .map((f) => `[p.${f.pagina}] ${f.texto.slice(0, 600)}`)  // 600 chars ≈ 150 palabras por fragmento
+    .map((f) => `[p.${f.pagina}] ${f.texto.slice(0, 600)}`)
     .join('\n\n')
 
   const titulo = documentoNombre.replace(/\.pdf$/i, '')
@@ -29,7 +45,7 @@ export async function generateFicha(
 
 DOCUMENTO: "${titulo}" por ${autor || 'Autor desconocido'} (${año || 's.f.'})
 
-FRAGMENTOS SELECCIONADOS (distribuidos a lo largo del documento, ${muestra.length} de ${todos.length} total):
+FRAGMENTOS SELECCIONADOS (${muestra.length} de ${todos.length} total (${introN} intro, ${conclusionN} conclusión, ${middleN} desarrollo)):
 ${muestraTexto}
 
 Respondé ÚNICAMENTE con un objeto JSON puro (sin markdown, sin \`\`\`json) con esta estructura exacta:

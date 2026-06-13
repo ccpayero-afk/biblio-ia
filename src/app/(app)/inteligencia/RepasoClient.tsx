@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   BookOpen, BookText, Check, X, Minus, Loader2, AlertCircle,
   RefreshCcw, Shuffle, ChevronRight,
@@ -112,6 +112,8 @@ export default function RepasoClient() {
   const [cargando, setCargando] = useState(true)
   const [cargandoFichas, setCargandoFichas] = useState(false)
   const [error, setError] = useState('')
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced'>('idle')
+  const syncTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Session
   const [queue, setQueue] = useState<RepasoCard[]>([])
@@ -121,7 +123,7 @@ export default function RepasoClient() {
   const [modoTodas, setModoTodas] = useState(false)
   const [incluirFichas, setIncluirFichas] = useState(false)
 
-  // Fetch notas once
+  // Fetch notas once, then merge with Drive state (Drive wins on due/interval)
   useEffect(() => {
     async function cargar() {
       try {
@@ -131,9 +133,22 @@ export default function RepasoClient() {
         const validas = (data as Nota[]).filter(
           (n) => TIPOS_REPASO.includes(n.tipo) && n.titulo?.trim() && n.contenido?.trim()
         )
-        const sts = loadAll()
+        const local = loadAll()
         setNotas(validas)
-        setStates(sts)
+        setStates(local)
+
+        fetch('/api/repaso/estado')
+          .then((r) => r.json())
+          .then((drive: Record<string, CardState>) => {
+            const merged = { ...local }
+            for (const [id, ds] of Object.entries(drive)) {
+              const ls = local[id]
+              if (!ls || ds.due > ls.due) merged[id] = ds
+            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+            setStates(merged)
+          })
+          .catch(() => { /* Drive sync failed — local state stays */ })
       } catch (e) {
         setError(String(e))
       } finally {
@@ -200,6 +215,18 @@ export default function RepasoClient() {
     setSessionDone((d) => d + 1)
     setRevealed(false)
     setIdx((i) => i + 1)
+
+    setSyncStatus('syncing')
+    if (syncTimeout.current) clearTimeout(syncTimeout.current)
+    syncTimeout.current = setTimeout(() => {
+      fetch('/api/repaso/estado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: newStates }),
+      })
+        .then(() => setSyncStatus('synced'))
+        .catch(() => setSyncStatus('idle'))
+    }, 500)
   }
 
   function toggleModo() {
@@ -269,6 +296,8 @@ export default function RepasoClient() {
             ? <><span style={{ color: '#a78bfa', fontWeight: 600 }}>{dueCount}</span> pendiente{dueCount !== 1 ? 's' : ''} hoy &middot; {totalCards} carta{totalCards !== 1 ? 's' : ''}</>
             : <>Al día · {totalCards} carta{totalCards !== 1 ? 's' : ''}</>
           }
+          {syncStatus === 'syncing' && <span style={{ marginLeft: '8px', color: 'rgba(148,163,184,0.35)' }}>Sincronizando…</span>}
+          {syncStatus === 'synced' && <span style={{ marginLeft: '8px', color: 'rgba(52,211,153,0.6)' }}>✓ Sincronizado</span>}
         </p>
       </div>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
