@@ -6,10 +6,23 @@ import {
   GraduationCap, Send, RotateCcw, BookOpen, FileText,
   Lightbulb, ListOrdered, FlaskConical, HelpCircle,
   AlertTriangle, Footprints, ChevronDown, Loader2, Sparkles,
-  Globe, ExternalLink, Stethoscope, History, Trash2, Clock,
+  Globe, ExternalLink, Stethoscope, History, Trash2, Clock, Folder,
 } from 'lucide-react'
+import type { Carpeta } from '@/types'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
+
+const CARPETA_COLORS: Record<string, string> = {
+  purple: '#a78bfa',
+  teal:   '#2dd4bf',
+  coral:  '#fb7185',
+  amber:  '#fbbf24',
+  blue:   '#60a5fa',
+  green:  '#34d399',
+  gray:   '#94a3b8',
+}
+
+const SIN_CARPETA_ID = '__sin_carpeta__'
 
 const TIPOS = [
   { id: 'articulo',  label: 'Artículo' },
@@ -299,6 +312,11 @@ export default function TutorClient() {
   const [historialAbierto, setHistorialAbierto] = useState(false)
   const [cargandoSesiones, setCargandoSesiones] = useState(false)
 
+  // Carpetas
+  const [carpetas, setCarpetas]                   = useState<Carpeta[]>([])
+  const [carpetasFiltro, setCarpetasFiltro]       = useState<string[]>([])
+  const [carpetasSelectorAbierto, setCarpetasSelectorAbierto] = useState(false)
+
   const textareaRef   = useRef<HTMLTextAreaElement>(null)
   const chatRef       = useRef<HTMLInputElement>(null)
   const planBottomRef = useRef<HTMLDivElement>(null)
@@ -314,7 +332,7 @@ export default function TutorClient() {
     el.style.height = `${Math.min(el.scrollHeight, 220)}px`
   }, [descripcion])
 
-  // ── Cargar sesiones al montar ─────────────────────────────────────────────
+  // ── Cargar sesiones y carpetas al montar ─────────────────────────────────
   useEffect(() => {
     setCargandoSesiones(true)
     fetch('/api/tutor/sesiones')
@@ -322,6 +340,11 @@ export default function TutorClient() {
       .then((data) => { if (Array.isArray(data)) setSesiones(data) })
       .catch(() => {})
       .finally(() => setCargandoSesiones(false))
+
+    fetch('/api/carpetas')
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data)) setCarpetas(data) })
+      .catch(() => {})
   }, [])
 
   // ── CRUD sesiones ─────────────────────────────────────────────────────────
@@ -420,7 +443,7 @@ export default function TutorClient() {
     let acum = ''
     try {
       await consumirStream(
-        { tipo, descripcion, perspectiva, buscarEnWeb },
+        { tipo, descripcion, perspectiva, buscarEnWeb, carpetasIds: carpetasFiltro.length ? carpetasFiltro : undefined },
         (m) => setMeta(m),
         (t) => { acum += t; setTexto(acum) },
         (f) => setFuentesAcademicas(f),
@@ -536,6 +559,83 @@ export default function TutorClient() {
               onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
             />
           </div>
+
+          {/* Selector de carpetas */}
+          {carpetas.length > 0 && (() => {
+            const sinCarpeta = carpetas.reduce((acc, c) => acc - c.documentosIds.length, meta?.totalDocs ?? 0)
+            const toggleCarpeta = (id: string) =>
+              setCarpetasFiltro((prev) =>
+                prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+              )
+            const seleccionadas = carpetasFiltro.length
+            return (
+              <div className="rounded-xl overflow-hidden" style={{ border: seleccionadas > 0 ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(255,255,255,0.07)', background: seleccionadas > 0 ? 'rgba(139,92,246,0.05)' : 'rgba(255,255,255,0.03)' }}>
+                <button onClick={() => setCarpetasSelectorAbierto((v) => !v)}
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left">
+                  <Folder className="h-4 w-4 flex-shrink-0" style={{ color: seleccionadas > 0 ? '#a78bfa' : 'rgba(148,163,184,0.4)' }} />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium" style={{ color: seleccionadas > 0 ? '#a78bfa' : 'rgba(148,163,184,0.6)' }}>
+                      {seleccionadas > 0 ? `${seleccionadas} carpeta${seleccionadas > 1 ? 's' : ''} seleccionada${seleccionadas > 1 ? 's' : ''}` : 'Filtrar por carpetas'}
+                    </p>
+                    <p className="text-[10px]" style={{ color: 'rgba(148,163,184,0.35)' }}>
+                      {seleccionadas > 0 ? 'Solo esas carpetas van al tutor' : 'Todas incluidas por defecto'}
+                    </p>
+                  </div>
+                  {seleccionadas > 0 && (
+                    <button onClick={(e) => { e.stopPropagation(); setCarpetasFiltro([]) }}
+                      className="rounded px-1.5 py-0.5 text-[10px] flex-shrink-0"
+                      style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>
+                      Limpiar
+                    </button>
+                  )}
+                  <ChevronDown className={`h-3.5 w-3.5 flex-shrink-0 transition-transform ${carpetasSelectorAbierto ? 'rotate-180' : ''}`} style={{ color: 'rgba(148,163,184,0.4)' }} />
+                </button>
+
+                {carpetasSelectorAbierto && (
+                  <div className="px-3 pb-3 space-y-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <p className="pt-2 pb-1 text-[10px]" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                      Elegí qué carpetas usar. Vacío = todas.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {carpetas.map((c) => {
+                        const color = CARPETA_COLORS[c.color] ?? '#94a3b8'
+                        const activa = carpetasFiltro.includes(c.id)
+                        return (
+                          <button key={c.id} onClick={() => toggleCarpeta(c.id)}
+                            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-all"
+                            style={{
+                              background: activa ? `${color}22` : 'rgba(255,255,255,0.04)',
+                              border: activa ? `1px solid ${color}55` : '1px solid rgba(255,255,255,0.08)',
+                              color: activa ? color : 'rgba(148,163,184,0.6)',
+                            }}>
+                            <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                            {c.nombre}
+                            <span className="opacity-50">({c.documentosIds.length})</span>
+                          </button>
+                        )
+                      })}
+                      {sinCarpeta > 0 && (() => {
+                        const activa = carpetasFiltro.includes(SIN_CARPETA_ID)
+                        return (
+                          <button onClick={() => toggleCarpeta(SIN_CARPETA_ID)}
+                            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-all"
+                            style={{
+                              background: activa ? 'rgba(148,163,184,0.12)' : 'rgba(255,255,255,0.04)',
+                              border: activa ? '1px solid rgba(148,163,184,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                              color: activa ? '#94a3b8' : 'rgba(148,163,184,0.5)',
+                            }}>
+                            <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ background: '#94a3b8' }} />
+                            Sin carpeta
+                            <span className="opacity-50">({sinCarpeta})</span>
+                          </button>
+                        )
+                      })()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Toggle web */}
           <button onClick={() => setBuscarEnWeb((v) => !v)}

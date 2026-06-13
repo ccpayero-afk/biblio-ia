@@ -159,6 +159,7 @@ export async function POST(req: NextRequest) {
       descripcion,
       perspectiva,
       buscarEnWeb = false,
+      carpetasIds,
       seguimiento,
       planTexto,
     } = (await req.json()) as {
@@ -166,6 +167,7 @@ export async function POST(req: NextRequest) {
       descripcion?: string
       perspectiva?: string
       buscarEnWeb?: boolean
+      carpetasIds?: string[]
       seguimiento?: string
       planTexto?: string
     }
@@ -217,15 +219,11 @@ export async function POST(req: NextRequest) {
     const palabras = descripcion.toLowerCase().split(/\s+/).filter((w) => w.length > 4)
     const matchTexto = (text: string) => palabras.some((p) => text.toLowerCase().includes(p))
 
-    // 1. Semantic search + drive init + academic search in parallel
     const timeout12s = <T>(fallback: T) =>
       new Promise<T>((resolve) => setTimeout(() => resolve(fallback), 12_000))
 
-    const [fragmentos, estructura, fuentesAcademicas] = await Promise.all([
-      Promise.race([
-        semanticSearch(descripcion, accessToken, { topK: 15 }).catch(() => []),
-        timeout12s([] as Awaited<ReturnType<typeof semanticSearch>>),
-      ]),
+    // 1. initUserDrive + academic search in parallel
+    const [estructura, fuentesAcademicas] = await Promise.all([
       initUserDrive(accessToken),
       buscarEnWeb ? buscarFuentesAcademicas(descripcion) : Promise.resolve([] as WorkAcademico[]),
     ])
@@ -241,6 +239,23 @@ export async function POST(req: NextRequest) {
         .catch(() => [] as Cita[]),
     ])
 
+    // 3. Filter docs by selected carpetas
+    const SIN_CARPETA_ID = '__sin_carpeta__'
+    const docsParaUsar = carpetasIds?.length
+      ? todosLosDocs.filter((d) =>
+          d.carpetaId
+            ? carpetasIds.includes(d.carpetaId)
+            : carpetasIds.includes(SIN_CARPETA_ID),
+        )
+      : todosLosDocs
+    const filteredDocIds = carpetasIds?.length ? docsParaUsar.map((d) => d.id) : undefined
+
+    // 4. Semantic search with filtered IDs
+    const fragmentos = await Promise.race([
+      semanticSearch(descripcion, accessToken, { topK: 15, documentoIds: filteredDocIds }).catch(() => []),
+      timeout12s([] as Awaited<ReturnType<typeof semanticSearch>>),
+    ])
+
     const notasRelevantes = notasRaw.filter((n) => matchTexto(n.contenido ?? '') || matchTexto(n.titulo ?? '')).slice(0, 10)
     const citasRelevantes = citasRaw.filter((c) => matchTexto(c.texto ?? '')).slice(0, 10)
 
@@ -253,7 +268,7 @@ export async function POST(req: NextRequest) {
         ).join('\n\n')
       : '(Sin fragmentos indexados — indexá los PDFs en Biblioteca para obtener mejores resultados.)'
 
-    const biblioStr = todosLosDocs
+    const biblioStr = docsParaUsar
       .filter((d) => d.autor || d.titulo)
       .map((d) => `• ${d.autor || 'Anónimo'} (${d.año || 's.f.'}). ${d.titulo ?? d.nombre.replace(/\.pdf$/i, '')}${d.revista ? `. *${d.revista}*` : ''}${d.doi ? `. DOI: ${d.doi}` : ''}.`)
       .join('\n')
@@ -270,6 +285,7 @@ export async function POST(req: NextRequest) {
 
 > "${descripcion.trim()}"
 ${perspectiva ? `\n**Perspectiva o enfoque declarado:** ${perspectiva}\n` : ''}
+${carpetasIds?.length ? `\n**Nota:** El usuario filtró la búsqueda a ${docsParaUsar.length} documentos de carpetas específicas (de ${todosLosDocs.length} totales). Trabajá exclusivamente con esa selección.\n` : ''}
 ${buscarEnWeb ? '\n**Nota:** El usuario habilitó búsqueda en la web. Podés complementar con fuentes externas cuando la biblioteca no cubra un área relevante, pero priorizá siempre los textos de la biblioteca disponible.\n' : ''}
 
 ---
@@ -299,7 +315,7 @@ ${SECCIONES_PROMPT}`
       docsRelevantes: fragmentos.slice(0, 8).map((f) => ({
         id: f.documentoId, nombre: f.documentoNombre, autor: f.autor, año: f.año,
       })),
-      totalDocs: todosLosDocs.length,
+      totalDocs: docsParaUsar.length,
       fragmentosAnalizados: fragmentos.length,
     }
 
