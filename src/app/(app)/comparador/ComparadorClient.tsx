@@ -105,7 +105,7 @@ export default function ComparadorClient() {
                   <option value="">Seleccioná un documento…</option>
                   {docsParaDoc1.map(d => (
                     <option key={d.id} value={d.id}>
-                      {d.autor} — {d.nombre}
+                      {d.autor ? d.autor.split(',')[0].trim() : '?'} — {d.nombre.replace(/\.pdf$/i, '').split('/').pop()?.slice(0, 60) ?? d.nombre}
                     </option>
                   ))}
                 </select>
@@ -124,7 +124,7 @@ export default function ComparadorClient() {
                   <option value="">Seleccioná un documento…</option>
                   {docsParaDoc2.map(d => (
                     <option key={d.id} value={d.id}>
-                      {d.autor} — {d.nombre}
+                      {d.autor ? d.autor.split(',')[0].trim() : '?'} — {d.nombre.replace(/\.pdf$/i, '').split('/').pop()?.slice(0, 60) ?? d.nombre}
                     </option>
                   ))}
                 </select>

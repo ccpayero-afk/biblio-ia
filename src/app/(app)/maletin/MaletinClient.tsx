@@ -28,8 +28,9 @@ export default function MaletinClient() {
         body: JSON.stringify({ tema, format: 'preview' }),
       })
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? 'Error al buscar material')
+        let msg = 'Error al buscar material'
+        try { const d = await res.json(); msg = d.error ?? msg } catch { /* HTML error page */ }
+        throw new Error(msg)
       }
       const stats: PreviewStats = await res.json()
       setPreview(stats)
@@ -51,8 +52,9 @@ export default function MaletinClient() {
         body: JSON.stringify({ tema }),
       })
       if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error ?? 'Error al generar maletín')
+        let msg = 'Error al generar maletín'
+        try { const d = await res.json(); msg = d.error ?? msg } catch { /* HTML error page */ }
+        throw new Error(msg)
       }
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)

@@ -20,8 +20,11 @@ export async function POST(req: NextRequest) {
 
     const estructura = await initUserDrive(accessToken)
 
-    // 1. Semantic search — top 20 fragments
-    const fragmentos = await semanticSearch(tema, accessToken, { topK: 20 })
+    // 1. Semantic search — top 20 fragments (returns [] if no index or no API key)
+    let fragmentos: Awaited<ReturnType<typeof semanticSearch>> = []
+    try {
+      fragmentos = await semanticSearch(tema, accessToken, { topK: 20 })
+    } catch { /* no index or Gemini key not configured */ }
 
     // 2. Collapse to unique documents — best score per doc, take top 8
     const bestByDoc = new Map<string, { score: number; documentoId: string }>()
