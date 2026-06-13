@@ -13,6 +13,9 @@
     "src/app/api/tutor/sesiones/route.ts": { "maxDuration": 15 },
     "src/app/api/biblioteca/semantica/route.ts": { "maxDuration": 30 },
     "src/app/api/fichas/exportar/route.ts": { "maxDuration": 30 },
-    "src/app/api/notas/exportar/route.ts": { "maxDuration": 15 }
+    "src/app/api/notas/exportar/route.ts": { "maxDuration": 15 },
+    "src/app/api/comparador/route.ts": { "maxDuration": 60 },
+    "src/app/api/marco-teorico/route.ts": { "maxDuration": 60 },
+    "src/app/api/maletin/route.ts": { "maxDuration": 30 }
   }
 }

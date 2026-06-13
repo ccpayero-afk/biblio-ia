@@ -7,6 +7,7 @@ import {
   BookOpen, FileText, MessageSquare, StickyNote, Quote,
   GitFork, GraduationCap, Brain, Users, Upload, Settings,
   Library, Highlighter, Inbox, BarChart2, Coffee, BookMarked, Map,
+  GitCompare, Briefcase,
 } from 'lucide-react'
 
 const NAV_GROUPS = [
@@ -34,11 +35,14 @@ const NAV_GROUPS = [
   {
     label: 'Investigación',
     items: [
-      { href: '/grafo',         label: 'Grafo',         icon: GitFork },
+      { href: '/grafo',         label: 'Grafo',           icon: GitFork },
       { href: '/mapa-debates',  label: 'Mapa de Debates', icon: Map },
-      { href: '/proyectos',     label: 'Tutor',          icon: GraduationCap },
-      { href: '/inteligencia',  label: 'Repaso',         icon: Brain },
-      { href: '/interlocutor',  label: 'Interlocutor',  icon: Users },
+      { href: '/comparador',    label: 'Comparador',      icon: GitCompare },
+      { href: '/marco-teorico', label: 'Marco teórico',   icon: BookOpen },
+      { href: '/maletin',       label: 'Maletín',         icon: Briefcase },
+      { href: '/proyectos',     label: 'Tutor',           icon: GraduationCap },
+      { href: '/inteligencia',  label: 'Repaso',          icon: Brain },
+      { href: '/interlocutor',  label: 'Interlocutor',    icon: Users },
     ],
   },
   {
