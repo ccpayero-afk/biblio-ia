@@ -34,7 +34,14 @@ async function getOrCreateFolder(drive: ReturnType<typeof google.drive>, name: s
   return createFolder(drive, name, parentId)
 }
 
+// Per-process cache — eliminates redundant Drive API calls within a warm serverless invocation.
+const estructuraCache = new Map<string, { value: DriveStructure; ts: number }>()
+const ESTRUCTURA_TTL = 5 * 60 * 1000 // 5 minutes
+
 export async function initUserDrive(accessToken: string): Promise<DriveStructure> {
+  const cached = estructuraCache.get(accessToken)
+  if (cached && Date.now() - cached.ts < ESTRUCTURA_TTL) return cached.value
+
   const drive = getDriveClient(accessToken)
 
   // Find or create root in My Drive
@@ -56,7 +63,9 @@ export async function initUserDrive(accessToken: string): Promise<DriveStructure
     getOrCreateFolder(drive, 'por-leer', rootId),
   ])
 
-  return { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId }
+  const value = { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId }
+  estructuraCache.set(accessToken, { value, ts: Date.now() })
+  return value
 }
 
 export async function listPDFs(accessToken: string, pdfsId: string): Promise<Documento[]> {

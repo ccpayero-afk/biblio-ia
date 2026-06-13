@@ -106,33 +106,29 @@ export async function POST(req: NextRequest) {
     // ── Initial plan mode ─────────────────────────────────────────────────────
     if (!descripcion?.trim()) return NextResponse.json({ error: 'Falta la descripción del trabajo' }, { status: 400 })
 
-    // 1. Semantic search — top 15 fragments
-    const fragmentos = await semanticSearch(descripcion, accessToken, { topK: 15 })
-
-    // 2. Full bibliography for context
-    const estructura   = await initUserDrive(accessToken)
-    const todosLosDocs = await listPDFs(accessToken, estructura.pdfsId)
-
-    // 3. Notas and citas — keyword relevance filter
     const palabras = descripcion.toLowerCase().split(/\s+/).filter((w) => w.length > 4)
     const matchTexto = (text: string) => palabras.some((p) => text.toLowerCase().includes(p))
 
-    let notasRelevantes: Nota[]  = []
-    let citasRelevantes: Cita[]  = []
-    try {
-      const nid = await findFile(accessToken, 'notas.json', estructura.notasId)
-      if (nid) {
-        const notas = await readJSON<Nota[]>(accessToken, nid)
-        notasRelevantes = notas.filter((n) => matchTexto(n.contenido ?? '') || matchTexto(n.titulo ?? '')).slice(0, 10)
-      }
-    } catch { /* best effort */ }
-    try {
-      const cid = await findFile(accessToken, 'citas.json', estructura.citasId)
-      if (cid) {
-        const citas = await readJSON<Cita[]>(accessToken, cid)
-        citasRelevantes = citas.filter((c) => matchTexto(c.texto ?? '')).slice(0, 10)
-      }
-    } catch { /* best effort */ }
+    // 1. Run semantic search + drive init in parallel (initUserDrive is now cached so subsequent
+    //    calls inside semanticSearch/getGeminiClient are near-instant)
+    const [fragmentos, estructura] = await Promise.all([
+      semanticSearch(descripcion, accessToken, { topK: 15 }),
+      initUserDrive(accessToken),
+    ])
+
+    // 2. Bibliography + notas + citas all in parallel
+    const [todosLosDocs, notasRaw, citasRaw] = await Promise.all([
+      listPDFs(accessToken, estructura.pdfsId),
+      findFile(accessToken, 'notas.json', estructura.notasId)
+        .then((nid) => nid ? readJSON<Nota[]>(accessToken, nid) : [] as Nota[])
+        .catch(() => [] as Nota[]),
+      findFile(accessToken, 'citas.json', estructura.citasId)
+        .then((cid) => cid ? readJSON<Cita[]>(accessToken, cid) : [] as Cita[])
+        .catch(() => [] as Cita[]),
+    ])
+
+    const notasRelevantes = notasRaw.filter((n) => matchTexto(n.contenido ?? '') || matchTexto(n.titulo ?? '')).slice(0, 10)
+    const citasRelevantes = citasRaw.filter((c) => matchTexto(c.texto ?? '')).slice(0, 10)
 
     // 4. Build prompt context
     const tipoStr = TIPO_LABEL[tipo] ?? tipo
