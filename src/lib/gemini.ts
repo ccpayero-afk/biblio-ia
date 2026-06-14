@@ -68,23 +68,13 @@ export async function validateGeminiKey(apiKey: string): Promise<{ valid: boolea
   }
 }
 
-// Promise-based cache — concurrent callers share the same in-flight request.
-const geminiClientCache = new Map<string, { promise: Promise<GoogleGenerativeAI>; ts: number }>()
-const GEMINI_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
-
-export function getGeminiClient(accessToken: string): Promise<GoogleGenerativeAI> {
-  const cached = geminiClientCache.get(accessToken)
-  if (cached && Date.now() - cached.ts < GEMINI_CACHE_TTL) return cached.promise
-
-  const promise = (async () => {
-    const keys = await getDecryptedKeys(accessToken)
-    if (!keys.length) throw new Error('No hay API key configurada. Configurá tu clave de Gemini en Configuración.')
-    return new GoogleGenerativeAI(keys[0])
-  })()
-
-  promise.catch(() => geminiClientCache.delete(accessToken))
-  geminiClientCache.set(accessToken, { promise, ts: Date.now() })
-  return promise
+// No client cache — keys are already cached by getDecryptedKeys.
+// Picks a random key each call to distribute load across all available keys.
+export async function getGeminiClient(accessToken: string): Promise<GoogleGenerativeAI> {
+  const keys = await getDecryptedKeys(accessToken)
+  if (!keys.length) throw new Error('No hay API key configurada. Configurá tu clave de Gemini en Configuración.')
+  const key = keys[Math.floor(Math.random() * keys.length)]
+  return new GoogleGenerativeAI(key)
 }
 
 // ── Multi-key support ─────────────────────────────────────────────────────────

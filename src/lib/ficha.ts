@@ -1,5 +1,5 @@
 import { FichaLectura, Fragmento } from '@/types'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from './gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from './gemini'
 import { initUserDrive, findFile, readJSON, writeJSON } from './drive'
 
 export async function generateFicha(
@@ -10,8 +10,6 @@ export async function generateFicha(
   fragmentos: Fragmento[],
   accessToken: string
 ): Promise<FichaLectura> {
-  const genAI = await getGeminiClient(accessToken)
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
 
   const todos = fragmentos.filter((f) => f.documentoId === documentoId)
   const N = 20
@@ -94,9 +92,12 @@ REGLAS:
 - tematica en datosEstadisticos DEBE ser una de: pobreza, desigualdad, riqueza, deuda, trabajo, empleo, salario, poblacion, educacion, salud, vivienda, genero, migracion, economia, finanzas, comercio, industria, agricultura, medio-ambiente, politica, violencia, otro.
 - notasZettelkasten: formulá cada idea como una afirmación propia del investigador, no como resumen del texto.`
 
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never,
+  const result = await generateWithRotation(accessToken, async (genAI) => {
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+    return model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never,
+    })
   })
   let text = result.response.text().trim()
 

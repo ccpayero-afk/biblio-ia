@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
-import { getGeminiClient } from '@/lib/gemini'
+import { generateWithRotation } from '@/lib/gemini'
 import { sugerirVinculos } from '@/lib/zettel-ia'
 import { Nota, VinculoZettel } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
@@ -32,7 +32,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, vinculosCreados: 0, notasProcesadas: 0, restantes: 0 })
     }
 
-    const genAI = await getGeminiClient(accessToken)
     let vinculosCreados = 0
 
     // Mapa id → índice para acceso rápido
@@ -40,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     for (const nota of candidatas) {
       try {
-        const sugerencias = await sugerirVinculos(nota, notas, genAI)
+        const sugerencias = await generateWithRotation(accessToken, (genAI) => sugerirVinculos(nota, notas, genAI))
         const altasYMedias = sugerencias.filter((s) => s.confianza !== 'baja')
 
         if (altasYMedias.length === 0) continue
