@@ -76,7 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   pages: {
-    signIn: '/',
+    signIn: '/login',
     error: '/acceso-denegado',
   },
   secret: process.env.AUTH_SECRET,

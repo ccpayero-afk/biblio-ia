@@ -1,0 +1,199 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #0a0a0f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.content {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(15, 10, 30, 0.78);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(167, 139, 250, 0.15);
+  border-radius: 16px;
+  padding: 44px 40px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Logo area ── */
+
+.logoArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.brandMark {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #3b0764, #7c3aed);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.2),
+              0 0 32px rgba(124, 58, 237, 0.5),
+              0 0 64px rgba(124, 58, 237, 0.2);
+}
+
+.title {
+  font-family: var(--font-sora, 'Sora', sans-serif);
+  font-weight: 700;
+  font-size: 33px;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+  margin: 0 0 7px 0;
+  line-height: 1;
+}
+
+.subtitle {
+  font-family: var(--font-sora, 'Sora', sans-serif);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a78bfa;
+  margin: 0;
+}
+
+/* ── Divider ── */
+
+.divider {
+  width: 36px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(167, 139, 250, 0.3), transparent);
+  margin: 0 0 24px 0;
+  flex-shrink: 0;
+}
+
+/* ── Tagline ── */
+
+.tagline {
+  font-family: var(--font-inter, 'Inter', sans-serif);
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #c4b5fd;
+  text-align: center;
+  margin: 0 0 32px 0;
+}
+
+/* ── Sign-in button ── */
+
+.signInButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 20px;
+  background: #ffffff;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  font-family: var(--font-inter, 'Inter', sans-serif);
+  font-weight: 500;
+  font-size: 15px;
+  color: #111827;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+  margin-bottom: 18px;
+  position: relative;
+}
+
+.signInButton:hover {
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.28),
+              0 6px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.signInButton:active {
+  transform: translateY(0px);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.18);
+}
+
+.signInButton:focus-visible {
+  outline: 2px solid rgba(167, 139, 250, 0.7);
+  outline-offset: 3px;
+}
+
+/* ── Legal ── */
+
+.legal {
+  font-family: var(--font-inter, 'Inter', sans-serif);
+  font-weight: 400;
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.legal a {
+  color: #9ca3af;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s;
+}
+
+.legal a:hover {
+  color: #c4b5fd;
+}
+
+/* ── Ambient glow spots ── */
+
+.glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.glowLeft {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  left: -120px;
+  top: 30%;
+  background: radial-gradient(circle, rgba(76, 29, 149, 0.18) 0%, transparent 70%);
+  filter: blur(1px);
+}
+
+.glowRight {
+  position: absolute;
+  width: 380px;
+  height: 380px;
+  border-radius: 50%;
+  right: -100px;
+  top: 20%;
+  background: radial-gradient(circle, rgba(109, 40, 217, 0.14) 0%, transparent 70%);
+  filter: blur(1px);
+}
