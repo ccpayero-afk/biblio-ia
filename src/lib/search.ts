@@ -1,7 +1,6 @@
 import { Fragmento, Documento } from '@/types'
 import { initUserDrive, findFile, readJSON, listPDFs, listFilesInFolder } from './drive'
-import { getGeminiClient } from './gemini'
-import { GEMINI_MODEL_EMBEDDING } from './gemini'
+import { generateWithRotation, GEMINI_MODEL_EMBEDDING } from './gemini'
 import { cosineSimilarity } from './indexer'
 
 export interface FragmentoConDocumento extends Fragmento {
@@ -47,10 +46,11 @@ export async function semanticSearch(
 
   if (!fragmentos.length) return []
 
-  // Embeber la query
-  const genAI = await getGeminiClient(accessToken)
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_EMBEDDING })
-  const queryEmbedding = (await model.embedContent(query)).embedding.values
+  // Embeber la query con rotación de keys
+  const queryEmbedding = await generateWithRotation(accessToken, async (genAI) => {
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_EMBEDDING })
+    return (await model.embedContent(query)).embedding.values
+  })
 
   // Calcular similitudes y ordenar
   const conSimilitud = fragmentos.map((f) => ({

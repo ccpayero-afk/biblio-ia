@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { GEMINI_MODEL_EMBEDDING, getGeminiClient } from './gemini'
+import { GEMINI_MODEL_EMBEDDING, getDecryptedKeys } from './gemini'
 import { initUserDrive, writeJSON, findFile, trashPDF, updateDocumentMetadata } from './drive'
 import { ocrWithGoogleDrive } from './ocr-drive'
 import { Fragmento } from '@/types'
@@ -62,24 +62,46 @@ export async function extractChunks(buffer: Buffer): Promise<{ texto: string; pa
   return conTexto.flatMap(({ texto, pagina }) => chunkText(texto, pagina))
 }
 
-// Genera embeddings usando batchEmbedContents (hasta 100 textos por llamada)
+function isRateLimit(e: unknown): boolean {
+  const msg = String(e)
+  return msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Too Many Requests')
+}
+
+// Genera embeddings usando batchEmbedContents con rotación de keys en rate limit
 export async function generateEmbeddings(
   chunks: string[],
-  genAI: GoogleGenerativeAI,
+  accessToken: string,
   onProgress?: (done: number, total: number) => void
 ): Promise<number[][]> {
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_EMBEDDING })
+  const keys = await getDecryptedKeys(accessToken)
+  if (!keys.length) throw new Error('No hay API key configurada.')
+
   const BATCH_SIZE = 100
   const embeddings: number[][] = []
 
   for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
     const lote = chunks.slice(i, i + BATCH_SIZE)
-    const result = await model.batchEmbedContents({
-      requests: lote.map((text) => ({
-        content: { parts: [{ text }], role: 'user' as const },
-      })),
-    })
-    embeddings.push(...result.embeddings.map((e) => e.values))
+    let lastError: unknown
+
+    for (let ki = 0; ki < keys.length; ki++) {
+      try {
+        const genAI = new GoogleGenerativeAI(keys[ki])
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_EMBEDDING })
+        const result = await model.batchEmbedContents({
+          requests: lote.map((text) => ({
+            content: { parts: [{ text }], role: 'user' as const },
+          })),
+        })
+        embeddings.push(...result.embeddings.map((e) => e.values))
+        break
+      } catch (e) {
+        lastError = e
+        if (isRateLimit(e) && ki < keys.length - 1) continue
+        throw e
+      }
+    }
+
+    if (embeddings.length <= i) throw lastError // all keys failed for this batch
     onProgress?.(Math.min(i + BATCH_SIZE, chunks.length), chunks.length)
   }
 
@@ -167,10 +189,9 @@ export async function indexDocument(
   }
 
   onProgress(`Generando embeddings para ${allChunks.length} fragmentos…`, 3, TOTAL)
-  const genAI = await getGeminiClient(accessToken)
   const embeddings = await generateEmbeddings(
     allChunks.map((c) => c.texto),
-    genAI,
+    accessToken,
     (done, total) => onProgress(`Embeddings: ${done}/${total}…`, 3, TOTAL)
   )
 
