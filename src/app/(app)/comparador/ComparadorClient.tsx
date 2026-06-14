@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { GitCompare, Loader2, X } from 'lucide-react'
+import { GitCompare, Loader2, X, Search } from 'lucide-react'
 import type { Documento } from '@/types'
 
 interface FilaComparacion { aspecto: string; doc1: string; doc2: string }
@@ -21,6 +21,7 @@ function docLabel(d: Documento) {
 
 export default function ComparadorClient() {
   const [documentos, setDocumentos] = useState<Documento[]>([])
+  const [busqueda, setBusqueda] = useState('')
   const [doc1Id, setDoc1Id] = useState('')
   const [doc2Id, setDoc2Id] = useState('')
   const [resultado, setResultado] = useState<ResultadoComparador | null>(null)
@@ -64,6 +65,14 @@ export default function ComparadorClient() {
 
   const doc1 = documentos.find(d => d.id === doc1Id)
   const doc2 = documentos.find(d => d.id === doc2Id)
+
+  const docsFiltrados = busqueda.trim()
+    ? documentos.filter(d => {
+        const q = busqueda.toLowerCase()
+        const { apellido, nombreLimpio } = docLabel(d)
+        return (apellido?.toLowerCase().includes(q) ?? false) || nombreLimpio.toLowerCase().includes(q) || (d.año?.includes(q) ?? false)
+      })
+    : documentos
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
@@ -128,20 +137,34 @@ export default function ComparadorClient() {
         </div>
       ) : (
         <div className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
-          <div className="px-3 py-2 flex items-center justify-between" style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <p className="text-xs font-medium" style={{ color: 'rgba(148,163,184,0.5)' }}>
-              Documentos con ficha — seleccioná dos
-            </p>
-            {(doc1Id || doc2Id) && (
-              <button onClick={() => { setDoc1Id(''); setDoc2Id('') }}
-                className="text-[11px] rounded px-1.5 py-0.5 transition-colors"
-                style={{ color: 'rgba(248,113,113,0.7)', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)' }}>
-                Limpiar
-              </button>
-            )}
+          <div className="px-3 py-2 space-y-2" style={{ background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium" style={{ color: 'rgba(148,163,184,0.5)' }}>
+                Documentos con ficha — seleccioná dos
+              </p>
+              {(doc1Id || doc2Id) && (
+                <button onClick={() => { setDoc1Id(''); setDoc2Id('') }}
+                  className="text-[11px] rounded px-1.5 py-0.5 transition-colors"
+                  style={{ color: 'rgba(248,113,113,0.7)', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                  Limpiar
+                </button>
+              )}
+            </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'rgba(148,163,184,0.3)' }} />
+              <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
+                placeholder="Buscar por autor, título o año…"
+                className="w-full rounded-lg py-1.5 pl-8 pr-3 text-xs text-neutral-300 placeholder:text-neutral-600 focus:outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.4)' }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }} />
+            </div>
           </div>
           <div className="divide-y" style={{ '--tw-divide-opacity': '1', borderColor: 'rgba(255,255,255,0.04)' } as React.CSSProperties}>
-            {documentos.map(d => {
+            {docsFiltrados.length === 0 && (
+              <p className="px-4 py-4 text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>Sin resultados para "{busqueda}"</p>
+            )}
+            {docsFiltrados.map(d => {
               const isA = d.id === doc1Id
               const isB = d.id === doc2Id
               const { apellido, nombreLimpio, initial } = docLabel(d)
