@@ -15,9 +15,9 @@ const LOAD_BATCH = 30
 export async function semanticSearch(
   query: string,
   accessToken: string,
-  opciones?: { documentoIds?: string[]; topK?: number }
+  opciones?: { documentoIds?: string[]; topK?: number; maxFiles?: number }
 ): Promise<FragmentoConDocumento[]> {
-  const { topK = 8, documentoIds } = opciones ?? {}
+  const { topK = 8, documentoIds, maxFiles } = opciones ?? {}
 
   const estructura = await initUserDrive(accessToken)
   const fragmentos: Fragmento[] = []
@@ -34,7 +34,8 @@ export async function semanticSearch(
     fragmentos.push(...results.flatMap((r) => r.status === 'fulfilled' ? r.value : []))
   } else {
     // Cargar todos los archivos emb_*.json en lotes para no saturar la API
-    const archivos = await listFilesInFolder(accessToken, estructura.indexId, 'emb_')
+    const todosArchivos = await listFilesInFolder(accessToken, estructura.indexId, 'emb_')
+    const archivos = maxFiles ? todosArchivos.slice(0, maxFiles) : todosArchivos
     for (let i = 0; i < archivos.length; i += LOAD_BATCH) {
       const lote = archivos.slice(i, i + LOAD_BATCH)
       const results = await Promise.allSettled(

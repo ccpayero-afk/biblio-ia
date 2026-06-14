@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     // Semantic search
     let fragmentos: Awaited<ReturnType<typeof semanticSearch>> = []
-    try { fragmentos = await semanticSearch(tema, accessToken, { topK: 20 }) } catch { /* sin índice */ }
+    try { fragmentos = await semanticSearch(tema, accessToken, { topK: 20, maxFiles: 120 }) } catch { /* sin índice */ }
 
     // Collapse to top 8 docs
     const seen = new Set<string>()
