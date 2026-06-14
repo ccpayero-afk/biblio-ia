@@ -48,6 +48,15 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
   const [fases, setFases] = useState<[FaseInfo, FaseInfo, FaseInfo, FaseInfo]>([
     FASE_INICIAL, FASE_INICIAL, FASE_INICIAL, FASE_INICIAL,
   ])
+  const [habilitadas, setHabilitadas] = useState<[boolean, boolean, boolean, boolean]>([true, true, true, true])
+
+  function toggleFase(i: 0 | 1 | 2 | 3) {
+    setHabilitadas((prev) => {
+      const next = [...prev] as typeof prev
+      next[i] = !next[i]
+      return next
+    })
+  }
 
   const setFase = useCallback((i: 0 | 1 | 2 | 3, patch: Partial<FaseInfo>) => {
     setFases((prev) => {
@@ -66,131 +75,147 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
     setCorriendo(true)
 
     // ── Fase 1: Generar fichas ──────────────────────────────────────────────────
-    setFase(0, { estado: 'activo', detalle: 'Generando fichas de lectura…', progreso: { actual: 0, total: sinFicha.length } })
-
-    let fichasOk = 0
     let fichasNuevas: Documento[] = []
 
-    if (sinFicha.length === 0) {
-      setFase(0, { estado: 'saltado', detalle: 'Todos los documentos ya tienen ficha.', resultado: `${conFicha.length} fichas existentes` })
+    if (!habilitadas[0]) {
+      setFase(0, { estado: 'saltado', detalle: 'Saltada manualmente.', resultado: '—' })
     } else {
-      for (let i = 0; i < sinFicha.length; i++) {
-        const doc = sinFicha[i]
-        setFase(0, { estado: 'activo', detalle: `Ficha: ${doc.nombre.replace(/\.pdf$/i, '').slice(0, 50)}…`, progreso: { actual: i, total: sinFicha.length } })
-        try {
-          const res = await fetch(`/api/fichas/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ documentoNombre: doc.nombre, autor: doc.autor, año: doc.año }),
-          })
-          if (res.ok) { fichasOk++; fichasNuevas.push(doc) }
-        } catch { /* continuar */ }
-        if (i < sinFicha.length - 1) await new Promise((r) => setTimeout(r, 800))
+      setFase(0, { estado: 'activo', detalle: 'Generando fichas de lectura…', progreso: { actual: 0, total: sinFicha.length } })
+      let fichasOk = 0
+
+      if (sinFicha.length === 0) {
+        setFase(0, { estado: 'saltado', detalle: 'Todos los documentos ya tienen ficha.', resultado: `${conFicha.length} fichas existentes` })
+      } else {
+        for (let i = 0; i < sinFicha.length; i++) {
+          const doc = sinFicha[i]
+          setFase(0, { estado: 'activo', detalle: `Ficha: ${doc.nombre.replace(/\.pdf$/i, '').slice(0, 50)}…`, progreso: { actual: i, total: sinFicha.length } })
+          try {
+            const res = await fetch(`/api/fichas/${doc.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ documentoNombre: doc.nombre, autor: doc.autor, año: doc.año }),
+            })
+            if (res.ok) { fichasOk++; fichasNuevas.push(doc) }
+          } catch { /* continuar */ }
+          if (i < sinFicha.length - 1) await new Promise((r) => setTimeout(r, 800))
+        }
+        setFase(0, {
+          estado: fichasOk > 0 || sinFicha.length === 0 ? 'ok' : 'error',
+          progreso: { actual: fichasOk, total: sinFicha.length },
+          detalle: fichasOk === sinFicha.length ? 'Fichas generadas.' : `${fichasOk}/${sinFicha.length} generadas.`,
+          resultado: `${fichasOk} nuevas fichas`,
+        })
       }
-      setFase(0, {
-        estado: fichasOk > 0 || sinFicha.length === 0 ? 'ok' : 'error',
-        progreso: { actual: fichasOk, total: sinFicha.length },
-        detalle: fichasOk === sinFicha.length ? 'Fichas generadas.' : `${fichasOk}/${sinFicha.length} generadas.`,
-        resultado: `${fichasOk} nuevas fichas`,
-      })
     }
 
     // ── Fase 2: Extraer notas + citas de fichas ───────────────────────────────
-    const docsParaExtraer = [...conFicha, ...fichasNuevas]
-    setFase(1, { estado: 'activo', detalle: 'Extrayendo notas y citas…', progreso: { actual: 0, total: docsParaExtraer.length } })
-
-    let notasTotales = 0
-    let citasTotales = 0
-    let datosTotales = 0
-
-    if (docsParaExtraer.length === 0) {
-      setFase(1, { estado: 'saltado', detalle: 'No hay fichas para procesar.', resultado: '—' })
+    if (!habilitadas[1]) {
+      setFase(1, { estado: 'saltado', detalle: 'Saltada manualmente.', resultado: '—' })
     } else {
-      for (let i = 0; i < docsParaExtraer.length; i++) {
-        const doc = docsParaExtraer[i]
-        setFase(1, { estado: 'activo', detalle: `Notas: ${doc.nombre.replace(/\.pdf$/i, '').slice(0, 50)}…`, progreso: { actual: i, total: docsParaExtraer.length } })
-        try {
-          const res = await fetch(`/api/procesar/desde-ficha/${doc.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ documentoNombre: doc.nombre, autor: doc.autor, año: doc.año }),
-          })
-          const data = await res.json()
-          if (data.ok && !data.saltado) {
-            notasTotales += data.notasCreadas ?? 0
-            citasTotales += data.citasCreadas ?? 0
-            datosTotales += data.datosCreados ?? 0
-          }
-        } catch { /* continuar */ }
-        if (i < docsParaExtraer.length - 1) await new Promise((r) => setTimeout(r, 500))
+      const docsParaExtraer = [...conFicha, ...fichasNuevas]
+      setFase(1, { estado: 'activo', detalle: 'Extrayendo notas y citas…', progreso: { actual: 0, total: docsParaExtraer.length } })
+
+      let notasTotales = 0
+      let citasTotales = 0
+      let datosTotales = 0
+
+      if (docsParaExtraer.length === 0) {
+        setFase(1, { estado: 'saltado', detalle: 'No hay fichas para procesar.', resultado: '—' })
+      } else {
+        for (let i = 0; i < docsParaExtraer.length; i++) {
+          const doc = docsParaExtraer[i]
+          setFase(1, { estado: 'activo', detalle: `Notas: ${doc.nombre.replace(/\.pdf$/i, '').slice(0, 50)}…`, progreso: { actual: i, total: docsParaExtraer.length } })
+          try {
+            const res = await fetch(`/api/procesar/desde-ficha/${doc.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ documentoNombre: doc.nombre, autor: doc.autor, año: doc.año }),
+            })
+            const data = await res.json()
+            if (data.ok && !data.saltado) {
+              notasTotales += data.notasCreadas ?? 0
+              citasTotales += data.citasCreadas ?? 0
+              datosTotales += data.datosCreados ?? 0
+            }
+          } catch { /* continuar */ }
+          if (i < docsParaExtraer.length - 1) await new Promise((r) => setTimeout(r, 500))
+        }
+        setFase(1, {
+          estado: 'ok',
+          progreso: { actual: docsParaExtraer.length, total: docsParaExtraer.length },
+          detalle: 'Notas, citas y datos extraídos.',
+          resultado: `${notasTotales} notas · ${citasTotales} citas · ${datosTotales} datos`,
+        })
       }
-      setFase(1, {
-        estado: 'ok',
-        progreso: { actual: docsParaExtraer.length, total: docsParaExtraer.length },
-        detalle: 'Notas, citas y datos extraídos.',
-        resultado: `${notasTotales} notas · ${citasTotales} citas · ${datosTotales} datos`,
-      })
     }
 
     // ── Fase 3: Vincular notas (en lotes de 15) ───────────────────────────────
-    setFase(2, { estado: 'activo', detalle: 'Generando vínculos automáticos…', progreso: null })
+    if (!habilitadas[2]) {
+      setFase(2, { estado: 'saltado', detalle: 'Saltada manualmente.', resultado: '—' })
+    } else {
+      setFase(2, { estado: 'activo', detalle: 'Generando vínculos automáticos…', progreso: null })
 
-    let vinculosTotal = 0
-    let notasProcesadas = 0
-    let offset = 0
-    let intentos = 0
-    const MAX_INTENTOS = 5
+      let vinculosTotal = 0
+      let notasProcesadas = 0
+      let offset = 0
+      let intentos = 0
+      const MAX_INTENTOS = 5
 
-    try {
-      while (intentos < MAX_INTENTOS) {
-        setFase(2, { estado: 'activo', detalle: `Vinculando notas (lote ${intentos + 1})…`, progreso: null })
-        const res = await fetch('/api/procesar/vinculos-lote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ offset }),
-        })
-        const data = await res.json()
-        if (!data.ok) break
-        vinculosTotal += data.vinculosCreados ?? 0
-        notasProcesadas += data.notasProcesadas ?? 0
-        offset += data.notasProcesadas ?? 0
-        if ((data.restantes ?? 0) === 0 || (data.notasProcesadas ?? 0) === 0) break
-        intentos++
-        await new Promise((r) => setTimeout(r, 1000))
-      }
-      setFase(2, {
-        estado: 'ok',
-        detalle: 'Vínculos generados.',
-        resultado: `${vinculosTotal} vínculos en ${notasProcesadas} notas`,
-        progreso: null,
-      })
-    } catch {
-      setFase(2, { estado: 'error', detalle: 'Error al generar vínculos.', progreso: null })
-    }
-
-    // ── Fase 4: Actualizar metadatos masivo (forzar) ─────────────────────────
-    setFase(3, { estado: 'activo', detalle: 'Actualizando metadatos (PDF + CrossRef)…', progreso: { actual: 0, total: indexados.length } })
-
-    let metaOk = 0
-    for (let i = 0; i < indexados.length; i++) {
-      const doc = indexados[i]
-      setFase(3, { estado: 'activo', detalle: `Metadatos: ${doc.nombre.replace(/\.pdf$/i, '').slice(0, 50)}…`, progreso: { actual: i, total: indexados.length } })
       try {
-        await fetch(`/api/metadatos/${doc.id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ forzar: false }),  // solo rellena vacíos
+        while (intentos < MAX_INTENTOS) {
+          setFase(2, { estado: 'activo', detalle: `Vinculando notas (lote ${intentos + 1})…`, progreso: null })
+          const res = await fetch('/api/procesar/vinculos-lote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ offset }),
+          })
+          const data = await res.json()
+          if (!data.ok) break
+          vinculosTotal += data.vinculosCreados ?? 0
+          notasProcesadas += data.notasProcesadas ?? 0
+          offset += data.notasProcesadas ?? 0
+          if ((data.restantes ?? 0) === 0 || (data.notasProcesadas ?? 0) === 0) break
+          intentos++
+          await new Promise((r) => setTimeout(r, 1000))
+        }
+        setFase(2, {
+          estado: 'ok',
+          detalle: 'Vínculos generados.',
+          resultado: `${vinculosTotal} vínculos en ${notasProcesadas} notas`,
+          progreso: null,
         })
-        metaOk++
-      } catch { /* continuar */ }
-      if (i < indexados.length - 1) await new Promise((r) => setTimeout(r, 300))
+      } catch {
+        setFase(2, { estado: 'error', detalle: 'Error al generar vínculos.', progreso: null })
+      }
     }
-    setFase(3, {
-      estado: 'ok',
-      progreso: { actual: metaOk, total: indexados.length },
-      detalle: 'Metadatos actualizados.',
-      resultado: `${metaOk} documentos`,
-    })
+
+    // ── Fase 4: Actualizar metadatos ─────────────────────────────────────────
+    if (!habilitadas[3]) {
+      setFase(3, { estado: 'saltado', detalle: 'Saltada manualmente.', resultado: '—' })
+    } else {
+      setFase(3, { estado: 'activo', detalle: 'Actualizando metadatos (PDF + CrossRef)…', progreso: { actual: 0, total: indexados.length } })
+
+      let metaOk = 0
+      for (let i = 0; i < indexados.length; i++) {
+        const doc = indexados[i]
+        setFase(3, { estado: 'activo', detalle: `Metadatos: ${doc.nombre.replace(/\.pdf$/i, '').slice(0, 50)}…`, progreso: { actual: i, total: indexados.length } })
+        try {
+          await fetch(`/api/metadatos/${doc.id}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ forzar: false }),
+          })
+          metaOk++
+        } catch { /* continuar */ }
+        if (i < indexados.length - 1) await new Promise((r) => setTimeout(r, 300))
+      }
+      setFase(3, {
+        estado: 'ok',
+        progreso: { actual: metaOk, total: indexados.length },
+        detalle: 'Metadatos actualizados.',
+        resultado: `${metaOk} documentos`,
+      })
+    }
 
     setCorriendo(false)
     setTerminado(true)
@@ -223,14 +248,17 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
         <div className="overflow-y-auto flex-1 p-5 space-y-3">
           {fasesInfo.map((info, i) => {
             const fase = fases[i]
+            const preRun = !corriendo && !terminado
+            const habilitada = habilitadas[i]
             return (
               <div
                 key={i}
                 className={`rounded-xl border p-4 transition-colors ${
-                  fase.estado === 'activo' ? 'border-blue-700 bg-blue-950/20' :
-                  fase.estado === 'ok'     ? 'border-green-800 bg-green-950/20' :
-                  fase.estado === 'error'  ? 'border-red-800 bg-red-950/20' :
-                  fase.estado === 'saltado'? 'border-neutral-800 bg-neutral-900/50' :
+                  fase.estado === 'activo'  ? 'border-blue-700 bg-blue-950/20' :
+                  fase.estado === 'ok'      ? 'border-green-800 bg-green-950/20' :
+                  fase.estado === 'error'   ? 'border-red-800 bg-red-950/20' :
+                  fase.estado === 'saltado' ? 'border-neutral-800 bg-neutral-900/50' :
+                  preRun && !habilitada     ? 'border-neutral-800/50 bg-neutral-900/10 opacity-50' :
                   'border-neutral-800 bg-neutral-900/30'
                 }`}
               >
@@ -245,7 +273,9 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
                         <ChevronRight className="h-3 w-3 text-neutral-700" />
                       )}
                     </div>
-                    <p className="text-sm font-medium text-white">{info.titulo}</p>
+                    <p className={`text-sm font-medium ${preRun && !habilitada ? 'text-neutral-500 line-through' : 'text-white'}`}>
+                      {info.titulo}
+                    </p>
                     <p className="text-xs text-neutral-500">
                       {fase.estado === 'pendiente' ? info.desc : fase.detalle}
                     </p>
@@ -254,6 +284,16 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
                     )}
                     <BarraProgreso progreso={fase.progreso} />
                   </div>
+                  {preRun && (
+                    <label className="flex-shrink-0 flex items-center gap-1.5 cursor-pointer select-none" title={habilitada ? 'Desactivar fase' : 'Activar fase'}>
+                      <input
+                        type="checkbox"
+                        checked={habilitada}
+                        onChange={() => toggleFase(i as 0 | 1 | 2 | 3)}
+                        className="h-4 w-4 rounded border-neutral-600 bg-neutral-800 accent-blue-500 cursor-pointer"
+                      />
+                    </label>
+                  )}
                 </div>
               </div>
             )
@@ -289,12 +329,12 @@ export default function PipelineModal({ documentos, onCerrar, onTerminado }: Pro
               </button>
               <button
                 onClick={correrPipeline}
-                disabled={corriendo || indexados.length === 0}
+                disabled={corriendo || indexados.length === 0 || habilitadas.every((h) => !h)}
                 className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 px-4 py-2 text-sm font-medium text-white hover:from-blue-500 hover:to-violet-500 shadow-md shadow-violet-900/40 disabled:opacity-50"
               >
                 {corriendo
                   ? <><Loader2 className="h-4 w-4 animate-spin" /> Procesando…</>
-                  : '▶ Iniciar pipeline'}
+                  : `▶ Iniciar (${habilitadas.filter(Boolean).length} fase${habilitadas.filter(Boolean).length !== 1 ? 's' : ''})`}
               </button>
             </>
           )}
