@@ -53,7 +53,7 @@ export function initUserDrive(accessToken: string): Promise<DriveStructure> {
     })
     const rootId = rootRes.data.files?.[0]?.id ?? await createFolder(drive, 'BibliografíaIA')
 
-    const [pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId] = await Promise.all([
+    const [pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId, cursosId] = await Promise.all([
       getOrCreateFolder(drive, 'pdfs', rootId),
       getOrCreateFolder(drive, 'highlights', rootId),
       getOrCreateFolder(drive, 'citas', rootId),
@@ -63,9 +63,10 @@ export function initUserDrive(accessToken: string): Promise<DriveStructure> {
       getOrCreateFolder(drive, 'index', rootId),
       getOrCreateFolder(drive, 'carpetas', rootId),
       getOrCreateFolder(drive, 'por-leer', rootId),
+      getOrCreateFolder(drive, 'cursos', rootId),
     ])
 
-    return { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId }
+    return { rootId, pdfsId, highlightsId, citasId, notasId, conceptosId, proyectosId, indexId, carpetasId, porLeerFolderId, cursosId }
   })()
 
   // On error remove so next call retries; on success keep for TTL

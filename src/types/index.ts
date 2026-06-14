@@ -251,6 +251,35 @@ export interface DriveStructure {
   carpetasId?: string
   configFileId?: string
   porLeerFolderId?: string
+  cursosId?: string
+}
+
+// ─── Aula IA ─────────────────────────────────────────────────────────────────
+
+export interface ModuloCurso {
+  numero: number
+  titulo: string
+  descripcion: string
+  objetivos: string[]
+  temas: string[]
+}
+
+export interface MensajeCurso {
+  rol: 'usuario' | 'docente'
+  contenido: string
+  timestamp: string
+}
+
+export interface Curso {
+  libroId: string
+  libroNombre: string
+  libroTitulo: string
+  libroAutor: string
+  plan: ModuloCurso[]
+  moduloActual: number
+  conversacion: MensajeCurso[]
+  creadoEn: string
+  actualizadoEn: string
 }
 
 export interface ConfigUsuario {
