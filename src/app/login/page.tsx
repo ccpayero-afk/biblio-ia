@@ -26,7 +26,7 @@ export const metadata = {
 
 export default async function LoginPage() {
   const session = await auth()
-  if (session?.user) redirect('/dashboard')
+  if (session?.user && !session.error) redirect('/dashboard')
 
   return (
     <div className={`${styles.page} ${sora.variable} ${inter.variable}`}>
