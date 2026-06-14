@@ -112,7 +112,6 @@ export function getDecryptedKeys(accessToken: string): Promise<string[]> {
 
 function invalidateKeysCache(accessToken: string) {
   keysCache.delete(accessToken)
-  geminiClientCache.delete(accessToken)
 }
 
 function isRateLimit(e: unknown): boolean {
