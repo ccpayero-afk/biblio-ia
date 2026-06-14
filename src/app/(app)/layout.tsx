@@ -6,8 +6,8 @@ import AppShell from '@/components/layout/AppShell'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
-  if (!session?.user) redirect('/')
-  if (session.error === 'RefreshTokenError') redirect('/api/auth/signout')
+  if (!session?.user) redirect('/login')
+  if (session.error === 'RefreshTokenError') redirect('/api/auth/signout?callbackUrl=/login')
 
   const accessToken = getAccessToken(session)
   const apiKeyConfigurada = await hasApiKey(accessToken)
