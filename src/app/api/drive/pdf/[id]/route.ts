@@ -8,10 +8,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const accessToken = getAccessToken(session)
     const { id } = await params
 
-    // Redirect directly to Google Drive — PDF bytes never pass through Vercel servers.
-    // react-pdf (PDF.js worker) follows the 302 and fetches from Google's CDN.
-    const driveUrl = `https://www.googleapis.com/drive/v3/files/${id}?alt=media&access_token=${encodeURIComponent(accessToken)}`
-    return NextResponse.redirect(driveUrl, { status: 302 })
+    // Proxy the PDF bytes — PDF.js workers cannot follow cross-origin redirects.
+    const driveRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${id}?alt=media`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+
+    if (!driveRes.ok) {
+      return NextResponse.json({ error: `Drive error: ${driveRes.status}` }, { status: driveRes.status })
+    }
+
+    return new NextResponse(driveRes.body, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Cache-Control': 'private, max-age=3600',
+      },
+    })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
