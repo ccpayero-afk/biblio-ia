@@ -1,5 +1,3 @@
-import { auth } from '@/auth'
-import { redirect } from 'next/navigation'
 import { Sora, Inter } from 'next/font/google'
 import NeuralBrainCanvas from './NeuralBrainCanvas'
 import SignInButton from './SignInButton'
@@ -24,10 +22,7 @@ export const metadata = {
   description: 'Plataforma de gestión de conocimiento académico potenciada por IA.',
 }
 
-export default async function LoginPage() {
-  const session = await auth()
-  if (session?.user && !session.error) redirect('/dashboard')
-
+export default function LoginPage() {
   return (
     <div className={`${styles.page} ${sora.variable} ${inter.variable}`}>
       {/* Ambient glow blobs behind the canvas */}
