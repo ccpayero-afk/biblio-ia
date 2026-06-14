@@ -2,7 +2,7 @@ import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { cargarCurso, guardarCurso } from '@/lib/aula'
 import { semanticSearch } from '@/lib/search'
-import { getGeminiClient, GEMINI_MODEL_GENERATION, geminiRateLimitMessage } from '@/lib/gemini'
+import { streamWithRotation, GEMINI_MODEL_GENERATION, geminiRateLimitMessage } from '@/lib/gemini'
 import { NextRequest, NextResponse } from 'next/server'
 import type { MensajeCurso } from '@/types'
 
@@ -52,21 +52,10 @@ Temas clave: ${modulo.temas.join(', ')}`
       ? `Fragmentos relevantes del libro:\n${contextoRAG}\n\nEstudiante: ${mensaje}`
       : `Estudiante: ${mensaje}`
 
-    // Include last 16 messages (8 exchanges) as history
-    const historialReciente = curso.conversacion.slice(-16)
-
-    const genAI = await getGeminiClient(accessToken)
-    const model = genAI.getGenerativeModel({
-      model: GEMINI_MODEL_GENERATION,
-      systemInstruction: sistema,
-    })
-
-    const chat = model.startChat({
-      history: historialReciente.map((m) => ({
-        role: m.rol === 'usuario' ? 'user' : 'model',
-        parts: [{ text: m.contenido }],
-      })),
-    })
+    const history = curso.conversacion.slice(-16).map((m) => ({
+      role: m.rol === 'usuario' ? 'user' : 'model' as 'user' | 'model',
+      parts: [{ text: m.contenido }],
+    }))
 
     const encoder = new TextEncoder()
     let respuestaCompleta = ''
@@ -74,14 +63,20 @@ Temas clave: ${modulo.temas.join(', ')}`
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          const result = await chat.sendMessageStream(promptConContexto)
-
-          for await (const chunk of result.stream) {
-            const text = chunk.text()
-            if (text) {
-              respuestaCompleta += text
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ texto: text })}\n\n`))
+          for await (const text of streamWithRotation(accessToken, async function* (genAI) {
+            const model = genAI.getGenerativeModel({
+              model: GEMINI_MODEL_GENERATION,
+              systemInstruction: sistema,
+            })
+            const chat = model.startChat({ history })
+            const result = await chat.sendMessageStream(promptConContexto)
+            for await (const chunk of result.stream) {
+              const t = chunk.text()
+              if (t) yield t
             }
+          })) {
+            respuestaCompleta += text
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ texto: text })}\n\n`))
           }
 
           // Save conversation to Drive

@@ -2,7 +2,7 @@ import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, listPDFs } from '@/lib/drive'
 import { listarCursos, guardarCurso, getSampleChunks } from '@/lib/aula'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { NextRequest, NextResponse } from 'next/server'
 import type { Curso } from '@/types'
 
@@ -34,9 +34,6 @@ export async function POST(req: NextRequest) {
     const estructura = await initUserDrive(accessToken)
     const chunks = await getSampleChunks(accessToken, libroId, estructura.indexId)
 
-    const genAI = await getGeminiClient(accessToken)
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-
     const titulo = libroTitulo || libroNombre.replace(/\.pdf$/i, '')
     const autor = libroAutor || 'autor desconocido'
     const contexto = chunks.length
@@ -55,12 +52,14 @@ Generá entre 6 y 10 módulos temáticos según la complejidad del libro. Para c
 Respondé ÚNICAMENTE con JSON válido, sin markdown ni texto adicional. Formato exacto:
 [{"numero":1,"titulo":"...","descripcion":"...","objetivos":["..."],"temas":["..."]}]`
 
-    const result = await model.generateContent(prompt)
-    const texto = result.response.text().trim()
-    const jsonText = texto.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim()
-
     let plan
     try {
+      const texto = await generateWithRotation(accessToken, async (genAI) => {
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+        const result = await model.generateContent(prompt)
+        return result.response.text().trim()
+      })
+      const jsonText = texto.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim()
       plan = JSON.parse(jsonText)
     } catch {
       return NextResponse.json({ error: 'No se pudo generar el plan de estudios. Intentá de nuevo.' }, { status: 500 })

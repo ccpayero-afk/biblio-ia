@@ -285,7 +285,8 @@ export interface Curso {
 export interface ConfigUsuario {
   driveInitializado: boolean
   estructura: DriveStructure
-  geminiKeyEncriptada?: string
+  geminiKeyEncriptada?: string      // legacy — kept for backward compat
+  geminiKeysEncriptadas?: string[]  // up to 5 keys, rotated on rate limit
   zoteroUserId?: string
   zoteroApiKeyEncriptada?: string
 }

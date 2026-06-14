@@ -1,6 +1,7 @@
 import { FragmentoConDocumento } from './search'
-import { getGeminiClient } from './gemini'
+import { streamWithRotation } from './gemini'
 import { GEMINI_MODEL_GENERATION } from './gemini'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const SISTEMA = `Sos un asistente de investigación académica especializado en ciencias sociales latinoamericanas.
 Respondés preguntas basándote ÚNICAMENTE en los fragmentos de texto que te proveo.
@@ -32,29 +33,26 @@ export async function* askLibrary(
   accessToken: string,
   historial: MensajeHistorial[] = []
 ): AsyncGenerator<string> {
-  const genAI = await getGeminiClient(accessToken)
-  const model = genAI.getGenerativeModel({
-    model: GEMINI_MODEL_GENERATION,
-    systemInstruction: SISTEMA,
-  })
-
   const contexto = construirContexto(fragmentos)
   const promptConContexto = fragmentos.length
     ? `FRAGMENTOS RELEVANTES DE LA BIBLIOTECA:\n\n${contexto}\n\n---\nPREGUNTA: ${query}`
     : `No encontré fragmentos relevantes en la biblioteca para esta pregunta.\n\nPREGUNTA: ${query}`
 
-  // Construir historial para el chat
-  const chat = model.startChat({
-    history: historial.map((m) => ({
-      role: m.rol === 'user' ? 'user' : 'model',
-      parts: [{ text: m.contenido }],
-    })),
+  const history = historial.map((m) => ({
+    role: m.rol === 'user' ? 'user' : 'model' as 'user' | 'model',
+    parts: [{ text: m.contenido }],
+  }))
+
+  yield* streamWithRotation(accessToken, async function* (genAI: GoogleGenerativeAI) {
+    const model = genAI.getGenerativeModel({
+      model: GEMINI_MODEL_GENERATION,
+      systemInstruction: SISTEMA,
+    })
+    const chat = model.startChat({ history })
+    const result = await chat.sendMessageStream(promptConContexto)
+    for await (const chunk of result.stream) {
+      const text = chunk.text()
+      if (text) yield text
+    }
   })
-
-  const result = await chat.sendMessageStream(promptConContexto)
-
-  for await (const chunk of result.stream) {
-    const text = chunk.text()
-    if (text) yield text
-  }
 }

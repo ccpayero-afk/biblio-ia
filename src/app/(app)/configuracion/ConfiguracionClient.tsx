@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Eye, EyeOff, CheckCircle, XCircle, ExternalLink, Download, RefreshCw, FileText } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, XCircle, ExternalLink, Download, RefreshCw, FileText, Trash2, Plus, Key } from 'lucide-react'
 import type { ZoteroItem, ZoteroImportResult } from '@/lib/zotero'
 
 interface PropuestaRenombrado {
@@ -26,6 +26,37 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
   const [resultado, setResultado] = useState<'ok' | 'error' | null>(null)
   const [mensajeError, setMensajeError] = useState('')
   const [configurada, setConfigurada] = useState(inicial)
+  const [keysMasked, setKeysMasked] = useState<string[]>([])
+  const [cargandoKeys, setCargandoKeys] = useState(true)
+  const [eliminandoIdx, setEliminandoIdx] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch('/api/config/apikey')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.masked)) setKeysMasked(d.masked)
+        if (typeof d.configurada === 'boolean') setConfigurada(d.configurada)
+      })
+      .catch(() => { /* ignore */ })
+      .finally(() => setCargandoKeys(false))
+  }, [])
+
+  async function eliminarKey(index: number) {
+    setEliminandoIdx(index)
+    try {
+      const res = await fetch('/api/config/apikey', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ index }),
+      })
+      const data = await res.json()
+      if (res.ok && Array.isArray(data.masked)) {
+        setKeysMasked(data.masked)
+        setConfigurada(data.count > 0)
+      }
+    } catch { /* ignore */ }
+    setEliminandoIdx(null)
+  }
 
   // ── Zotero ──────────────────────────────────────────────────────────────────
   const [zoteroUserId, setZoteroUserId] = useState('')
@@ -155,6 +186,7 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
         setResultado('ok')
         setConfigurada(true)
         setApiKey('')
+        if (Array.isArray(data.masked)) setKeysMasked(data.masked)
       } else {
         setResultado('error')
         setMensajeError(data.error ?? 'Error al guardar')
@@ -174,88 +206,113 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
         <p className="mt-1 text-sm" style={{ color: 'rgba(148,163,184,0.55)' }}>Configurá tu acceso a la IA y revisá los usuarios autorizados.</p>
       </div>
 
-      {/* API Key de Gemini */}
+      {/* API Keys de Gemini — hasta 5 con rotación automática */}
       <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}>
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-white">API key de Gemini</h2>
-          {configurada ? (
-            <span
-              className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs"
-              style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', color: 'rgba(52,211,153,0.9)' }}
-            >
-              <CheckCircle className="h-3.5 w-3.5" /> Configurada
-            </span>
-          ) : (
-            <span
-              className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs"
-              style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: 'rgba(245,158,11,0.9)' }}
-            >
-              <XCircle className="h-3.5 w-3.5" /> No configurada
-            </span>
-          )}
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2">
+            <Key className="h-4 w-4" style={{ color: 'rgba(139,92,246,0.7)' }} />
+            <h2 className="text-sm font-medium text-white">API keys de Gemini</h2>
+          </div>
+          <span
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs"
+            style={configurada
+              ? { background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', color: 'rgba(52,211,153,0.9)' }
+              : { background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: 'rgba(245,158,11,0.9)' }}
+          >
+            {configurada
+              ? <><CheckCircle className="h-3.5 w-3.5" /> {keysMasked.length}/5 activa{keysMasked.length !== 1 ? 's' : ''}</>
+              : <><XCircle className="h-3.5 w-3.5" /> No configurada</>}
+          </span>
         </div>
 
-        <p className="mt-2 text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
-          Tu API key se guarda cifrada en tu Google Drive. Nunca se almacena en nuestros servidores.
-          Conseguí tu key gratis en{' '}
-          <a
-            href="https://aistudio.google.com/app/apikey"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-0.5 hover:underline"
-            style={{ color: 'rgba(34,211,238,0.8)' }}
-          >
+        <p className="text-xs mb-4" style={{ color: 'rgba(148,163,184,0.5)' }}>
+          Agregá hasta 5 keys. La IA rota automáticamente cuando una alcanza el límite de uso.
+          Keys guardadas cifradas en tu Drive.{' '}
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-0.5 hover:underline" style={{ color: 'rgba(34,211,238,0.8)' }}>
             Google AI Studio <ExternalLink className="h-3 w-3" />
           </a>
         </p>
 
-        <div className="mt-4 space-y-3">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <input
-                type={mostrar ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => { setApiKey(e.target.value); setResultado(null) }}
-                placeholder={configurada ? '••••••••••••••••••••••••' : 'AIza...'}
-                className="w-full rounded-lg px-3 py-2.5 pr-10 text-sm text-white placeholder-neutral-600 focus:outline-none"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.1)' }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.boxShadow = '' }}
-                onKeyDown={(e) => e.key === 'Enter' && guardar()}
-              />
-              <button
-                onClick={() => setMostrar(!mostrar)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                style={{ color: 'rgba(148,163,184,0.4)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}
-              >
-                {mostrar ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        {/* Keys configuradas */}
+        {!cargandoKeys && keysMasked.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {keysMasked.map((masked, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <div className="h-6 w-6 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                  style={{ background: 'rgba(139,92,246,0.15)', color: 'rgba(167,139,250,0.8)' }}>
+                  {i + 1}
+                </div>
+                <span className="flex-1 text-sm font-mono" style={{ color: 'rgba(203,213,225,0.7)' }}>{masked}</span>
+                {i === 0 && (
+                  <span className="text-xs rounded-full px-2 py-0.5 flex-shrink-0"
+                    style={{ background: 'rgba(34,211,238,0.08)', border: '1px solid rgba(34,211,238,0.2)', color: 'rgba(34,211,238,0.7)' }}>
+                    activa
+                  </span>
+                )}
+                <button onClick={() => eliminarKey(i)} disabled={eliminandoIdx === i}
+                  className="flex-shrink-0 p-1 rounded-lg transition-colors disabled:opacity-40"
+                  style={{ color: 'rgba(239,68,68,0.4)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(239,68,68,0.4)' }}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Agregar nueva key */}
+        {keysMasked.length < 5 && (
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type={mostrar ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => { setApiKey(e.target.value); setResultado(null) }}
+                  placeholder="AIza..."
+                  className="w-full rounded-lg px-3 py-2.5 pr-10 text-sm text-white placeholder-neutral-600 focus:outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.1)' }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.boxShadow = '' }}
+                  onKeyDown={(e) => e.key === 'Enter' && guardar()}
+                />
+                <button onClick={() => setMostrar(!mostrar)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.4)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#fff' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.4)' }}>
+                  {mostrar ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <button onClick={guardar} disabled={guardando || !apiKey.trim()}
+                className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-all disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 14px rgba(124,58,237,0.3)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 22px rgba(124,58,237,0.5)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 14px rgba(124,58,237,0.3)' }}>
+                <Plus className="h-3.5 w-3.5" />
+                {guardando ? 'Verificando...' : 'Agregar'}
               </button>
             </div>
-            <button
-              onClick={guardar}
-              disabled={guardando || !apiKey.trim()}
-              className="rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-all disabled:opacity-50"
-              style={{ background: 'linear-gradient(135deg, #7c3aed, #0891b2)', boxShadow: '0 0 14px rgba(124,58,237,0.3)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 0 22px rgba(124,58,237,0.5)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 14px rgba(124,58,237,0.3)' }}
-            >
-              {guardando ? 'Verificando...' : 'Verificar y guardar'}
-            </button>
+            {resultado === 'ok' && (
+              <p className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(52,211,153,0.9)' }}>
+                <CheckCircle className="h-3.5 w-3.5" /> API key válida y agregada
+              </p>
+            )}
+            {resultado === 'error' && (
+              <p className="flex items-center gap-1.5 text-xs text-red-400">
+                <XCircle className="h-3.5 w-3.5" /> {mensajeError}
+              </p>
+            )}
           </div>
-
-          {resultado === 'ok' && (
-            <p className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(52,211,153,0.9)' }}>
-              <CheckCircle className="h-3.5 w-3.5" /> API key válida y guardada correctamente
-            </p>
-          )}
-          {resultado === 'error' && (
-            <p className="flex items-center gap-1.5 text-xs text-red-400">
-              <XCircle className="h-3.5 w-3.5" /> {mensajeError}
-            </p>
-          )}
-        </div>
+        )}
+        {keysMasked.length >= 5 && (
+          <p className="text-xs mt-2" style={{ color: 'rgba(148,163,184,0.4)' }}>
+            Límite de 5 keys alcanzado. Eliminá una para agregar otra.
+          </p>
+        )}
       </div>
 
       {/* Integración con Zotero */}

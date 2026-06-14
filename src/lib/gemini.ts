@@ -77,15 +77,9 @@ export function getGeminiClient(accessToken: string): Promise<GoogleGenerativeAI
   if (cached && Date.now() - cached.ts < GEMINI_CACHE_TTL) return cached.promise
 
   const promise = (async () => {
-    const estructura = await initUserDrive(accessToken)
-    const configFileId = await findFile(accessToken, 'config.json', estructura.rootId)
-    if (!configFileId) throw new Error('No hay API key configurada. Configurá tu clave de Gemini en Configuración.')
-
-    const config = await readJSON<ConfigUsuario>(accessToken, configFileId)
-    if (!config.geminiKeyEncriptada) throw new Error('No hay API key configurada.')
-
-    const apiKey = await decryptApiKey(config.geminiKeyEncriptada)
-    return new GoogleGenerativeAI(apiKey)
+    const keys = await getDecryptedKeys(accessToken)
+    if (!keys.length) throw new Error('No hay API key configurada. Configurá tu clave de Gemini en Configuración.')
+    return new GoogleGenerativeAI(keys[0])
   })()
 
   promise.catch(() => geminiClientCache.delete(accessToken))
@@ -93,24 +87,160 @@ export function getGeminiClient(accessToken: string): Promise<GoogleGenerativeAI
   return promise
 }
 
+// ── Multi-key support ─────────────────────────────────────────────────────────
+
+const keysCache = new Map<string, { promise: Promise<string[]>; ts: number }>()
+const KEYS_TTL = 2 * 60 * 1000
+
+async function _loadDecryptedKeys(accessToken: string): Promise<string[]> {
+  const estructura = await initUserDrive(accessToken)
+  const configFileId = await findFile(accessToken, 'config.json', estructura.rootId)
+  if (!configFileId) return []
+  const config = await readJSON<ConfigUsuario>(accessToken, configFileId)
+
+  if (config.geminiKeysEncriptadas?.length) {
+    const keys: string[] = []
+    for (const enc of config.geminiKeysEncriptadas) {
+      try { keys.push(await decryptApiKey(enc)) } catch { /* skip */ }
+    }
+    return keys
+  }
+  if (config.geminiKeyEncriptada) {
+    try { return [await decryptApiKey(config.geminiKeyEncriptada)] } catch { return [] }
+  }
+  return []
+}
+
+export function getDecryptedKeys(accessToken: string): Promise<string[]> {
+  const cached = keysCache.get(accessToken)
+  if (cached && Date.now() - cached.ts < KEYS_TTL) return cached.promise
+  const promise = _loadDecryptedKeys(accessToken)
+  promise.catch(() => keysCache.delete(accessToken))
+  keysCache.set(accessToken, { promise, ts: Date.now() })
+  return promise
+}
+
+function invalidateKeysCache(accessToken: string) {
+  keysCache.delete(accessToken)
+  geminiClientCache.delete(accessToken)
+}
+
+function isRateLimit(e: unknown): boolean {
+  const msg = String(e)
+  return msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Too Many Requests')
+}
+
+export async function generateWithRotation<T>(
+  accessToken: string,
+  fn: (genAI: GoogleGenerativeAI) => Promise<T>
+): Promise<T> {
+  const keys = await getDecryptedKeys(accessToken)
+  if (!keys.length) throw new Error('No hay API key configurada. Configurala en Configuración.')
+  let lastError: unknown
+  for (let i = 0; i < keys.length; i++) {
+    try {
+      return await fn(new GoogleGenerativeAI(keys[i]))
+    } catch (e) {
+      lastError = e
+      if (isRateLimit(e) && i < keys.length - 1) continue
+      throw e
+    }
+  }
+  throw lastError
+}
+
+export async function* streamWithRotation(
+  accessToken: string,
+  fn: (genAI: GoogleGenerativeAI) => AsyncGenerator<string>
+): AsyncGenerator<string> {
+  const keys = await getDecryptedKeys(accessToken)
+  if (!keys.length) throw new Error('No hay API key configurada. Configurala en Configuración.')
+  let lastError: unknown
+  for (let i = 0; i < keys.length; i++) {
+    try {
+      yield* fn(new GoogleGenerativeAI(keys[i]))
+      return
+    } catch (e) {
+      lastError = e
+      if (isRateLimit(e) && i < keys.length - 1) continue
+      throw e
+    }
+  }
+  throw lastError
+}
+
+// Returns masked key info for display (never exposes raw keys)
+export async function getKeyInfo(accessToken: string): Promise<{ count: number; masked: string[] }> {
+  const estructura = await initUserDrive(accessToken)
+  const configFileId = await findFile(accessToken, 'config.json', estructura.rootId)
+  if (!configFileId) return { count: 0, masked: [] }
+  const config = await readJSON<ConfigUsuario>(accessToken, configFileId)
+
+  const encrypted = config.geminiKeysEncriptadas?.length
+    ? config.geminiKeysEncriptadas
+    : config.geminiKeyEncriptada ? [config.geminiKeyEncriptada] : []
+
+  const masked: string[] = []
+  for (const enc of encrypted) {
+    try {
+      const raw = await decryptApiKey(enc)
+      masked.push(raw.length > 8 ? `••••••••${raw.slice(-6)}` : '••••••••••••••')
+    } catch { masked.push('(inválida)') }
+  }
+  return { count: masked.length, masked }
+}
+
+export async function addApiKey(accessToken: string, apiKey: string): Promise<void> {
+  const estructura = await initUserDrive(accessToken)
+  const encriptada = await encryptApiKey(apiKey)
+  const configFileId = await findFile(accessToken, 'config.json', estructura.rootId)
+
+  let config: ConfigUsuario = { driveInitializado: true, estructura }
+  if (configFileId) config = await readJSON<ConfigUsuario>(accessToken, configFileId)
+
+  const existing = config.geminiKeysEncriptadas ?? (config.geminiKeyEncriptada ? [config.geminiKeyEncriptada] : [])
+  const updated = [...existing, encriptada].slice(0, 5) // max 5
+
+  await writeJSON(accessToken, estructura.rootId, 'config.json', {
+    ...config,
+    geminiKeyEncriptada: updated[0], // keep legacy field pointing to first key
+    geminiKeysEncriptadas: updated,
+  })
+  invalidateKeysCache(accessToken)
+}
+
+export async function removeApiKey(accessToken: string, index: number): Promise<void> {
+  const estructura = await initUserDrive(accessToken)
+  const configFileId = await findFile(accessToken, 'config.json', estructura.rootId)
+  if (!configFileId) return
+
+  const config = await readJSON<ConfigUsuario>(accessToken, configFileId)
+  const existing = config.geminiKeysEncriptadas ?? (config.geminiKeyEncriptada ? [config.geminiKeyEncriptada] : [])
+  const updated = existing.filter((_, i) => i !== index)
+
+  await writeJSON(accessToken, estructura.rootId, 'config.json', {
+    ...config,
+    geminiKeyEncriptada: updated[0] ?? undefined,
+    geminiKeysEncriptadas: updated,
+  })
+  invalidateKeysCache(accessToken)
+}
+
+// Legacy single-key save — now delegates to addApiKey (replaces all keys with just this one)
 export async function saveApiKey(accessToken: string, apiKey: string): Promise<void> {
   const estructura = await initUserDrive(accessToken)
   const encriptada = await encryptApiKey(apiKey)
-
   const configFileId = await findFile(accessToken, 'config.json', estructura.rootId)
-  if (configFileId) {
-    const existente = await readJSON<ConfigUsuario>(accessToken, configFileId)
-    await writeJSON(accessToken, estructura.rootId, 'config.json', {
-      ...existente,
-      geminiKeyEncriptada: encriptada,
-    })
-  } else {
-    await writeJSON(accessToken, estructura.rootId, 'config.json', {
-      driveInitializado: true,
-      estructura,
-      geminiKeyEncriptada: encriptada,
-    })
-  }
+
+  let config: ConfigUsuario = { driveInitializado: true, estructura }
+  if (configFileId) config = await readJSON<ConfigUsuario>(accessToken, configFileId)
+
+  await writeJSON(accessToken, estructura.rootId, 'config.json', {
+    ...config,
+    geminiKeyEncriptada: encriptada,
+    geminiKeysEncriptadas: [encriptada],
+  })
+  invalidateKeysCache(accessToken)
 }
 
 // Parsea errores de Gemini y devuelve un mensaje amigable, o null si no es un error de rate limit.
@@ -140,11 +270,8 @@ export function geminiRateLimitMessage(e: unknown): string | null {
 
 export async function hasApiKey(accessToken: string): Promise<boolean> {
   try {
-    const estructura = await initUserDrive(accessToken)
-    const configFileId = await findFile(accessToken, 'config.json', estructura.rootId)
-    if (!configFileId) return false
-    const config = await readJSON<ConfigUsuario>(accessToken, configFileId)
-    return !!config.geminiKeyEncriptada
+    const keys = await getDecryptedKeys(accessToken)
+    return keys.length > 0
   } catch {
     return false
   }
