@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     if (!texto?.trim()) return NextResponse.json({ error: 'Texto vacío' }, { status: 400 })
 
-    const textoLimitado = texto.slice(0, 12000)
+    const textoLimitado = texto.slice(0, 6000)
 
     const stopwords = new Set([
       'para', 'como', 'esto', 'esta', 'estos', 'estas', 'pero', 'cuando', 'donde', 'desde',
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     const citasOrdenadas = [...citas]
       .map((c) => ({ c, score: scoreRelevancia(`${c.texto} ${c.etiquetas.join(' ')}`, queryTerms) }))
       .sort((a, b) => b.score - a.score)
-      .slice(0, 40)
+      .slice(0, 25)
       .map((x) => x.c)
 
     if (citasOrdenadas.length > 0) {
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         score: scoreRelevancia(`${n.titulo} ${n.contenido ?? ''} ${n.etiquetas.join(' ')}`, queryTerms),
       }))
       .sort((a, b) => b.score - a.score)
-      .slice(0, 30)
+      .slice(0, 20)
       .map((x) => x.n)
 
     if (notasOrdenadas.length > 0) {
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
         ),
       }))
       .sort((a, b) => b.score - a.score)
-      .slice(0, 50)
+      .slice(0, 30)
       .map((x) => x.d)
 
     if (docsOrdenados.length > 0) {
@@ -146,7 +146,7 @@ export async function POST(req: NextRequest) {
       try {
         const fragmentos = await semanticSearch(textoLimitado.slice(0, 1500), accessToken, {
           documentoIds: docIdsIndexados,
-          topK: 12,
+          topK: 8,
         })
         if (fragmentos.length > 0) {
           partes.push('\n=== PASAJES DE DOCUMENTOS (para recomendaciones de lectura específica) ===')
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
 
             const titulo = documentos.find((d) => d.id === f.documentoId)
             const tituloStr = titulo?.titulo || titulo?.nombre.replace(/\.pdf$/i, '') || f.documentoNombre
-            const snip = f.texto.slice(0, 400).replace(/\n/g, ' ')
+            const snip = f.texto.slice(0, 250).replace(/\n/g, ' ')
             partes.push(`[${key}] "${tituloStr}" p.${f.pagina} (doc: ${docRef}): "${snip}"`)
             fragmentosIncluidos++
           })
@@ -214,7 +214,13 @@ export async function POST(req: NextRequest) {
     })
 
     let txt = result.response.text().trim()
-    if (txt.includes('```')) txt = txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1)
+    // Extraer el objeto JSON aunque haya texto antes o después
+    const jsonStart = txt.indexOf('{')
+    const jsonEnd = txt.lastIndexOf('}')
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+      throw new Error(`Gemini no devolvió JSON válido. Respuesta: "${txt.slice(0, 200)}"`)
+    }
+    txt = txt.slice(jsonStart, jsonEnd + 1)
     const parsed = JSON.parse(txt) as {
       analisis: string
       recomendaciones: Array<Recomendacion & { itemId: string }>
