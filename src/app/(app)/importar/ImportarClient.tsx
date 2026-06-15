@@ -63,17 +63,48 @@ export default function ImportarClient() {
       const f = archivos[i]
       setProgreso({ actual: i + 1, total: archivos.length, nombre: f.name })
 
-      const fd = new FormData()
-      fd.append('file_0', f)
-      const meta = metadatos[i]
-      if (meta) fd.append('meta_file_0', JSON.stringify(meta))
-
       try {
-        const res = await fetch('/api/importar?tipo=pdf', { method: 'POST', body: fd })
-        const data = await res.json()
-        const r = data.resultados?.[0] as ResultadoPDF | undefined
-        if (r) acumulados.push(r)
-        else acumulados.push({ nombre: f.name, id: '', ok: false, error: 'Sin respuesta' })
+        // Paso 1: crear sesión de carga en Drive (solo JSON pequeño → no hay límite 4.5 MB)
+        const sessionRes = await fetch('/api/importar/upload-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: f.name, fileSize: f.size }),
+        })
+        const sessionData = await sessionRes.json()
+
+        if (sessionData.duplicado) {
+          acumulados.push({ nombre: f.name, id: sessionData.duplicado.id, ok: false, duplicado: sessionData.duplicado })
+          setResultados([...acumulados])
+          continue
+        }
+        if (sessionData.error || !sessionData.uploadUrl) {
+          acumulados.push({ nombre: f.name, id: '', ok: false, error: sessionData.error ?? 'Sin URL de carga' })
+          setResultados([...acumulados])
+          continue
+        }
+
+        // Paso 2: subir el archivo directo a Drive (bypasea Vercel, sin límite de tamaño)
+        const uploadRes = await fetch(sessionData.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/pdf' },
+          body: f,
+        })
+        if (!uploadRes.ok) {
+          throw new Error(`Drive upload: ${uploadRes.status}`)
+        }
+        const driveFile = await uploadRes.json() as { id?: string }
+        const fileId = driveFile.id
+        if (!fileId) throw new Error('Drive no devolvió fileId')
+
+        // Paso 3: guardar metadatos en Drive
+        const meta = metadatos[i]
+        await fetch('/api/importar/upload-finish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId, meta }),
+        })
+
+        acumulados.push({ nombre: f.name, id: fileId, ok: true })
       } catch (e) {
         acumulados.push({ nombre: f.name, id: '', ok: false, error: String(e) })
       }
