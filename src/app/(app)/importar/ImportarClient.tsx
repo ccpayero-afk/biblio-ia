@@ -58,19 +58,19 @@ export default function ImportarClient() {
     setError('')
     setResultados([])
     const acumulados: ResultadoPDF[] = []
+    const CHUNK_SIZE = 3 * 1024 * 1024 // 3 MB — bien por debajo del límite 4.5 MB de Vercel
 
     for (let i = 0; i < archivos.length; i++) {
       const f = archivos[i]
       setProgreso({ actual: i + 1, total: archivos.length, nombre: f.name })
 
       try {
-        // Paso 1: crear sesión de carga en Drive (solo JSON pequeño → no hay límite 4.5 MB)
-        const sessionRes = await fetch('/api/importar/upload-session', {
+        // Paso 1: crear sesión de carga en Drive (JSON pequeño, no toca el límite)
+        const sessionData = await fetch('/api/importar/upload-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ fileName: f.name, fileSize: f.size }),
-        })
-        const sessionData = await sessionRes.json()
+        }).then((r) => r.json())
 
         if (sessionData.duplicado) {
           acumulados.push({ nombre: f.name, id: sessionData.duplicado.id, ok: false, duplicado: sessionData.duplicado })
@@ -83,20 +83,37 @@ export default function ImportarClient() {
           continue
         }
 
-        // Paso 2: subir el archivo directo a Drive (bypasea Vercel, sin límite de tamaño)
-        const uploadRes = await fetch(sessionData.uploadUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/pdf' },
-          body: f,
-        })
-        if (!uploadRes.ok) {
-          throw new Error(`Drive upload: ${uploadRes.status}`)
-        }
-        const driveFile = await uploadRes.json() as { id?: string }
-        const fileId = driveFile.id
-        if (!fileId) throw new Error('Drive no devolvió fileId')
+        // Paso 2: subir en chunks de 3 MB a través de Vercel → Drive
+        // (cada request queda < 4.5 MB, sin CORS ni límite de tamaño)
+        let fileId = ''
+        let start = 0
+        while (start < f.size) {
+          const end = Math.min(start + CHUNK_SIZE, f.size)
+          const chunk = f.slice(start, end)
 
-        // Paso 3: guardar metadatos en Drive
+          const chunkData = await fetch('/api/importar/upload-chunk', {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/octet-stream',
+              'x-drive-url': sessionData.uploadUrl,
+              'x-content-range': `bytes ${start}-${end - 1}/${f.size}`,
+            },
+            body: chunk,
+          }).then((r) => r.json())
+
+          if (chunkData.error) throw new Error(chunkData.error)
+
+          if (chunkData.done) {
+            fileId = chunkData.id ?? ''
+            break
+          }
+
+          start = end
+        }
+
+        if (!fileId) throw new Error('Drive no devolvió fileId tras la carga')
+
+        // Paso 3: guardar metadatos
         const meta = metadatos[i]
         await fetch('/api/importar/upload-finish', {
           method: 'POST',
