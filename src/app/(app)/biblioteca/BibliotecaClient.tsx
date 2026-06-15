@@ -450,26 +450,64 @@ export default function BibliotecaClient() {
     if (!pdfs.length) { setErrorSubida('No se detectaron archivos PDF'); return }
     setSubiendo(true)
     setErrorSubida(null)
-    const fd = new FormData()
-    pdfs.forEach((f) => fd.append('files', f))
-    try {
-      const res = await fetch('/api/drive/pdfs', { method: 'POST', body: fd })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        setErrorSubida(err?.error ?? `Error al subir (${res.status})`)
-      } else {
-        const data = await res.json()
-        if (data.duplicados?.length > 0) {
-          const nombres = (data.duplicados as { nombre: string }[]).map((d) => d.nombre).join(', ')
-          setErrorSubida(`Ya exist${data.duplicados.length > 1 ? 'ían' : 'ía'}: ${nombres}`)
+
+    const CHUNK_SIZE = 3 * 1024 * 1024 // 3 MB — respeta límite 4.5 MB de Vercel
+    const duplicadosNombres: string[] = []
+
+    for (const f of pdfs) {
+      try {
+        // Paso 1: crear sesión en Drive (también detecta duplicados)
+        const sessionData = await fetch('/api/importar/upload-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileName: f.name, fileSize: f.size }),
+        }).then((r) => r.json())
+
+        if (sessionData.duplicado) { duplicadosNombres.push(f.name); continue }
+        if (sessionData.error || !sessionData.uploadUrl) {
+          throw new Error(sessionData.error ?? 'Sin URL de carga')
         }
-        await cargar()
+
+        // Paso 2: subir en chunks de 3 MB vía Vercel → Drive
+        let fileId = ''
+        let start = 0
+        while (start < f.size) {
+          const end = Math.min(start + CHUNK_SIZE, f.size)
+          const chunkData = await fetch('/api/importar/upload-chunk', {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/octet-stream',
+              'x-drive-url': sessionData.uploadUrl,
+              'x-content-range': `bytes ${start}-${end - 1}/${f.size}`,
+            },
+            body: f.slice(start, end),
+          }).then((r) => r.json())
+
+          if (chunkData.error) throw new Error(chunkData.error)
+          if (chunkData.done) { fileId = chunkData.id ?? ''; break }
+          start = end
+        }
+
+        if (!fileId) throw new Error('Drive no devolvió fileId')
+
+        // Paso 3: registrar en metadatos (sin APA — subida directa desde biblioteca)
+        await fetch('/api/importar/upload-finish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileId }),
+        })
+      } catch (e) {
+        setErrorSubida(e instanceof Error ? e.message : 'Error de red al subir')
+        setSubiendo(false)
+        return
       }
-    } catch (e) {
-      setErrorSubida(e instanceof Error ? e.message : 'Error de red al subir')
-    } finally {
-      setSubiendo(false)
     }
+
+    if (duplicadosNombres.length > 0) {
+      setErrorSubida(`Ya exist${duplicadosNombres.length > 1 ? 'ían' : 'ía'}: ${duplicadosNombres.join(', ')}`)
+    }
+    await cargar()
+    setSubiendo(false)
   }
 
   function onDocumentIndexado(id: string, fragmentos: number) {
