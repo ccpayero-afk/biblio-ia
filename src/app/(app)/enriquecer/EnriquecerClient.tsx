@@ -185,7 +185,11 @@ export default function EnriquecerClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ texto, ...scopeParam(scope) }),
       })
-      const data = await res.json()
+      if (!res.ok && res.headers.get('content-type')?.includes('application/json') === false) {
+        setError('El análisis tardó demasiado. Intentá con un texto más corto o menos documentos indexados.')
+        return
+      }
+      const data = await res.json().catch(() => ({ error: 'Respuesta inválida del servidor. Intentá de nuevo.' }))
       if (data.error) { setError(data.error); return }
       setAnalisis(data.analisis ?? '')
       setRecomendaciones(data.recomendaciones ?? [])

@@ -137,8 +137,12 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Búsqueda semántica sobre todos los docs indexados en scope → claves f1, f2, ...
-    const docIdsIndexados = documentos.filter((d) => d.estado === 'indexado').map((d) => d.id)
+    // Búsqueda semántica: los 15 docs indexados más relevantes (ya ordenados por keyword)
+    // Limitar a 15 para no saturar Drive y evitar timeout de 60s en Vercel
+    const docIdsIndexados = docsOrdenados
+      .filter((d) => d.estado === 'indexado')
+      .map((d) => d.id)
+      .slice(0, 15)
     let fragmentosIncluidos = 0
     let errorFragmentos: string | null = null
 
