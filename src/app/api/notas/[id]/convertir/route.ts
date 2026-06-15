@@ -5,6 +5,8 @@ import { generateWithRotation } from '@/lib/gemini'
 import { convertirNota } from '@/lib/zettel-ia'
 import { NextRequest, NextResponse } from 'next/server'
 
+export const maxDuration = 60
+
 // POST — convierte una nota efímera en permanente usando IA
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

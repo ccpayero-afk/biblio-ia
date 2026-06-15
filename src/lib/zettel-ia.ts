@@ -35,7 +35,7 @@ ${listado}`
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_PIPELINE })
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 1 },
+    generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 0 } } as never,
   })
   const text = result.response.text().trim()
 
@@ -100,7 +100,7 @@ ${listaCandidatas}`
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_PIPELINE })
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 1 },
+    generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 0 } } as never,
   })
   const text = result.response.text().trim()
 
@@ -179,7 +179,10 @@ Nota efímera a transformar:
 ${contenidoEfimero.slice(0, 1500)}`
 
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_PIPELINE })
-  const result = await model.generateContent(prompt)
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 0 } } as never,
+  })
   const contenido = result.response.text().trim()
 
   const tituloMatch = contenido.match(/^#\s*Título\s*\n+(.+)/m)
