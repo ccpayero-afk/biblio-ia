@@ -1033,6 +1033,8 @@ export default function NotasClient() {
   const [progresoConv, setProgresoConv] = useState<{ actual: number; total: number } | null>(null)
   const [vinculandoIA, setVinculandoIA] = useState(false)
   const [progresoVinc, setProgresoVinc] = useState<{ actual: number; total: number; nuevos: number; ultimoError?: string } | null>(null)
+  const [generandoVincPipeline, setGenerandoVincPipeline] = useState(false)
+  const [resultadoVincPipeline, setResultadoVincPipeline] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const convRef = useRef<HTMLDivElement>(null)
 
@@ -1096,6 +1098,35 @@ export default function NotasClient() {
     await cargar()
   }
 
+  async function generarVinculosFaltantes() {
+    if (generandoVincPipeline) return
+    setGenerandoVincPipeline(true)
+    setResultadoVincPipeline(null)
+    let total = 0
+    let offset = 0
+    try {
+      for (let i = 0; i < 10; i++) {
+        const res = await fetch('/api/procesar/vinculos-lote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ offset }),
+        })
+        const data = await res.json()
+        if (!data.ok) break
+        total += data.vinculosCreados ?? 0
+        offset += data.notasProcesadas ?? 0
+        if ((data.restantes ?? 0) === 0 || (data.notasProcesadas ?? 0) === 0) break
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+      if (total > 0) await cargar()
+      setResultadoVincPipeline(total > 0 ? `${total} vínculos generados` : 'Sin vínculos nuevos')
+    } catch (e) {
+      setResultadoVincPipeline(`Error: ${String(e).slice(0, 80)}`)
+    }
+    setGenerandoVincPipeline(false)
+    setTimeout(() => setResultadoVincPipeline(null), 4000)
+  }
+
   async function limpiarTodosVinculos() {
     if (!confirm(`¿Eliminar TODOS los vínculos de las ${notas.length} notas? Esta acción no se puede deshacer.`)) return
     try {
@@ -1148,7 +1179,7 @@ export default function NotasClient() {
       backlinksCount.set(v.notaDestinoId, (backlinksCount.get(v.notaDestinoId) ?? 0) + 1)
     }
   }
-  const sinVinculos = notas.filter((n) => (n.vinculos ?? []).length === 0 && n.tipo === 'permanente').length
+  const sinVinculos = notas.filter((n) => (n.vinculos ?? []).length === 0 && n.tipo !== 'efimera').length
 
   function norm(str: string): string {
     return (str ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -1236,10 +1267,29 @@ export default function NotasClient() {
 
         {sinVinculos > 0 && (
           <div
-            className="mt-4 rounded-lg p-2"
+            className="mt-4 rounded-lg p-2 space-y-2"
             style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)' }}
           >
-            <p className="text-xs" style={{ color: '#fbbf24' }}>⚠ {sinVinculos} permanente{sinVinculos !== 1 ? 's' : ''} sin vínculos</p>
+            <p className="text-xs" style={{ color: '#fbbf24' }}>
+              ⚠ {sinVinculos} nota{sinVinculos !== 1 ? 's' : ''} sin vínculos
+            </p>
+            <button
+              onClick={generarVinculosFaltantes}
+              disabled={generandoVincPipeline}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+              style={{ background: 'rgba(245,158,11,0.15)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = 'rgba(245,158,11,0.28)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(245,158,11,0.15)' }}
+            >
+              {generandoVincPipeline
+                ? <><Loader2 className="h-3 w-3 animate-spin" /> Generando…</>
+                : <><Zap className="h-3 w-3" /> Generar vínculos</>}
+            </button>
+            {resultadoVincPipeline && (
+              <p className="text-xs text-center" style={{ color: resultadoVincPipeline.startsWith('Error') ? '#f87171' : '#34d399' }}>
+                {resultadoVincPipeline}
+              </p>
+            )}
           </div>
         )}
 
