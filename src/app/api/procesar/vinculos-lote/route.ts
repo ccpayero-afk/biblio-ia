@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const { notasId, indice } = await leerIndice(accessToken)
 
     const candidatasLeanas = indice
-      .filter((n) => n.tipo === 'referencia' && (n.vinculos ?? []).length === 0)
+      .filter((n) => n.tipo !== 'efimera' && (n.vinculos ?? []).length === 0)
       .slice(offset, offset + MAX_NOTAS)
 
     if (candidatasLeanas.length === 0) {
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     await escribirIndice(accessToken, notasId, indice)
 
     const totalSinVinculos = indice.filter(
-      (n) => n.tipo === 'referencia' && (n.vinculos ?? []).length === 0
+      (n) => n.tipo !== 'efimera' && (n.vinculos ?? []).length === 0
     ).length
 
     return NextResponse.json({
