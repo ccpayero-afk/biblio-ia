@@ -1,6 +1,6 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON } from '@/lib/drive'
+import { leerTodasCompletas } from '@/lib/notas'
 import { Nota } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 import { Document, Paragraph, TextRun, HeadingLevel, Packer, AlignmentType } from 'docx'
@@ -11,10 +11,7 @@ export async function GET(req: NextRequest) {
     const accessToken = getAccessToken(session)
     const tipoParam = req.nextUrl.searchParams.get('tipo')
 
-    const estructura = await initUserDrive(accessToken)
-    const fileId = await findFile(accessToken, 'notas.json', estructura.notasId)
-    let notas: Nota[] = fileId ? await readJSON<Nota[]>(accessToken, fileId) : []
-
+    let notas = await leerTodasCompletas(accessToken)
     notas = notas.filter((n) => !(n as Nota & { eliminadaEn?: string }).eliminadaEn)
     if (tipoParam) notas = notas.filter((n) => n.tipo === tipoParam)
 

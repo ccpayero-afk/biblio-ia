@@ -1,29 +1,18 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
 import { Nota, NotaVersion } from '@/types'
+import {
+  leerIndice, leerContenido, leerNota, aLigera,
+  escribirIndice, escribirContenido, eliminarArchivoContenido, NotaLigera,
+} from '@/lib/notas'
 import { NextRequest, NextResponse } from 'next/server'
-
-const NOMBRE = 'notas.json'
-
-async function getLista(accessToken: string): Promise<{ estructura: Awaited<ReturnType<typeof import('@/lib/drive').initUserDrive>>; lista: Nota[]; fileId: string | null }> {
-  const { initUserDrive, findFile, readJSON } = await import('@/lib/drive')
-  const estructura = await initUserDrive(accessToken)
-  const fileId = await findFile(accessToken, NOMBRE, estructura.notasId)
-  let lista: Nota[] = []
-  if (fileId) {
-    try { lista = await readJSON<Nota[]>(accessToken, fileId) } catch { lista = [] }
-  }
-  return { estructura, lista, fileId }
-}
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth()
     const accessToken = getAccessToken(session)
     const { id } = await params
-    const { lista } = await getLista(accessToken)
-    const nota = lista.find((n) => n.id === id)
+    const nota = await leerNota(accessToken, id)
     if (!nota) return NextResponse.json({ error: 'No encontrada' }, { status: 404 })
     return NextResponse.json(nota)
   } catch (e) {
@@ -38,36 +27,42 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params
     const body = await req.json()
 
-    const estructura = await initUserDrive(accessToken)
-    const fileId = await findFile(accessToken, NOMBRE, estructura.notasId)
-    let lista: Nota[] = []
-    if (fileId) {
-      try { lista = await readJSON<Nota[]>(accessToken, fileId) } catch { lista = [] }
-    }
-
-    // Buscar incluyendo eliminadas
-    const idx = lista.findIndex((n) => n.id === id)
+    const { notasId, indice } = await leerIndice(accessToken)
+    const idx = indice.findIndex((n) => n.id === id)
     if (idx === -1) return NextResponse.json({ error: 'No encontrada' }, { status: 404 })
 
+    // Restore action: undelete from index only
     if (body.action === 'restore') {
-      const nota = lista[idx] as Nota & { eliminadaEn?: string }
-      delete nota.eliminadaEn
-      lista[idx] = nota
-      await writeJSON(accessToken, estructura.notasId, NOMBRE, lista)
-      return NextResponse.json(lista[idx])
+      delete (indice[idx] as NotaLigera & { eliminadaEn?: string }).eliminadaEn
+      await escribirIndice(accessToken, notasId, indice)
+      return NextResponse.json(indice[idx])
     }
 
-    const notaActual = lista[idx]
+    // Read current content for version snapshot
+    const entryActual = indice[idx] as NotaLigera & { contenido?: string; versiones?: NotaVersion[] }
+    const contenidoActual = await leerContenido(accessToken, notasId, id, entryActual)
+
     const snapshot: NotaVersion = {
-      contenido: notaActual.contenido,
-      titulo: notaActual.titulo,
-      guardadaEn: notaActual.actualizadaEn,
+      contenido: contenidoActual.contenido,
+      titulo: indice[idx].titulo,
+      guardadaEn: indice[idx].actualizadaEn ?? new Date().toISOString(),
     }
-    const versiones = [snapshot, ...(notaActual.versiones ?? [])].slice(0, 5)
-    const notaActualizada = { ...notaActual, ...body, id, actualizadaEn: new Date().toISOString(), versiones }
-    lista[idx] = notaActualizada
-    await writeJSON(accessToken, estructura.notasId, NOMBRE, lista)
-    return NextResponse.json(lista[idx])
+    const newVersiones = [snapshot, ...contenidoActual.versiones].slice(0, 5)
+    const newContenido = body.contenido ?? contenidoActual.contenido
+    const ahora = new Date().toISOString()
+
+    const notaActualizada = { ...indice[idx], ...body, id, actualizadaEn: ahora }
+    indice[idx] = aLigera(notaActualizada as Nota)
+
+    await Promise.all([
+      escribirIndice(accessToken, notasId, indice),
+      escribirContenido(accessToken, notasId, id, {
+        contenido: newContenido,
+        versiones: newVersiones,
+      }),
+    ])
+
+    return NextResponse.json({ ...indice[idx], contenido: newContenido, versiones: newVersiones })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }
@@ -79,30 +74,28 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     const accessToken = getAccessToken(session)
     const { id } = await params
 
-    const estructura = await initUserDrive(accessToken)
-    const fileId = await findFile(accessToken, NOMBRE, estructura.notasId)
-    let lista: Nota[] = []
-    if (fileId) {
-      try { lista = await readJSON<Nota[]>(accessToken, fileId) } catch { lista = [] }
-    }
+    const { notasId, indice } = await leerIndice(accessToken)
+    const idx = indice.findIndex((n) => n.id === id)
+    if (idx === -1) return NextResponse.json({ ok: true })
 
-    const idx = lista.findIndex((n) => n.id === id)
-    if (idx !== -1 && !(lista[idx] as Nota & { eliminadaEn?: string }).eliminadaEn) {
-      // Soft delete: agregar eliminadaEn en lugar de eliminar
-      ;(lista[idx] as Nota & { eliminadaEn?: string }).eliminadaEn = new Date().toISOString()
-      await writeJSON(accessToken, estructura.notasId, NOMBRE, lista)
+    const entry = indice[idx] as NotaLigera & { eliminadaEn?: string }
+
+    if (!entry.eliminadaEn) {
+      // Soft delete: mark in index only
+      entry.eliminadaEn = new Date().toISOString()
+      await escribirIndice(accessToken, notasId, indice)
       return NextResponse.json({ ok: true, soft: true })
     }
 
-    // Hard delete (definitivo): eliminar del array y limpiar vínculos
-    lista = lista
+    // Hard delete: remove from index + delete content file + clean vinculos in other entries
+    const nuevaLista = indice
       .filter((n) => n.id !== id)
-      .map((n) => ({
-        ...n,
-        vinculos: (n.vinculos ?? []).filter((v) => v.notaDestinoId !== id),
-      }))
+      .map((n) => ({ ...n, vinculos: (n.vinculos ?? []).filter((v) => v.notaDestinoId !== id) }))
 
-    await writeJSON(accessToken, estructura.notasId, NOMBRE, lista)
+    await Promise.all([
+      escribirIndice(accessToken, notasId, nuevaLista),
+      eliminarArchivoContenido(accessToken, notasId, id),
+    ])
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, readJSON, findFile, listPDFs } from '@/lib/drive'
+import { leerTodasCompletas } from '@/lib/notas'
 import { semanticSearch } from '@/lib/search'
 import { FichaLectura, Cita, Nota, Documento } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
@@ -63,13 +64,10 @@ export async function POST(req: NextRequest) {
       }
     } catch { /* sin citas */ }
 
-    // 6. Load notas.json
+    // 6. Load all full notes (needed for contenido in the final document)
     let todasNotas: (Nota & { eliminadaEn?: string })[] = []
     try {
-      const notasFileId = await findFile(accessToken, 'notas.json', estructura.notasId)
-      if (notasFileId) {
-        todasNotas = await readJSON<(Nota & { eliminadaEn?: string })[]>(accessToken, notasFileId) ?? []
-      }
+      todasNotas = (await leerTodasCompletas(accessToken)) as (Nota & { eliminadaEn?: string })[]
     } catch { /* sin notas */ }
 
     // 7. For each matched doc, load ficha + filter citas

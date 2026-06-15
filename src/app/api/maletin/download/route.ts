@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, readJSON, findFile, listPDFs } from '@/lib/drive'
+import { leerTodasCompletas } from '@/lib/notas'
 import type { FichaLectura, Cita, Nota, Documento } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 import { Document, Paragraph, TextRun, HeadingLevel, Packer } from 'docx'
@@ -25,11 +26,10 @@ export async function POST(req: NextRequest) {
       if (id) todasCitas = await readJSON<Cita[]>(accessToken, id) ?? []
     } catch { /* sin citas */ }
 
-    // Load notas
+    // Load notas (full content needed for the DOCX body)
     let todasNotas: (Nota & { eliminadaEn?: string })[] = []
     try {
-      const id = await findFile(accessToken, 'notas.json', estructura.notasId)
-      if (id) todasNotas = await readJSON<(Nota & { eliminadaEn?: string })[]>(accessToken, id) ?? []
+      todasNotas = (await leerTodasCompletas(accessToken)) as (Nota & { eliminadaEn?: string })[]
     } catch { /* sin notas */ }
 
     // Build doc entries

@@ -1,8 +1,9 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, readJSON, findFile, listPDFs } from '@/lib/drive'
+import { leerIndice, NotaLigera } from '@/lib/notas'
 import { semanticSearch } from '@/lib/search'
-import type { Cita, Nota } from '@/types'
+import type { Cita } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
@@ -47,25 +48,23 @@ export async function POST(req: NextRequest) {
       }
     } catch { /* sin citas */ }
 
-    // Count notas
+    // Count notas (lean index is sufficient for counting)
     let notasCount = 0
     try {
-      const notasFileId = await findFile(accessToken, 'notas.json', estructura.notasId)
-      if (notasFileId) {
-        const notas = await readJSON<(Nota & { eliminadaEn?: string })[]>(accessToken, notasFileId) ?? []
-        const temaWords = tema.split(/\s+/).filter(w => w.length > 4)
-        const docIdSet = new Set(filteredDocIds)
-        notasCount = notas.filter(n => {
-          if (n.eliminadaEn) return false
-          if (n.documentoOrigenId && docIdSet.has(n.documentoOrigenId)) return true
-          if (n.documentoId && docIdSet.has(n.documentoId)) return true
-          if (temaWords.length) {
-            const txt = `${n.titulo ?? ''} ${n.contenido ?? ''}`.toLowerCase()
-            return temaWords.some(w => txt.includes(w.toLowerCase()))
-          }
-          return false
-        }).length
-      }
+      const { indice } = await leerIndice(accessToken)
+      const temaWords = tema.split(/\s+/).filter(w => w.length > 4)
+      const docIdSet = new Set(filteredDocIds)
+      type EntryExt = NotaLigera & { eliminadaEn?: string; documentoOrigenId?: string; documentoId?: string; contenido?: string }
+      notasCount = (indice as EntryExt[]).filter(n => {
+        if (n.eliminadaEn) return false
+        if (n.documentoOrigenId && docIdSet.has(n.documentoOrigenId)) return true
+        if (n.documentoId && docIdSet.has(n.documentoId)) return true
+        if (temaWords.length) {
+          const txt = `${n.titulo ?? ''} ${n.contenido ?? ''}`.toLowerCase()
+          return temaWords.some(w => txt.includes(w.toLowerCase()))
+        }
+        return false
+      }).length
     } catch { /* sin notas */ }
 
     return NextResponse.json({ docsCount: filteredDocIds.length, citasCount, notasCount, docIds: filteredDocIds })

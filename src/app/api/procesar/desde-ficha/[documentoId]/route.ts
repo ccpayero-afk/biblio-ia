@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, findFile, readJSON, writeJSON, updateDocumentMetadata } from '@/lib/drive'
+import { leerIndice, aLigera, escribirIndice, escribirContenido } from '@/lib/notas'
 import { FichaLectura, Nota, Cita, Dato } from '@/types'
 import { generarIdZettel } from '@/lib/zettel-id'
 import { NextRequest, NextResponse } from 'next/server'
@@ -16,35 +17,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
 
     const estructura = await initUserDrive(accessToken)
 
-    // Leer ficha existente
     const fichaFileId = await findFile(accessToken, `ficha_${documentoId}.json`, estructura.notasId)
     if (!fichaFileId) return NextResponse.json({ error: 'Ficha no encontrada. Generala primero.' }, { status: 404 })
     const ficha = await readJSON<FichaLectura>(accessToken, fichaFileId)
 
-    // Leer notas existentes
-    const notasFileId = await findFile(accessToken, 'notas.json', estructura.notasId)
-    let notas: Nota[] = []
-    if (notasFileId) {
-      try { notas = await readJSON<Nota[]>(accessToken, notasFileId) } catch { notas = [] }
-    }
+    const [{ notasId, indice }, citasExistentes, datosExistentes] = await Promise.all([
+      leerIndice(accessToken),
+      (async () => {
+        const fid = await findFile(accessToken, 'citas.json', estructura.citasId)
+        if (!fid) return [] as Cita[]
+        try { return await readJSON<Cita[]>(accessToken, fid) } catch { return [] as Cita[] }
+      })(),
+      (async () => {
+        const fid = await findFile(accessToken, 'datos.json', estructura.citasId)
+        if (!fid) return [] as Dato[]
+        try { return await readJSON<Dato[]>(accessToken, fid) } catch { return [] as Dato[] }
+      })(),
+    ])
 
-    // Leer citas existentes
-    const citasFileId = await findFile(accessToken, 'citas.json', estructura.citasId)
-    let citas: Cita[] = []
-    if (citasFileId) {
-      try { citas = await readJSON<Cita[]>(accessToken, citasFileId) } catch { citas = [] }
-    }
-
-    // Leer datos estadísticos existentes
-    const datosFileId = await findFile(accessToken, 'datos.json', estructura.citasId)
-    let datos: Dato[] = []
-    if (datosFileId) {
-      try { datos = await readJSON<Dato[]>(accessToken, datosFileId) } catch { datos = [] }
-    }
-
-    // Verificar si ya se procesó (evitar duplicados)
-    const yaProcessado = notas.some(
-      (n) => n.documentoOrigenId === documentoId && n.etiquetas.includes('auto-ficha')
+    const yaProcessado = indice.some(
+      (n) => (n as Nota).documentoOrigenId === documentoId && n.etiquetas.includes('auto-ficha')
     )
     if (yaProcessado) {
       return NextResponse.json({ ok: true, notasCreadas: 0, citasCreadas: 0, saltado: true })
@@ -58,7 +50,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
     const citasNuevas: Cita[] = []
     const datosNuevos: Dato[] = []
 
-    // ── Nota principal: tesis + argumento + posición ──────────────────────────
     const contenidoPrincipal = [
       `**Tesis central:** ${ficha.tesisCentral}`,
       `\n**Argumento principal:** ${ficha.argumentoPrincipal}`,
@@ -79,7 +70,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
       actualizadaEn: ahora,
     })
 
-    // ── Notas por concepto clave ──────────────────────────────────────────────
     for (const { concepto, definicion } of ficha.conceptosClave ?? []) {
       if (!concepto?.trim()) continue
       notasNuevas.push({
@@ -95,13 +85,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
       })
     }
 
-    // ── Citas desde citasDestacadas ───────────────────────────────────────────
     for (const { texto, pagina } of ficha.citasDestacadas ?? []) {
       if (!texto?.trim()) continue
-
       const formatoAPA = `${autorCorto}${año ? ` (${año})` : ''}, p. ${pagina}.`
       const formatoChicago = `${autor || autorCorto}${año ? `, ${año}` : ''}, ${pagina}.`
-
       citasNuevas.push({
         id: `cita_${documentoId}_${pagina}_${Math.random().toString(36).slice(2, 6)}`,
         texto: texto.trim(),
@@ -117,7 +104,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
       })
     }
 
-    // ── Datos estadísticos de la ficha ────────────────────────────────────────
     for (const { valor, contexto, tematica, pagina } of ficha.datosEstadisticos ?? []) {
       if (!valor?.trim()) continue
       datosNuevos.push({
@@ -135,12 +121,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
       })
     }
 
-    // ── Guardar atomicamente ──────────────────────────────────────────────────
-    await writeJSON(accessToken, estructura.notasId, 'notas.json', [...notas, ...notasNuevas])
-    await writeJSON(accessToken, estructura.citasId, 'citas.json', [...citas, ...citasNuevas])
-    if (datosNuevos.length > 0) {
-      await writeJSON(accessToken, estructura.citasId, 'datos.json', [...datos, ...datosNuevos])
-    }
+    // Write each new note's content file + update lean index
+    const nuevaLigeras = notasNuevas.map(aLigera)
+    await Promise.all([
+      ...notasNuevas.map((n) =>
+        escribirContenido(accessToken, notasId, n.id, { contenido: n.contenido, versiones: [] })
+      ),
+      escribirIndice(accessToken, notasId, [...indice, ...nuevaLigeras]),
+      writeJSON(accessToken, estructura.citasId, 'citas.json', [...citasExistentes, ...citasNuevas]),
+      datosNuevos.length > 0
+        ? writeJSON(accessToken, estructura.citasId, 'datos.json', [...datosExistentes, ...datosNuevos])
+        : Promise.resolve(),
+    ])
 
     await updateDocumentMetadata(accessToken, documentoId, { fichaGenerada: true })
 

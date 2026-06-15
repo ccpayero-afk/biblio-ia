@@ -3,7 +3,8 @@ export const maxDuration = 60
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
-import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
+import { initUserDrive, findFile, readJSON } from '@/lib/drive'
+import { leerIndice, aLigera, escribirIndice, escribirContenido } from '@/lib/notas'
 import { Nota, Fragmento } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -80,12 +81,13 @@ Respondé ÚNICAMENTE con JSON puro (sin markdown):
     actualizadaEn: new Date().toISOString(),
   }))
 
-  // Load and update notas.json
-  const notasFileId = await findFile(accessToken, 'notas.json', estructura.notasId)
-  const notasExistentes: Nota[] = notasFileId
-    ? await readJSON<Nota[]>(accessToken, notasFileId).catch(() => [])
-    : []
-  await writeJSON(accessToken, estructura.notasId, 'notas.json', [...notasExistentes, ...notasNuevas])
+  const { notasId, indice } = await leerIndice(accessToken)
+  await Promise.all([
+    ...notasNuevas.map((n) =>
+      escribirContenido(accessToken, notasId, n.id, { contenido: n.contenido, versiones: [] })
+    ),
+    escribirIndice(accessToken, notasId, [...indice, ...notasNuevas.map(aLigera)]),
+  ])
 
   return NextResponse.json({ creadas: notasNuevas.length, notas: notasNuevas })
 }

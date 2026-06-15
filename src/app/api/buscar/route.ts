@@ -1,7 +1,8 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, listPDFs, findFile, readJSON } from '@/lib/drive'
-import { Cita, Nota, Documento } from '@/types'
+import { leerIndice, NotaLigera } from '@/lib/notas'
+import { Cita, Documento } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
 function norm(str: string): string {
@@ -9,7 +10,8 @@ function norm(str: string): string {
 }
 
 // GET /api/buscar?q=query
-// Búsqueda de texto en documentos, citas y notas (sin semántica, instantánea)
+// Full-text search across docs, citas and the lean notes index (title + etiquetas).
+// Pre-migration entries that still have inline contenido are also searched.
 export async function GET(req: NextRequest) {
   try {
     const q = norm(req.nextUrl.searchParams.get('q') ?? '').trim()
@@ -21,18 +23,14 @@ export async function GET(req: NextRequest) {
     const accessToken = getAccessToken(session)
     const estructura = await initUserDrive(accessToken)
 
-    const [documentos, citasRaw, notasRaw] = await Promise.all([
+    const [documentos, citasRaw, { indice }] = await Promise.all([
       listPDFs(accessToken, estructura.pdfsId),
       (async () => {
         const fid = await findFile(accessToken, 'citas.json', estructura.citasId)
-        if (!fid) return []
-        try { return await readJSON<Cita[]>(accessToken, fid) } catch { return [] }
+        if (!fid) return [] as Cita[]
+        try { return await readJSON<Cita[]>(accessToken, fid) } catch { return [] as Cita[] }
       })(),
-      (async () => {
-        const fid = await findFile(accessToken, 'notas.json', estructura.notasId)
-        if (!fid) return []
-        try { return await readJSON<Nota[]>(accessToken, fid) } catch { return [] }
-      })(),
+      leerIndice(accessToken),
     ])
 
     const docsFiltrados: Documento[] = documentos
@@ -44,7 +42,7 @@ export async function GET(req: NextRequest) {
       )
       .slice(0, 6)
 
-    const citasFiltradas: Cita[] = (citasRaw as Cita[])
+    const citasFiltradas: Cita[] = citasRaw
       .filter((c) =>
         norm(c.texto ?? '').includes(q) ||
         norm(c.documentoNombre ?? '').includes(q) ||
@@ -53,12 +51,16 @@ export async function GET(req: NextRequest) {
       )
       .slice(0, 6)
 
-    const notasFiltradas: Nota[] = (notasRaw as Nota[])
-      .filter((n) =>
-        norm(n.titulo ?? '').includes(q) ||
-        norm(n.contenido ?? '').includes(q) ||
-        (n.etiquetas ?? []).some((e) => norm(e).includes(q))
-      )
+    type NotaIndexEntry = NotaLigera & { contenido?: string; eliminadaEn?: string }
+    const notasFiltradas = (indice as NotaIndexEntry[])
+      .filter((n) => {
+        if (n.eliminadaEn) return false
+        return (
+          norm(n.titulo ?? '').includes(q) ||
+          (n.etiquetas ?? []).some((e) => norm(e).includes(q)) ||
+          norm(n.contenido ?? '').includes(q) // legacy inline contenido
+        )
+      })
       .slice(0, 6)
 
     return NextResponse.json({ documentos: docsFiltrados, citas: citasFiltradas, notas: notasFiltradas })

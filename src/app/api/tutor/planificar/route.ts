@@ -3,6 +3,7 @@ import { getAccessToken } from '@/lib/auth-helpers'
 import { semanticSearch } from '@/lib/search'
 import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { initUserDrive, findFile, readJSON, listPDFs } from '@/lib/drive'
+import { leerTodasCompletas } from '@/lib/notas'
 import { Cita, Nota } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -231,9 +232,7 @@ export async function POST(req: NextRequest) {
     // 2. Bibliography + notas + citas in parallel
     const [todosLosDocs, notasRaw, citasRaw] = await Promise.all([
       listPDFs(accessToken, estructura.pdfsId),
-      findFile(accessToken, 'notas.json', estructura.notasId)
-        .then((nid) => nid ? readJSON<Nota[]>(accessToken, nid) : [] as Nota[])
-        .catch(() => [] as Nota[]),
+      leerTodasCompletas(accessToken).catch(() => [] as Nota[]),
       findFile(accessToken, 'citas.json', estructura.citasId)
         .then((cid) => cid ? readJSON<Cita[]>(accessToken, cid) : [] as Cita[])
         .catch(() => [] as Cita[]),

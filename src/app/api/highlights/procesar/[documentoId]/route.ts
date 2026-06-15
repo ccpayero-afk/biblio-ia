@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, listPDFs, readJSON, writeJSON, findFile } from '@/lib/drive'
+import { leerIndice, aLigera, escribirIndice, escribirContenido } from '@/lib/notas'
 import { getGeminiClient, GEMINI_MODEL_GENERATION, geminiRateLimitMessage } from '@/lib/gemini'
 import { downloadPDFBuffer } from '@/lib/indexer'
 import { extractAnnotations, extractHighlightPageNumbers } from '@/lib/pdf-annotations'
@@ -18,18 +19,14 @@ export async function POST(
     const session = await auth()
     const accessToken = getAccessToken(session)
 
-    // Obtener metadatos del documento
     const estructura = await initUserDrive(accessToken)
     const documentos = await listPDFs(accessToken, estructura.pdfsId)
     const doc = documentos.find((d) => d.id === documentoId)
     if (!doc) return NextResponse.json({ error: 'Documento no encontrado' }, { status: 404 })
 
-    // Descargar PDF y extraer anotaciones
     const buffer = await downloadPDFBuffer(accessToken, documentoId)
     let anotaciones = await extractAnnotations(buffer.buffer as ArrayBuffer)
 
-    // Fallback: si no se pudo extraer texto (pdfjs no disponible en el entorno),
-    // usar el texto completo de las páginas con highlights como contexto para Gemini
     if (anotaciones.length === 0) {
       const paginasConHL = await extractHighlightPageNumbers(buffer.buffer as ArrayBuffer)
 
@@ -44,7 +41,6 @@ export async function POST(
         })
       }
 
-      // Extraer texto por página usando unpdf (confiable en Vercel)
       const { extractText } = await import('unpdf')
       const { text: textoPorPagina } = await extractText(
         new Uint8Array(buffer),
@@ -52,7 +48,6 @@ export async function POST(
       )
       const paginas = Array.isArray(textoPorPagina) ? textoPorPagina : [textoPorPagina]
 
-      // Agrupar highlights por página y tomar el texto de cada página
       const paginasUnicas = [...new Set(paginasConHL)].sort((a, b) => a - b)
       anotaciones = paginasUnicas
         .map(pagina => {
@@ -82,7 +77,6 @@ export async function POST(
       }
     }
 
-    // Limitar a 25 entradas para no superar límites de tokens por minuto
     const sample = anotaciones.slice(0, 25)
     const esContextoPagina = (sample[0] as { _esContextoPagina?: boolean })?._esContextoPagina ?? false
     const listaHighlights = sample
@@ -147,26 +141,10 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura:
     const result = await model.generateContent(prompt)
     const rawText = result.response.text()
 
-    // Parsear JSON de la respuesta
     let parsed: {
-      citas_directas: Array<{
-        texto: string
-        pagina: number
-        formato_apa: string
-        cuando_usarla: string
-      }>
-      conceptos_teoricos: Array<{
-        concepto: string
-        definicion: string
-        pagina: number
-        nota?: string
-      }>
-      ideas_clave: Array<{
-        idea: string
-        pagina: number
-        referencia_apa: string
-        para_que_sirve: string
-      }>
+      citas_directas: Array<{ texto: string; pagina: number; formato_apa: string; cuando_usarla: string }>
+      conceptos_teoricos: Array<{ concepto: string; definicion: string; pagina: number; nota?: string }>
+      ideas_clave: Array<{ idea: string; pagina: number; referencia_apa: string; para_que_sirve: string }>
       argumento_central: string
       posicion_en_debate: string
       metodologia?: string
@@ -182,7 +160,7 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura:
       return NextResponse.json({ error: 'Gemini no devolvió JSON válido. Intentá de nuevo.' }, { status: 500 })
     }
 
-    // --- Guardar citas directas ---
+    // Save citas
     const citasFileId = await findFile(accessToken, 'citas.json', estructura.citasId)
     let citasExistentes: Cita[] = []
     if (citasFileId) {
@@ -192,7 +170,7 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura:
     const citasNuevas: Cita[] = []
     for (const c of parsed.citas_directas ?? []) {
       if (!c.texto?.trim()) continue
-      const cita = crearCita({
+      citasNuevas.push(crearCita({
         texto: c.texto,
         pagina: c.pagina ?? 1,
         documentoId: doc.id,
@@ -201,20 +179,13 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura:
         año: doc.año,
         notaPropia: c.cuando_usarla,
         etiquetas: ['highlights-pdf'],
-      })
-      citasNuevas.push(cita)
+      }))
     }
     if (citasNuevas.length > 0) {
       await writeJSON(accessToken, estructura.citasId, 'citas.json', [...citasExistentes, ...citasNuevas])
     }
 
-    // --- Guardar notas: conceptos teóricos + ideas clave ---
-    const notasFileId = await findFile(accessToken, 'notas.json', estructura.notasId)
-    let notasExistentes: Nota[] = []
-    if (notasFileId) {
-      try { notasExistentes = await readJSON<Nota[]>(accessToken, notasFileId) } catch { /* noop */ }
-    }
-
+    // Build new notes
     const ts = Date.now()
     const rand = () => Math.random().toString(36).slice(2, 6)
 
@@ -249,11 +220,18 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura:
       }))
 
     const notasNuevas = [...notasConceptos, ...notasIdeas]
+
     if (notasNuevas.length > 0) {
-      await writeJSON(accessToken, estructura.notasId, 'notas.json', [...notasExistentes, ...notasNuevas])
+      const { notasId, indice } = await leerIndice(accessToken)
+      await Promise.all([
+        ...notasNuevas.map((n) =>
+          escribirContenido(accessToken, notasId, n.id, { contenido: n.contenido, versiones: [] })
+        ),
+        escribirIndice(accessToken, notasId, [...indice, ...notasNuevas.map(aLigera)]),
+      ])
     }
 
-    // --- Guardar ficha ---
+    // Save ficha
     let fichaCreada = false
     if (parsed.argumento_central) {
       const fichaExistenteId = await findFile(accessToken, `ficha_${documentoId}.json`, estructura.notasId)
@@ -280,7 +258,7 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura:
       }
     }
 
-    // --- Guardar highlights en highlights/{documentoId}.json ---
+    // Save highlights raw data
     const hlNombre = `${documentoId}.json`
     const hlFileId = await findFile(accessToken, hlNombre, estructura.highlightsId)
     let hlExistentes: unknown[] = []

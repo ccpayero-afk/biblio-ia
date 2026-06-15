@@ -1,25 +1,8 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
-import { Nota, VinculoZettel } from '@/types'
+import { leerIndice, escribirIndice, NotaLigera } from '@/lib/notas'
+import { VinculoZettel } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
-
-const NOMBRE = 'notas.json'
-
-async function getYGuardar(
-  accessToken: string,
-  mutate: (lista: Nota[]) => void
-): Promise<Nota[]> {
-  const estructura = await initUserDrive(accessToken)
-  const fileId = await findFile(accessToken, NOMBRE, estructura.notasId)
-  let lista: Nota[] = []
-  if (fileId) {
-    try { lista = await readJSON<Nota[]>(accessToken, fileId) } catch { lista = [] }
-  }
-  mutate(lista)
-  await writeJSON(accessToken, estructura.notasId, NOMBRE, lista)
-  return lista
-}
 
 // POST — body: { notaDestinoId, tipo, nota?, bidireccional? }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -33,36 +16,34 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'notaDestinoId y tipo son requeridos' }, { status: 400 })
     }
 
+    const { notasId, indice } = await leerIndice(accessToken)
+    const ahora = new Date().toISOString()
+
     const vinculo: VinculoZettel = {
       notaDestinoId: body.notaDestinoId,
       tipo: body.tipo,
       nota: body.nota,
       bidireccional: body.bidireccional !== false,
-      creadoEn: new Date().toISOString(),
+      creadoEn: ahora,
     }
 
-    await getYGuardar(accessToken, (lista) => {
-      const origen = lista.find((n) => n.id === id)
-      if (!origen) return
-      origen.vinculos = origen.vinculos ?? []
-      if (!origen.vinculos.find((v) => v.notaDestinoId === body.notaDestinoId)) {
-        origen.vinculos.push(vinculo)
-        origen.actualizadaEn = new Date().toISOString()
-      }
+    const origen = indice.find((n) => n.id === id)
+    if (!origen) return NextResponse.json({ error: 'Nota no encontrada' }, { status: 404 })
 
-      // Vínculo inverso si es bidireccional
-      if (vinculo.bidireccional) {
-        const destino = lista.find((n) => n.id === body.notaDestinoId)
-        if (destino) {
-          destino.vinculos = destino.vinculos ?? []
-          if (!destino.vinculos.find((v) => v.notaDestinoId === id)) {
-            destino.vinculos.push({ ...vinculo, notaDestinoId: id })
-            destino.actualizadaEn = new Date().toISOString()
-          }
-        }
-      }
-    })
+    if (!origen.vinculos?.find((v) => v.notaDestinoId === body.notaDestinoId)) {
+      origen.vinculos = [...(origen.vinculos ?? []), vinculo]
+      origen.actualizadaEn = ahora
+    }
 
+    if (vinculo.bidireccional) {
+      const destino = indice.find((n) => n.id === body.notaDestinoId)
+      if (destino && !destino.vinculos?.find((v) => v.notaDestinoId === id)) {
+        destino.vinculos = [...(destino.vinculos ?? []), { ...vinculo, notaDestinoId: id }]
+        destino.actualizadaEn = ahora
+      }
+    }
+
+    await escribirIndice(accessToken, notasId, indice)
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
@@ -78,16 +59,18 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const destinoId = req.nextUrl.searchParams.get('destinoId')
     if (!destinoId) return NextResponse.json({ error: 'destinoId requerido' }, { status: 400 })
 
-    await getYGuardar(accessToken, (lista) => {
-      for (const nota of lista) {
-        if (nota.id === id || nota.id === destinoId) {
-          const otroId = nota.id === id ? destinoId : id
-          nota.vinculos = (nota.vinculos ?? []).filter((v) => v.notaDestinoId !== otroId)
-          nota.actualizadaEn = new Date().toISOString()
-        }
-      }
-    })
+    const { notasId, indice } = await leerIndice(accessToken)
+    const ahora = new Date().toISOString()
 
+    for (const nota of indice as (NotaLigera & { actualizadaEn?: string })[]) {
+      if (nota.id === id || nota.id === destinoId) {
+        const otroId = nota.id === id ? destinoId : id
+        nota.vinculos = (nota.vinculos ?? []).filter((v) => v.notaDestinoId !== otroId)
+        nota.actualizadaEn = ahora
+      }
+    }
+
+    await escribirIndice(accessToken, notasId, indice)
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

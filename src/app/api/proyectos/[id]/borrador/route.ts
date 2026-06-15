@@ -1,6 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
+import { leerTodasCompletas } from '@/lib/notas'
 import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { Proyecto, Cita, Nota } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
@@ -42,14 +43,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let notasTexto = ''
     if (proyecto.notasVinculadas.length) {
       const notasIds = new Set(proyecto.notasVinculadas)
-      const notasFileId = await findFile(accessToken, 'notas.json', estructura.notasId)
-      if (notasFileId) {
-        const todasNotas = await readJSON<Nota[]>(accessToken, notasFileId)
-        notasTexto = todasNotas
-          .filter((n) => notasIds.has(n.id))
-          .map((n) => n.contenido)
-          .join('\n\n')
-      }
+      const todasNotas = await leerTodasCompletas(accessToken).catch(() => [] as Nota[])
+      notasTexto = todasNotas
+        .filter((n) => notasIds.has(n.id))
+        .map((n) => n.contenido)
+        .join('\n\n')
     }
 
     const prompt = `Redactá un borrador académico para la siguiente sección de un ${proyecto.tipo}.
