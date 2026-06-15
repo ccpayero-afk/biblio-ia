@@ -2,8 +2,9 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { initUserDrive, readJSON, writeJSON, findFile } from './drive'
 import { ConfigUsuario } from '@/types'
 
-export const GEMINI_MODEL_GENERATION = 'gemini-2.5-flash'
-export const GEMINI_MODEL_EMBEDDING = 'gemini-embedding-2'
+export const GEMINI_MODEL_GENERATION = 'gemini-2.5-flash'   // tutor, borrador
+export const GEMINI_MODEL_PIPELINE   = 'gemini-2.0-flash'   // ficha, notas, vinculos — sin thinking
+export const GEMINI_MODEL_EMBEDDING  = 'gemini-embedding-2'
 
 // Cifrado AES-256-GCM usando Web Crypto API (compatible con Edge y Node)
 async function getKey(secret: string): Promise<CryptoKey> {

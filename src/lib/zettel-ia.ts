@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { Nota, VinculoSugerido, VinculoZettel } from '@/types'
-import { GEMINI_MODEL_GENERATION } from './gemini'
+import { GEMINI_MODEL_PIPELINE } from './gemini'
 
 export async function sugerirVinculosBatch(
   notas: Nota[],
@@ -32,13 +32,11 @@ Respondé SOLO con JSON válido, sin texto antes ni después:
 NOTAS:
 ${listado}`
 
-  // thinkingBudget: 0 desactiva el reasoning interno de gemini-2.5-flash,
-  // evitando el consumo masivo de tokens y el timeout en Vercel
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_PIPELINE })
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as any,
+    generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 0 } } as never,
   })
   const text = result.response.text().trim()
 
@@ -100,11 +98,11 @@ ${notaNueva.contenido.slice(0, 300)}
 CANDIDATAS:
 ${listaCandidatas}`
 
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_PIPELINE })
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as any,
+    generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 0 } } as never,
   })
   const text = result.response.text().trim()
 
@@ -182,7 +180,7 @@ Respondé ÚNICAMENTE con el siguiente formato markdown, sin texto adicional ant
 Nota efímera a transformar:
 ${contenidoEfimero.slice(0, 1500)}`
 
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_PIPELINE })
   const result = await model.generateContent(prompt)
   const contenido = result.response.text().trim()
 

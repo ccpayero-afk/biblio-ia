@@ -60,7 +60,7 @@ Respondé ÚNICAMENTE con JSON puro (sin markdown):
   const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never,
+    generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 0 } } as never,
   })
   let text = result.response.text().trim()
   const start = text.indexOf('{')

@@ -96,7 +96,8 @@ REGLAS:
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
     return model.generateContent({
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as never,
+      // temperature: 1 is required alongside thinkingBudget: 0 to actually disable thinking
+      generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 0 } } as never,
     })
   })
   let text = result.response.text().trim()
