@@ -1,20 +1,39 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON } from '@/lib/drive'
+import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
 import { semanticSearch } from '@/lib/search'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { FichaLectura } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
+
+function hashStr(s: string): string {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0
+  return (h >>> 0).toString(16).padStart(8, '0')
+}
 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth()
     const accessToken = getAccessToken(session)
 
-    const { tema } = await req.json() as { tema: string; carpetasIds?: string[] }
+    const { tema, force } = await req.json() as { tema: string; carpetasIds?: string[]; force?: boolean }
 
     if (!tema?.trim()) {
       return NextResponse.json({ error: 'El campo tema es requerido' }, { status: 400 })
+    }
+
+    const estructura = await initUserDrive(accessToken)
+
+    const cacheKey = hashStr(tema.trim().toLowerCase())
+    const cacheFile = `cache_mapa_${cacheKey}.json`
+
+    if (!force) {
+      const cachedId = await findFile(accessToken, cacheFile, estructura.notasId)
+      if (cachedId) {
+        const cached = await readJSON(accessToken, cachedId)
+        return NextResponse.json({ ...cached, fromCache: true })
+      }
     }
 
     // 1. Búsqueda semántica
@@ -31,7 +50,6 @@ export async function POST(req: NextRequest) {
       .map(([id]) => id)
 
     // 3. Cargar fichas en paralelo
-    const estructura = await initUserDrive(accessToken)
     const fichas = await Promise.all(
       topDocs.map(async (docId) => {
         try {
@@ -98,9 +116,10 @@ Respondé ÚNICAMENTE con JSON puro, sin bloques de código, sin explicaciones a
   "sugerenciaInvestigador": "sugerencia concreta para el investigador sobre cómo posicionarse en este debate"
 }`
 
-    const gemini = await getGeminiClient(accessToken)
-    const model = gemini.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-    const result = await model.generateContent(prompt)
+    const result = await generateWithRotation(accessToken, async (genAI) => {
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+      return model.generateContent(prompt)
+    })
     const text = result.response.text()
 
     // 5. Parsear JSON limpiando posibles bloques de código
@@ -110,7 +129,9 @@ Respondé ÚNICAMENTE con JSON puro, sin bloques de código, sin explicaciones a
       .trim()
 
     const resultado = JSON.parse(cleaned)
-    return NextResponse.json(resultado)
+    const respuesta = { ...resultado, generadoEn: new Date().toISOString() }
+    await writeJSON(accessToken, estructura.notasId, cacheFile, respuesta)
+    return NextResponse.json(respuesta)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

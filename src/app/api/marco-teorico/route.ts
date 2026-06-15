@@ -1,19 +1,26 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON, listPDFs } from '@/lib/drive'
+import { initUserDrive, findFile, readJSON, listPDFs, writeJSON } from '@/lib/drive'
 import { semanticSearch } from '@/lib/search'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { FichaLectura } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
+
+function hashStr(s: string): string {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0
+  return (h >>> 0).toString(16).padStart(8, '0')
+}
 
 export async function POST(req: NextRequest) {
   try {
     const session = await auth()
     const accessToken = getAccessToken(session)
 
-    const { problema, documentoIds } = await req.json() as {
+    const { problema, documentoIds, force } = await req.json() as {
       problema: string
       documentoIds?: string[]
+      force?: boolean
     }
 
     if (!problema?.trim()) {
@@ -37,6 +44,17 @@ export async function POST(req: NextRequest) {
         }
       }
       docIdsToUse = [...mejorScore.keys()].slice(0, 6)
+    }
+
+    const cacheKey = hashStr(problema.trim().toLowerCase() + docIdsToUse.slice().sort().join(','))
+    const cacheFile = `cache_marco_${cacheKey}.json`
+
+    if (!force) {
+      const cachedId = await findFile(accessToken, cacheFile, estructura.notasId)
+      if (cachedId) {
+        const cached = await readJSON(accessToken, cachedId)
+        return NextResponse.json({ ...cached, fromCache: true })
+      }
     }
 
     // Cargar fichas en paralelo
@@ -110,9 +128,10 @@ Respondé ÚNICAMENTE con JSON puro, sin bloques de código, sin explicaciones a
   "sugerenciaInvestigador": "recomendación práctica y concreta para este investigador sobre cómo posicionarse teóricamente"
 }`
 
-    const gemini = await getGeminiClient(accessToken)
-    const model = gemini.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-    const result = await model.generateContent(prompt)
+    const result = await generateWithRotation(accessToken, async (genAI) => {
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+      return model.generateContent(prompt)
+    })
     const text = result.response.text()
 
     const cleaned = text
@@ -131,7 +150,9 @@ Respondé ÚNICAMENTE con JSON puro, sin bloques de código, sin explicaciones a
       }
     })
 
-    return NextResponse.json({ marcoTeorico, documentosUsados })
+    const respuesta = { marcoTeorico, documentosUsados, generadoEn: new Date().toISOString() }
+    await writeJSON(accessToken, estructura.notasId, cacheFile, respuesta)
+    return NextResponse.json(respuesta)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

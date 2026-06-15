@@ -2,7 +2,7 @@ export const maxDuration = 60
 
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { initUserDrive, findFile, readJSON } from '@/lib/drive'
 import { leerIndice, aLigera, escribirIndice, escribirContenido } from '@/lib/notas'
 import { Nota, Fragmento } from '@/types'
@@ -56,11 +56,12 @@ Respondé ÚNICAMENTE con JSON puro (sin markdown):
   {"titulo":"Afirmación que formula la idea","contenido":"2-3 párrafos que desarrollan la idea atómica","pagina":1}
 ]}`
 
-  const genAI = await getGeminiClient(accessToken)
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-  const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 0 } } as never,
+  const result = await generateWithRotation(accessToken, async (genAI) => {
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+    return model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 1, thinkingConfig: { thinkingBudget: 0 } } as never,
+    })
   })
   let text = result.response.text().trim()
   const start = text.indexOf('{')

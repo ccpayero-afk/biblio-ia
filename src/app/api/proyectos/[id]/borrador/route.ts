@@ -2,7 +2,7 @@ import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, findFile, readJSON, writeJSON } from '@/lib/drive'
 import { leerTodasCompletas } from '@/lib/notas'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { Proyecto, Cita, Nota } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -66,14 +66,14 @@ Integrá las citas disponibles usando el formato (Autor, Año, p. N) donde corre
 No uses viñetas. Escribí en prosa académica fluida.
 Respondé ÚNICAMENTE con el texto del borrador, sin título ni introducción.`
 
-    const genAI = await getGeminiClient(accessToken)
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-
     const stream = new ReadableStream({
       async start(controller) {
         const encoder = new TextEncoder()
         try {
-          const result = await model.generateContentStream(prompt)
+          const result = await generateWithRotation(accessToken, async (genAI) => {
+            const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+            return model.generateContentStream(prompt)
+          })
           let borrador = ''
           for await (const chunk of result.stream) {
             const text = chunk.text()

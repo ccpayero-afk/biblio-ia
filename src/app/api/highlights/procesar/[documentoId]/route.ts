@@ -2,7 +2,7 @@ import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, listPDFs, readJSON, writeJSON, findFile } from '@/lib/drive'
 import { leerIndice, aLigera, escribirIndice, escribirContenido } from '@/lib/notas'
-import { getGeminiClient, GEMINI_MODEL_GENERATION, geminiRateLimitMessage } from '@/lib/gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION, geminiRateLimitMessage } from '@/lib/gemini'
 import { downloadPDFBuffer } from '@/lib/indexer'
 import { extractAnnotations, extractHighlightPageNumbers } from '@/lib/pdf-annotations'
 import { crearCita } from '@/lib/citas'
@@ -136,9 +136,10 @@ Respondé ÚNICAMENTE con JSON válido con esta estructura:
   "palabras_clave": ["keyword1", "keyword2", "keyword3"]
 }`
 
-    const genAI = await getGeminiClient(accessToken)
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-    const result = await model.generateContent(prompt)
+    const result = await generateWithRotation(accessToken, async (genAI) => {
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+      return model.generateContent(prompt)
+    })
     const rawText = result.response.text()
 
     let parsed: {

@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON, listPDFs } from '@/lib/drive'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { initUserDrive, findFile, readJSON, listPDFs, writeJSON } from '@/lib/drive'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { FichaLectura } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -10,13 +10,24 @@ export async function POST(req: NextRequest) {
     const session = await auth()
     const accessToken = getAccessToken(session)
 
-    const { docIds } = await req.json() as { docIds: [string, string] }
+    const { docIds, force } = await req.json() as { docIds: [string, string]; force?: boolean }
 
     if (!Array.isArray(docIds) || docIds.length !== 2) {
       return NextResponse.json({ error: 'Se requieren exactamente 2 IDs de documentos' }, { status: 400 })
     }
 
     const estructura = await initUserDrive(accessToken)
+
+    const sortedIds = [...docIds].sort()
+    const cacheFile = `cache_comp_${sortedIds[0]}_${sortedIds[1]}.json`
+
+    if (!force) {
+      const cachedId = await findFile(accessToken, cacheFile, estructura.notasId)
+      if (cachedId) {
+        const cached = await readJSON(accessToken, cachedId)
+        return NextResponse.json({ ...cached, fromCache: true })
+      }
+    }
 
     // Cargar todos los documentos para obtener metadatos
     const documentos = await listPDFs(accessToken, estructura.pdfsId)
@@ -86,9 +97,10 @@ Respondé ÚNICAMENTE con JSON puro, sin bloques de código, sin explicaciones a
   "conclusion": "síntesis comparativa en 2-3 oraciones destacando convergencias y divergencias principales"
 }`
 
-    const gemini = await getGeminiClient(accessToken)
-    const model = gemini.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-    const result = await model.generateContent(prompt)
+    const result = await generateWithRotation(accessToken, async (genAI) => {
+      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+      return model.generateContent(prompt)
+    })
     const text = result.response.text()
 
     const cleaned = text
@@ -98,11 +110,14 @@ Respondé ÚNICAMENTE con JSON puro, sin bloques de código, sin explicaciones a
 
     const comparacion = JSON.parse(cleaned)
 
-    return NextResponse.json({
+    const respuesta = {
       comparacion,
       doc1: { nombre: nombre1, autor: autor1 },
       doc2: { nombre: nombre2, autor: autor2 },
-    })
+      generadoEn: new Date().toISOString(),
+    }
+    await writeJSON(accessToken, estructura.notasId, cacheFile, respuesta)
+    return NextResponse.json(respuesta)
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

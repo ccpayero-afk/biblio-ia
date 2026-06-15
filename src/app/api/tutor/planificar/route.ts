@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { semanticSearch } from '@/lib/search'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { initUserDrive, findFile, readJSON, listPDFs } from '@/lib/drive'
 import { leerTodasCompletas } from '@/lib/notas'
 import { Cita, Nota } from '@/types'
@@ -175,18 +175,18 @@ export async function POST(req: NextRequest) {
 
     // ── Follow-up mode ────────────────────────────────────────────────────────
     if (seguimiento && planTexto) {
-      const genAI = await getGeminiClient(accessToken)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tools = buscarEnWeb ? [{ googleSearch: {} } as any] : undefined
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION, systemInstruction: SISTEMA, tools })
-
       const prompt = `Este es el plan académico que elaboraste previamente:\n\n${planTexto}\n\n---\nEl usuario tiene una pregunta o solicitud de ajuste:\n\n"${seguimiento}"\n\nRespondé de forma concisa, precisa y académica. Si el usuario pide cambiar la estructura o agregar contenido, integralo con lo ya planificado.`
 
       const encoder = new TextEncoder()
       const stream = new ReadableStream({
         async start(controller) {
           try {
-            const result = await model.generateContentStream(prompt)
+            const result = await generateWithRotation(accessToken, async (genAI) => {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const tools = buscarEnWeb ? [{ googleSearch: {} } as any] : undefined
+              const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION, systemInstruction: SISTEMA, tools })
+              return model.generateContentStream(prompt)
+            })
             for await (const chunk of result.stream) {
               const text = chunk.text()
               if (text) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ texto: text })}\n\n`))
@@ -305,11 +305,6 @@ ${fuentesAcademicas.length ? `\n---\n## FUENTES ACADÉMICAS EXTERNAS (OpenAlex �
 ${SECCIONES_PROMPT}`
 
     // 4. Stream response
-    const genAI = await getGeminiClient(accessToken)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tools = buscarEnWeb ? [{ googleSearch: {} } as any] : undefined
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION, systemInstruction: SISTEMA, tools })
-
     const metadatos = {
       docsRelevantes: fragmentos.slice(0, 8).map((f) => ({
         id: f.documentoId, nombre: f.documentoNombre, autor: f.autor, año: f.año,
@@ -327,7 +322,12 @@ ${SECCIONES_PROMPT}`
           if (fuentesAcademicas.length) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ fuentesAcademicas })}\n\n`))
           }
-          const result = await model.generateContentStream(prompt)
+          const result = await generateWithRotation(accessToken, async (genAI) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const tools = buscarEnWeb ? [{ googleSearch: {} } as any] : undefined
+            const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION, systemInstruction: SISTEMA, tools })
+            return model.generateContentStream(prompt)
+          })
           for await (const chunk of result.stream) {
             const text = chunk.text()
             if (text) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ texto: text })}\n\n`))

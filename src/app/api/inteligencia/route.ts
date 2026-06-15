@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, listPDFs, findFile, readJSON } from '@/lib/drive'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { Cita, FichaLectura } from '@/types'
 import { NextResponse } from 'next/server'
 
@@ -75,18 +75,18 @@ export async function GET() {
     let brechasDetectadas: string[] = []
     if (indexados.length >= 2) {
       try {
-        const genAI = await getGeminiClient(accessToken)
-        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-
         const listaTextos = documentos
           .map((d) => `- "${d.nombre.replace(/\.pdf$/i, '')}" por ${d.autor || '?'} (${d.año || 's.f.'})`)
           .join('\n')
 
-        const result = await model.generateContent(
-          `Analizá esta biblioteca académica de ciencias sociales latinoamericanas:\n${listaTextos}\n\n` +
-          `Respondé con JSON puro (sin markdown):\n{"preguntaDiaria":"Una pregunta investigativa profunda que esta biblioteca podría responder","brechas":["brecha1","brecha2","brecha3"]}\n` +
-          `Las brechas son temas importantes ausentes o subrepresentados.`
-        )
+        const result = await generateWithRotation(accessToken, async (genAI) => {
+          const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+          return model.generateContent(
+            `Analizá esta biblioteca académica de ciencias sociales latinoamericanas:\n${listaTextos}\n\n` +
+            `Respondé con JSON puro (sin markdown):\n{"preguntaDiaria":"Una pregunta investigativa profunda que esta biblioteca podría responder","brechas":["brecha1","brecha2","brecha3"]}\n` +
+            `Las brechas son temas importantes ausentes o subrepresentados.`
+          )
+        })
 
         let txt = result.response.text().trim()
         if (txt.includes('```')) {

@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { semanticSearch } from '@/lib/search'
-import { getGeminiClient, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
 import { MensajeHistorial } from '@/lib/chat'
 import { initUserDrive, listPDFs, findFile, readJSON } from '@/lib/drive'
 import { FichaLectura } from '@/types'
@@ -95,22 +95,14 @@ Respondés en primera persona como este autor, defendiendo estas ideas con los f
       }
     }
 
-    const genAI = await getGeminiClient(accessToken)
-    const model = genAI.getGenerativeModel({
-      model: GEMINI_MODEL_GENERATION,
-      systemInstruction: sistema,
-    })
-
-    const chat = model.startChat({
-      history: historial.map((m) => ({
-        role: m.rol === 'user' ? 'user' : 'model',
-        parts: [{ text: m.contenido }],
-      })),
-    })
-
     const prompt = fragmentos.length
       ? `FRAGMENTOS DE LA BIBLIOTECA:\n\n${contexto}\n\n---\nPREGUNTA: ${query}`
       : query
+
+    const historialParaChat = historial.map((m) => ({
+      role: m.rol === 'user' ? 'user' : 'model',
+      parts: [{ text: m.contenido }],
+    }))
 
     const stream = new ReadableStream({
       async start(controller) {
@@ -124,7 +116,14 @@ Respondés en primera persona como este autor, defendiendo estas ideas con los f
         }))
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ fuentes })}\n\n`))
         try {
-          const result = await chat.sendMessageStream(prompt)
+          const result = await generateWithRotation(accessToken, async (genAI) => {
+            const model = genAI.getGenerativeModel({
+              model: GEMINI_MODEL_GENERATION,
+              systemInstruction: sistema,
+            })
+            const chat = model.startChat({ history: historialParaChat })
+            return chat.sendMessageStream(prompt)
+          })
           for await (const chunk of result.stream) {
             const text = chunk.text()
             if (text) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ texto: text })}\n\n`))
