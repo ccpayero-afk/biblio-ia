@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, FileText, CheckCircle, XCircle, Loader2 } from 'lucide-react'
+import { Upload, FileText, CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react'
 
 interface MetadatoImportado {
   titulo: string
@@ -15,6 +15,7 @@ interface ResultadoPDF {
   nombre: string
   id: string
   ok: boolean
+  duplicado?: { id: string; nombre: string }
   error?: string
 }
 
@@ -239,12 +240,23 @@ export default function ImportarClient() {
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
                   style={r.ok
                     ? { background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.2)', color: 'rgba(52,211,153,0.9)' }
-                    : { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', color: 'rgba(248,113,113,0.9)' }
+                    : r.duplicado
+                      ? { background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.25)', color: 'rgba(251,191,36,0.9)' }
+                      : { background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', color: 'rgba(248,113,113,0.9)' }
                   }
                 >
-                  {r.ok ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                  {r.nombre}
-                  {!r.ok && <span className="ml-auto" style={{ color: 'rgba(148,163,184,0.4)' }}>{r.error}</span>}
+                  {r.ok
+                    ? <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                    : r.duplicado
+                      ? <AlertTriangle className="h-3.5 w-3.5 flex-shrink-0" />
+                      : <XCircle className="h-3.5 w-3.5 flex-shrink-0" />}
+                  <span className="flex-1 truncate">{r.nombre}</span>
+                  {r.duplicado && (
+                    <span className="ml-auto text-right shrink-0" style={{ color: 'rgba(251,191,36,0.6)' }}>
+                      Ya existe: {r.duplicado.nombre}
+                    </span>
+                  )}
+                  {!r.ok && !r.duplicado && <span className="ml-auto" style={{ color: 'rgba(148,163,184,0.4)' }}>{r.error}</span>}
                 </div>
               ))}
             </div>

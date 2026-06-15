@@ -52,16 +52,26 @@ const COLOR_FILL: Record<string, string> = {
 const ZOOM_PRESETS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
 const RENDER_WINDOW = 3
 
+const STORAGE_KEY = (id: string) => `biblio_lector_pagina_${id}`
+
 export default function LectorClient({ documento, pdfUrl, initialPage = 1, initialSearch }: Props) {
   const [numPages, setNumPages] = useState(0)
-  const [paginaActual, setPaginaActual] = useState(initialPage)
+  const [paginaActual, setPaginaActual] = useState(() => {
+    if (typeof window === 'undefined') return initialPage
+    const saved = parseInt(localStorage.getItem(STORAGE_KEY(documento.id)) ?? '', 10)
+    return Number.isFinite(saved) && saved > 0 ? saved : initialPage
+  })
   const [zoom, setZoom] = useState(1.2)
   const [panelAbierto, setPanelAbierto] = useState(false)
   const [highlights, setHighlights] = useState<Highlight[]>([])
   const [citas, setCitas] = useState<Cita[]>([])
   const [seleccion, setSeleccion] = useState<Seleccion | null>(null)
   const [modalCita, setModalCita] = useState<Seleccion | null>(null)
-  const [inputPagina, setInputPagina] = useState(String(initialPage))
+  const [inputPagina, setInputPagina] = useState(() => String(
+    typeof window !== 'undefined'
+      ? (parseInt(localStorage.getItem(STORAGE_KEY(documento.id)) ?? '', 10) || initialPage)
+      : initialPage
+  ))
   const [anchoContenedor, setAnchoContenedor] = useState(0)
   const [naturalPageWidth, setNaturalPageWidth] = useState(0)
   const [fitApplied, setFitApplied] = useState(false)
@@ -313,6 +323,7 @@ export default function LectorClient({ documento, pdfUrl, initialPage = 1, initi
     const p = Math.max(1, Math.min(n, numPages))
     setPaginaActual(p)
     setInputPagina(String(p))
+    localStorage.setItem(STORAGE_KEY(documento.id), String(p))
     pageRefs.current[p - 1]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 

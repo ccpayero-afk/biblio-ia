@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { BookOpen, GraduationCap, Plus, ChevronRight, Loader2, Send, ArrowLeft, Trash2, CheckCircle, Circle, PlayCircle, ChevronDown, ChevronUp } from 'lucide-react'
+import { BookOpen, GraduationCap, Plus, ChevronRight, Loader2, Send, ArrowLeft, Trash2, CheckCircle, Circle, PlayCircle, ChevronDown, ChevronUp, AlertCircle, ClipboardCheck, Star } from 'lucide-react'
 import type { Documento, Curso, ModuloCurso, MensajeCurso } from '@/types'
 import type { CursoResumen } from '@/lib/aula'
+import type { PreguntaEvaluacion, ResultadoEvaluacion } from '@/app/api/aula/evaluar/route'
 
 interface Props {
   documentos: Documento[]
@@ -139,6 +140,15 @@ export default function AulaClient({ documentos }: Props) {
   const [enviando, setEnviando] = useState(false)
   const [streamingTexto, setStreamingTexto] = useState('')
   const [error, setError] = useState('')
+  const [brechas, setBrechas] = useState<string[]>([])
+  // Quiz state
+  const [modoEval, setModoEval] = useState(false)
+  const [preguntas, setPreguntas] = useState<PreguntaEvaluacion[]>([])
+  const [preguntaIdx, setPreguntaIdx] = useState(0)
+  const [respuestaEval, setRespuestaEval] = useState('')
+  const [enviandoEval, setEnviandoEval] = useState(false)
+  const [resultadoEval, setResultadoEval] = useState<ResultadoEvaluacion | null>(null)
+  const [puntajesEval, setPuntajesEval] = useState<number[]>([])
   const chatEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -162,6 +172,11 @@ export default function AulaClient({ documentos }: Props) {
       setCursoActivo(data)
       setModuloActual(modulo ?? data.moduloActual ?? 1)
       setVista('curso')
+      // Fetch brechas async in background — non-blocking
+      fetch('/api/inteligencia/brechas')
+        .then(r => r.json())
+        .then(d => setBrechas(d.brechas ?? []))
+        .catch(() => {})
     } catch (e) {
       setError(String(e))
     } finally {
@@ -275,6 +290,57 @@ export default function AulaClient({ documentos }: Props) {
     setCursos((prev) => prev.filter((c) => c.id !== id))
     if (cursoActivo?.id === id) { setCursoActivo(null); setVista('lista') }
   }, [cursoActivo])
+
+  const iniciarEvaluacion = useCallback(async () => {
+    if (!cursoActivo) return
+    setModoEval(true)
+    setPreguntas([])
+    setPreguntaIdx(0)
+    setResultadoEval(null)
+    setPuntajesEval([])
+    setRespuestaEval('')
+    setEnviandoEval(true)
+    try {
+      const res = await fetch('/api/aula/evaluar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cursoId: cursoActivo.id, moduloNumero: moduloActual }),
+      })
+      const data = await res.json()
+      setPreguntas(data.preguntas ?? [])
+    } catch (e) {
+      setError(String(e))
+      setModoEval(false)
+    } finally {
+      setEnviandoEval(false)
+    }
+  }, [cursoActivo, moduloActual])
+
+  const corregirRespuesta = useCallback(async () => {
+    if (!cursoActivo || !preguntas[preguntaIdx] || !respuestaEval.trim()) return
+    const pregunta = preguntas[preguntaIdx]
+    setEnviandoEval(true)
+    try {
+      const res = await fetch('/api/aula/evaluar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cursoId: cursoActivo.id,
+          moduloNumero: moduloActual,
+          respuesta: respuestaEval.trim(),
+          preguntaId: pregunta.pregunta,
+          rubrica: pregunta.rubrica,
+        }),
+      })
+      const data = await res.json() as ResultadoEvaluacion
+      setResultadoEval(data)
+      setPuntajesEval((prev) => [...prev, data.puntaje])
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setEnviandoEval(false)
+    }
+  }, [cursoActivo, preguntas, preguntaIdx, respuestaEval, moduloActual])
 
   // ── VISTA: Lista de cursos ──────────────────────────────────────────────────
   if (vista === 'lista') {
@@ -532,6 +598,25 @@ export default function AulaClient({ documentos }: Props) {
               onClick={() => cambiarModulo(m.numero)}
             />
           ))}
+
+          {/* Brechas de la biblioteca */}
+          {brechas.length > 0 && (
+            <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <AlertCircle className="h-3 w-3 flex-shrink-0" style={{ color: 'rgba(251,191,36,0.6)' }} />
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'rgba(251,191,36,0.5)' }}>
+                  Brechas de tu biblioteca
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                {brechas.map((b, i) => (
+                  <p key={i} className="text-xs leading-relaxed" style={{ color: 'rgba(148,163,184,0.5)' }}>
+                    · {b}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -554,11 +639,154 @@ export default function AulaClient({ documentos }: Props) {
               Módulo {moduloObj?.numero}: {moduloObj?.titulo}
             </p>
           </div>
+          <button
+            onClick={modoEval ? () => { setModoEval(false); setResultadoEval(null) } : iniciarEvaluacion}
+            className="flex-shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all"
+            style={modoEval
+              ? { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(148,163,184,0.7)' }
+              : { background: 'rgba(109,40,217,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#a78bfa' }
+            }
+          >
+            <ClipboardCheck className="h-3.5 w-3.5" />
+            {modoEval ? 'Volver al chat' : 'Evaluar módulo'}
+          </button>
           {cargandoCurso && <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" style={{ color: 'rgba(139,92,246,0.5)' }} />}
         </div>
 
+        {/* Quiz panel */}
+        {modoEval && (
+          <div className="flex-1 overflow-y-auto px-5 py-6">
+            {enviandoEval && preguntas.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4">
+                <Loader2 className="h-8 w-8 animate-spin" style={{ color: 'rgba(139,92,246,0.5)' }} />
+                <p className="text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>Generando preguntas...</p>
+              </div>
+            ) : puntajesEval.length === preguntas.length && preguntas.length > 0 && !resultadoEval ? (
+              // Summary screen
+              <div className="max-w-lg mx-auto text-center py-10">
+                <div className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+                  style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.3), rgba(6,182,212,0.2))', border: '1px solid rgba(139,92,246,0.3)' }}>
+                  <Star className="h-8 w-8" style={{ color: '#a78bfa' }} />
+                </div>
+                <p className="text-xl font-bold text-white mb-1">Evaluación completada</p>
+                <p className="text-3xl font-bold mt-3 mb-1" style={{ color: '#a78bfa' }}>
+                  {(puntajesEval.reduce((a, b) => a + b, 0) / puntajesEval.length).toFixed(1)}<span className="text-base text-slate-400">/10</span>
+                </p>
+                <p className="text-sm mt-1 mb-6" style={{ color: 'rgba(148,163,184,0.5)' }}>
+                  Promedio de {preguntas.length} preguntas · Módulo {moduloActual}
+                </p>
+                <div className="flex gap-2 justify-center flex-wrap">
+                  {puntajesEval.map((p, i) => (
+                    <div key={i} className="rounded-xl px-3 py-2 text-center"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      <p className="text-xs mb-0.5" style={{ color: 'rgba(148,163,184,0.4)' }}>P{i + 1}</p>
+                      <p className="text-sm font-bold" style={{ color: p >= 7 ? 'rgba(52,211,153,0.9)' : p >= 5 ? '#fbbf24' : '#f87171' }}>{p}</p>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  onClick={iniciarEvaluacion}
+                  className="mt-6 rounded-xl px-5 py-2.5 text-sm font-medium"
+                  style={{ background: 'rgba(109,40,217,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#a78bfa' }}
+                >Repetir evaluación</button>
+              </div>
+            ) : preguntas.length > 0 ? (
+              <div className="max-w-lg mx-auto">
+                {/* Progress */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${(puntajesEval.length / preguntas.length) * 100}%`, background: 'linear-gradient(90deg, #7c3aed, #06b6d4)' }} />
+                  </div>
+                  <span className="text-xs flex-shrink-0" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                    {puntajesEval.length + (resultadoEval ? 0 : 0)}/{preguntas.length}
+                  </span>
+                </div>
+
+                {/* Question */}
+                {!resultadoEval ? (
+                  <div>
+                    <div className="rounded-2xl p-5 mb-4"
+                      style={{ background: 'rgba(109,40,217,0.08)', border: '1px solid rgba(139,92,246,0.2)' }}>
+                      <p className="text-xs font-medium mb-2" style={{ color: 'rgba(139,92,246,0.6)' }}>
+                        Pregunta {preguntaIdx + 1} de {preguntas.length}
+                      </p>
+                      <p className="text-sm text-white leading-relaxed">{preguntas[preguntaIdx].pregunta}</p>
+                    </div>
+                    <textarea
+                      value={respuestaEval}
+                      onChange={(e) => setRespuestaEval(e.target.value)}
+                      placeholder="Escribí tu respuesta aquí..."
+                      rows={5}
+                      className="w-full rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none transition-all"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', color: '#e2e8f0' }}
+                      disabled={enviandoEval}
+                    />
+                    <button
+                      onClick={corregirRespuesta}
+                      disabled={!respuestaEval.trim() || enviandoEval}
+                      className="mt-3 w-full rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                      style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.7), rgba(6,182,212,0.5))', color: '#fff' }}
+                    >
+                      {enviandoEval ? <><Loader2 className="h-4 w-4 animate-spin" /> Corrigiendo...</> : 'Enviar respuesta'}
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    {/* Result */}
+                    <div className="rounded-2xl p-5 mb-4"
+                      style={{
+                        background: resultadoEval.puntaje >= 7 ? 'rgba(52,211,153,0.06)' : resultadoEval.puntaje >= 5 ? 'rgba(251,191,36,0.06)' : 'rgba(239,68,68,0.06)',
+                        border: `1px solid ${resultadoEval.puntaje >= 7 ? 'rgba(52,211,153,0.2)' : resultadoEval.puntaje >= 5 ? 'rgba(251,191,36,0.2)' : 'rgba(239,68,68,0.2)'}`,
+                      }}>
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-semibold text-white">Resultado</p>
+                        <span className="text-2xl font-bold" style={{ color: resultadoEval.puntaje >= 7 ? 'rgba(52,211,153,0.9)' : resultadoEval.puntaje >= 5 ? '#fbbf24' : '#f87171' }}>
+                          {resultadoEval.puntaje}<span className="text-sm text-slate-400">/10</span>
+                        </span>
+                      </div>
+                      <p className="text-sm leading-relaxed mb-3" style={{ color: 'rgba(226,232,240,0.8)' }}>{resultadoEval.feedback}</p>
+                      {resultadoEval.aciertos.length > 0 && (
+                        <div className="mb-2">
+                          <p className="text-xs font-medium mb-1" style={{ color: 'rgba(52,211,153,0.7)' }}>Aciertos</p>
+                          {resultadoEval.aciertos.map((a, i) => (
+                            <p key={i} className="text-xs leading-relaxed" style={{ color: 'rgba(148,163,184,0.7)' }}>· {a}</p>
+                          ))}
+                        </div>
+                      )}
+                      {resultadoEval.mejoras.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium mb-1" style={{ color: 'rgba(251,191,36,0.7)' }}>Para mejorar</p>
+                          {resultadoEval.mejoras.map((m, i) => (
+                            <p key={i} className="text-xs leading-relaxed" style={{ color: 'rgba(148,163,184,0.7)' }}>· {m}</p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (preguntaIdx + 1 < preguntas.length) {
+                          setPreguntaIdx((prev) => prev + 1)
+                          setRespuestaEval('')
+                          setResultadoEval(null)
+                        } else {
+                          setResultadoEval(null)
+                        }
+                      }}
+                      className="w-full rounded-xl py-2.5 text-sm font-medium transition-all flex items-center justify-center gap-2"
+                      style={{ background: 'rgba(109,40,217,0.15)', border: '1px solid rgba(139,92,246,0.3)', color: '#a78bfa' }}
+                    >
+                      {preguntaIdx + 1 < preguntas.length ? 'Siguiente pregunta' : 'Ver resumen'}
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
+
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+        {!modoEval && <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
           {cursoActivo.conversacion.length === 0 && !streamingTexto && (
             <div className="flex flex-col items-center justify-center h-full text-center py-10">
               <div className="h-14 w-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(6,182,212,0.1))', border: '1px solid rgba(139,92,246,0.2)' }}>
@@ -604,10 +832,10 @@ export default function AulaClient({ documentos }: Props) {
           )}
 
           <div ref={chatEndRef} />
-        </div>
+        </div>}
 
         {/* Input */}
-        <div className="flex-shrink-0 px-5 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        {!modoEval && <div className="flex-shrink-0 px-5 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div
             className="flex items-end gap-3 rounded-2xl px-4 py-3 transition-all"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
@@ -648,7 +876,7 @@ export default function AulaClient({ documentos }: Props) {
           <p className="text-center text-xs mt-2" style={{ color: 'rgba(148,163,184,0.25)' }}>
             Shift+Enter para nueva línea
           </p>
-        </div>
+        </div>}
       </div>
     </div>
   )

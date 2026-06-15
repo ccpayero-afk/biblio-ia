@@ -9,6 +9,12 @@ import { NextRequest, NextResponse } from 'next/server'
 
 type Modo = 'exploración' | 'posicion' | 'debate' | 'socrático'
 
+function hashStr(s: string): string {
+  let h = 5381
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0
+  return (h >>> 0).toString(16).padStart(8, '0')
+}
+
 const SISTEMAS: Record<Modo, string> = {
   exploración: `Sos un guía de exploración teórica. Tu rol es ayudar al investigador a navegar la bibliografía con preguntas que amplíen su comprensión.
 Tras cada respuesta planteás UNA pregunta de seguimiento que profundice la exploración.
@@ -64,6 +70,30 @@ export async function POST(req: NextRequest) {
       .join('\n\n')
 
     let sistema = SISTEMAS[modo] ?? SISTEMAS['exploración']
+
+    // En modo debate: intentar cargar el mapa de debates cacheado para este tema
+    if (modo === 'debate') {
+      try {
+        const estructura = await initUserDrive(accessToken)
+        const cacheKey = hashStr(query.trim().toLowerCase())
+        const cacheFile = `cache_mapa_${cacheKey}.json`
+        const cachedId = await findFile(accessToken, cacheFile, estructura.notasId)
+        if (cachedId) {
+          const mapa = await readJSON<Record<string, unknown>>(accessToken, cachedId)
+          const posiciones = (mapa.posiciones as { autor: string; tesis: string }[] | undefined) ?? []
+          const tensiones = (mapa.tensiones as { entre: string[]; sobre: string }[] | undefined) ?? []
+          const acuerdos = (mapa.acuerdos as string[] | undefined) ?? []
+          if (posiciones.length || tensiones.length) {
+            const mapaStr = [
+              posiciones.length ? `POSICIONES:\n${posiciones.map(p => `• ${p.autor}: "${p.tesis}"`).join('\n')}` : '',
+              tensiones.length ? `TENSIONES:\n${tensiones.map(t => `• ${t.entre.join(' vs ')}: ${t.sobre}`).join('\n')}` : '',
+              acuerdos.length ? `ACUERDOS: ${acuerdos.join(' / ')}` : '',
+            ].filter(Boolean).join('\n\n')
+            sistema = `${SISTEMAS['debate']}\n\nMapa del debate disponible:\n${mapaStr}`
+          }
+        }
+      } catch { /* si falla, usa sistema genérico */ }
+    }
 
     // Enriquecer sistema prompt cuando hay documento seleccionado en modo posicion
     if (modo === 'posicion' && documentoId) {

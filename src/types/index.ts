@@ -278,6 +278,7 @@ export interface Curso {
   plan: ModuloCurso[]
   moduloActual: number
   conversacion: MensajeCurso[]
+  evaluaciones?: Record<string, number[]>
   creadoEn: string
   actualizadoEn: string
 }

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { generarIdZettel } from '@/lib/zettel-id'
+import EnviarAProyectoModal from '@/components/EnviarAProyectoModal'
 
 // ─── Configuración de tipos ──────────────────────────────────────────────────
 
@@ -558,6 +559,8 @@ function NotaDetalle({
   const [convertiendo, setConvirtiendo] = useState(false)
   const [mostrarHistorial, setMostrarHistorial] = useState(false)
   const [restaurando, setRestaurando] = useState<string | null>(null)
+  const [mostrarEnviarProyecto, setMostrarEnviarProyecto] = useState(false)
+  const [toastProyecto, setToastProyecto] = useState('')
   const [sugerencia, setSugerencia] = useState<null | {
     titulo_sugerido: string
     contenido_sugerido: string
@@ -628,6 +631,16 @@ function NotaDetalle({
               <History className="h-3.5 w-3.5" />
             </button>
           )}
+          <button
+            onClick={() => setMostrarEnviarProyecto(true)}
+            className="rounded-lg px-3 py-1.5 text-xs transition-all"
+            style={{ border: '1px solid rgba(139,92,246,0.25)', color: 'rgba(167,139,250,0.8)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.background = 'rgba(139,92,246,0.08)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.25)'; e.currentTarget.style.background = '' }}
+            title="Enviar a proyecto"
+          >
+            → Proyecto
+          </button>
           <button
             onClick={onEditar}
             className="rounded-lg px-3 py-1.5 text-xs transition-all"
@@ -924,6 +937,27 @@ function NotaDetalle({
           />
         </div>
       </div>
+
+      {/* Modal enviar a proyecto */}
+      {mostrarEnviarProyecto && (
+        <EnviarAProyectoModal
+          tipo="nota"
+          itemId={nota.id}
+          itemLabel={nota.titulo}
+          onClose={() => setMostrarEnviarProyecto(false)}
+          onEnviado={(nombre) => {
+            setMostrarEnviarProyecto(false)
+            setToastProyecto(`Nota enviada a "${nombre}"`)
+            setTimeout(() => setToastProyecto(''), 3000)
+          }}
+        />
+      )}
+      {toastProyecto && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg"
+          style={{ background: 'rgba(109,40,217,0.9)', border: '1px solid rgba(139,92,246,0.4)' }}>
+          {toastProyecto}
+        </div>
+      )}
 
       {/* Panel historial de versiones */}
       {mostrarHistorial && (nota.versiones ?? []).length > 0 && (

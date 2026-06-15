@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { Highlight, Cita } from '@/types'
 import { Highlighter, Pin } from 'lucide-react'
+import EnviarAProyectoModal from '@/components/EnviarAProyectoModal'
 
 interface Props {
   highlights: Highlight[]
@@ -18,6 +20,8 @@ const COLOR_BORDER: Record<Highlight['color'], string> = {
 }
 
 export default function PanelLateral({ highlights, citas, paginaActual }: Props) {
+  const [enviarCita, setEnviarCita] = useState<Cita | null>(null)
+  const [toastProyecto, setToastProyecto] = useState('')
   const citasEnPagina = citas.filter((c) => c.pagina === paginaActual)
 
   return (
@@ -86,6 +90,15 @@ export default function PanelLateral({ highlights, citas, paginaActual }: Props)
                       ))}
                     </div>
                   )}
+                  <button
+                    onClick={() => setEnviarCita(c)}
+                    className="mt-2 text-xs transition-colors"
+                    style={{ color: 'rgba(139,92,246,0.5)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.color = '#a78bfa' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(139,92,246,0.5)' }}
+                  >
+                    → Enviar a proyecto
+                  </button>
                 </div>
               ))}
             </div>
@@ -106,6 +119,26 @@ export default function PanelLateral({ highlights, citas, paginaActual }: Props)
           </div>
         )}
       </div>
+
+      {enviarCita && (
+        <EnviarAProyectoModal
+          tipo="cita"
+          itemId={enviarCita.id}
+          itemLabel={enviarCita.texto.slice(0, 60)}
+          onClose={() => setEnviarCita(null)}
+          onEnviado={(nombre) => {
+            setEnviarCita(null)
+            setToastProyecto(`Cita enviada a "${nombre}"`)
+            setTimeout(() => setToastProyecto(''), 3000)
+          }}
+        />
+      )}
+      {toastProyecto && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg"
+          style={{ background: 'rgba(109,40,217,0.9)', border: '1px solid rgba(139,92,246,0.4)' }}>
+          {toastProyecto}
+        </div>
+      )}
     </aside>
   )
 }

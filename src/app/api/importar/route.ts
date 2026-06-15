@@ -1,7 +1,16 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, uploadPDF, updateDocumentMetadata } from '@/lib/drive'
+import { initUserDrive, uploadPDF, updateDocumentMetadata, listPDFs } from '@/lib/drive'
 import { NextRequest, NextResponse } from 'next/server'
+
+function normalizarNombre(nombre: string): string {
+  return nombre
+    .toLowerCase()
+    .replace(/\.pdf$/i, '')
+    .replace(/[^a-z0-9áéíóúüñ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 interface MetadatoImportado {
   titulo: string
@@ -68,12 +77,21 @@ export async function POST(req: NextRequest) {
     if (tipo === 'pdf') {
       const formData = await req.formData()
       const estructura = await initUserDrive(accessToken)
-      const resultados: { nombre: string; id: string; ok: boolean; error?: string }[] = []
+      const existentes = await listPDFs(accessToken, estructura.pdfsId)
+      const resultados: { nombre: string; id: string; ok: boolean; duplicado?: { id: string; nombre: string }; error?: string }[] = []
 
       for (const [key, value] of formData.entries()) {
         if (!(value instanceof File)) continue
         const metaStr = formData.get(`meta_${key}`)
         const meta = metaStr ? JSON.parse(metaStr as string) : {}
+
+        const nombreNorm = normalizarNombre(value.name)
+        const dup = existentes.find((d) => normalizarNombre(d.nombre) === nombreNorm)
+        if (dup) {
+          resultados.push({ nombre: value.name, id: dup.id, ok: false, duplicado: { id: dup.id, nombre: dup.nombre } })
+          continue
+        }
+
         try {
           const fileId = await uploadPDF(accessToken, estructura.pdfsId, value)
           await updateDocumentMetadata(accessToken, fileId, {

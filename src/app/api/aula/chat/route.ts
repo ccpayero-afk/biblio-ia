@@ -3,8 +3,10 @@ import { getAccessToken } from '@/lib/auth-helpers'
 import { cargarCurso, guardarCurso } from '@/lib/aula'
 import { semanticSearch } from '@/lib/search'
 import { streamWithRotation, GEMINI_MODEL_GENERATION, geminiRateLimitMessage } from '@/lib/gemini'
+import { initUserDrive, findFile, readJSON } from '@/lib/drive'
+import { leerIndice } from '@/lib/notas'
 import { NextRequest, NextResponse } from 'next/server'
-import type { MensajeCurso } from '@/types'
+import type { MensajeCurso, Highlight } from '@/types'
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,14 +27,38 @@ export async function POST(req: NextRequest) {
     const modulo = curso.plan.find((m) => m.numero === moduloActual) ?? curso.plan[0]
 
     // RAG: only within this book
-    const fragmentos = await semanticSearch(mensaje, accessToken, {
-      documentoIds: [curso.libroId],
-      topK: 5,
-    })
+    const [fragmentos, estructuraDrive] = await Promise.all([
+      semanticSearch(mensaje, accessToken, { documentoIds: [curso.libroId], topK: 5 }),
+      initUserDrive(accessToken),
+    ])
 
     const contextoRAG = fragmentos.length
       ? fragmentos.map((f, i) => `[${i + 1}] p.${f.pagina}: "${f.texto}"`).join('\n')
       : ''
+
+    // Highlights y notas del estudiante sobre este libro
+    let contextoAlumno = ''
+    try {
+      const [highlightsFileId, { indice }] = await Promise.all([
+        findFile(accessToken, `${curso.libroId}.json`, estructuraDrive.highlightsId),
+        leerIndice(accessToken),
+      ])
+      const highlights: Highlight[] = highlightsFileId
+        ? await readJSON<Highlight[]>(accessToken, highlightsFileId).catch(() => [])
+        : []
+      const notasDelLibro = indice.filter((n) => (n as { documentoOrigenId?: string }).documentoOrigenId === curso.libroId)
+
+      const partes: string[] = []
+      if (highlights.length) {
+        partes.push(`Highlights del estudiante (${highlights.length}):\n` +
+          highlights.slice(0, 10).map(h => `• p.${h.pagina}: "${h.texto.slice(0, 120)}"${h.nota ? ` [nota: ${h.nota}]` : ''}`).join('\n'))
+      }
+      if (notasDelLibro.length) {
+        partes.push(`Notas Zettelkasten del estudiante sobre este libro:\n` +
+          notasDelLibro.slice(0, 8).map(n => `• ${n.titulo}`).join('\n'))
+      }
+      if (partes.length) contextoAlumno = partes.join('\n\n')
+    } catch { /* si falla, continúa sin este contexto */ }
 
     const sistema = `Eres el docente pedagógico del curso sobre "${curso.libroTitulo}" de ${curso.libroAutor}.
 
@@ -48,9 +74,11 @@ Módulo actual: ${modulo.numero} — "${modulo.titulo}"
 Objetivos: ${modulo.objetivos.join('; ')}
 Temas clave: ${modulo.temas.join(', ')}`
 
-    const promptConContexto = contextoRAG
-      ? `Fragmentos relevantes del libro:\n${contextoRAG}\n\nEstudiante: ${mensaje}`
-      : `Estudiante: ${mensaje}`
+    const partes = []
+    if (contextoRAG) partes.push(`Fragmentos relevantes del libro:\n${contextoRAG}`)
+    if (contextoAlumno) partes.push(contextoAlumno)
+    partes.push(`Estudiante: ${mensaje}`)
+    const promptConContexto = partes.join('\n\n')
 
     const history = curso.conversacion.slice(-16).map((m) => ({
       role: m.rol === 'usuario' ? 'user' : 'model' as 'user' | 'model',
