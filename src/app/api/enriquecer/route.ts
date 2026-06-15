@@ -4,6 +4,7 @@ import { leerIndice } from '@/lib/notas'
 import { leerCitas } from '@/lib/citas'
 import { initUserDrive, listPDFs } from '@/lib/drive'
 import { generateWithRotation, GEMINI_MODEL_GENERATION } from '@/lib/gemini'
+import { semanticSearch } from '@/lib/search'
 import { NextRequest, NextResponse } from 'next/server'
 import type { NotaLigera } from '@/lib/notas'
 import type { Cita, Documento } from '@/types'
@@ -75,9 +76,10 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    if (documentos.length > 0) {
+    const docsParaCatalogo = documentos.slice(0, 40)
+    if (docsParaCatalogo.length > 0) {
       partes.push('\n=== DOCUMENTOS EN BIBLIOTECA ===')
-      documentos.slice(0, 40).forEach((d, i) => {
+      docsParaCatalogo.forEach((d, i) => {
         const key = `d${i + 1}`
         docsMap.set(key, d)
         const info = [d.titulo || d.nombre.replace(/\.pdf$/i, ''), d.autor, d.año]
@@ -85,6 +87,32 @@ export async function POST(req: NextRequest) {
           .join(' — ')
         partes.push(`[${key}] ${info}`)
       })
+    }
+
+    // Búsqueda semántica sobre el contenido indexado de los documentos en scope
+    const docIdsIndexados = docsParaCatalogo
+      .filter((d) => d.estado === 'indexado' && d.fragmentos > 0)
+      .map((d) => d.id)
+
+    if (docIdsIndexados.length > 0) {
+      try {
+        const fragmentos = await semanticSearch(textoLimitado.slice(0, 1500), accessToken, {
+          documentoIds: docIdsIndexados,
+          topK: 8,
+        })
+        if (fragmentos.length > 0) {
+          partes.push('\n=== EXTRACTOS DE CONTENIDO (fragmentos más relevantes de los documentos) ===')
+          fragmentos.forEach((f) => {
+            const docIdx = docsParaCatalogo.findIndex((d) => d.id === f.documentoId)
+            if (docIdx < 0) return
+            const docKey = `d${docIdx + 1}`
+            const snip = f.texto.slice(0, 300).replace(/\n/g, ' ')
+            partes.push(`[${docKey}] p.${f.pagina}: "${snip}"`)
+          })
+        }
+      } catch {
+        // búsqueda semántica es opcional — continuar sin fragmentos si falla
+      }
     }
 
     const catalogo = partes.join('\n')
@@ -104,10 +132,11 @@ export async function POST(req: NextRequest) {
       `Instrucciones:\n` +
       `- Identificá los temas, argumentos y conceptos centrales del texto\n` +
       `- Relacioná cada recurso relevante con una parte específica del texto\n` +
+      `- Los "EXTRACTOS DE CONTENIDO" son texto real de los documentos indexados — usálos para entender qué dice cada documento y para escribir una 'razon' más específica y una 'frase' concreta del recurso\n` +
       `- Priorizá por relevancia real: 3-10 recomendaciones en total\n` +
       `- Si un recurso no aporta concretamente, no lo incluyas\n\n` +
       `Respondé ÚNICAMENTE con JSON puro:\n` +
-      `{"analisis":"2-3 oraciones sobre los temas del texto y qué tipo de complemento necesita","recomendaciones":[{"tipo":"cita","itemId":"c1","titulo":"título breve","autor":"apellido si aplica","parrafo":"frase del texto del usuario que justifica esta recomendación","razon":"por qué este recurso complementa esa parte (1-2 oraciones)","relevancia":"alta","fragmento":"primeras palabras del recurso (máx 80 chars)"}]}`
+      `{"analisis":"2-3 oraciones sobre los temas del texto y qué tipo de complemento necesita","recomendaciones":[{"tipo":"cita","itemId":"c1","titulo":"título breve","autor":"apellido si aplica","parrafo":"frase del texto del usuario que justifica esta recomendación","razon":"por qué este recurso complementa esa parte — si tenés extracto del doc, citá algo concreto de él (1-2 oraciones)","relevancia":"alta","fragmento":"primeras palabras del recurso (máx 80 chars)"}]}`
 
     const result = await generateWithRotation(accessToken, async (genAI) => {
       const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
