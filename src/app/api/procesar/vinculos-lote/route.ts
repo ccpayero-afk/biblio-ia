@@ -1,9 +1,9 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { leerTodasCompletas, leerIndice, escribirIndice } from '@/lib/notas'
+import { leerIndice, leerContenido, escribirIndice } from '@/lib/notas'
 import { generateWithRotation } from '@/lib/gemini'
 import { sugerirVinculos } from '@/lib/zettel-ia'
-import { VinculoZettel } from '@/types'
+import { Nota, VinculoZettel } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 60
@@ -17,19 +17,35 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}))
     const offset = (body.offset ?? 0) as number
 
-    // Load full notes for AI context, lean index for vinculos updates
-    const [todasCompletas, { notasId, indice }] = await Promise.all([
-      leerTodasCompletas(accessToken),
-      leerIndice(accessToken),
-    ])
+    // Load lean index (one file) instead of all content files
+    const { notasId, indice } = await leerIndice(accessToken)
 
-    const candidatas = todasCompletas
+    const candidatasLeanas = indice
       .filter((n) => n.tipo === 'referencia' && (n.vinculos ?? []).length === 0)
       .slice(offset, offset + MAX_NOTAS)
 
-    if (candidatas.length === 0) {
+    if (candidatasLeanas.length === 0) {
       return NextResponse.json({ ok: true, vinculosCreados: 0, notasProcesadas: 0, restantes: 0 })
     }
+
+    // Load content only for the 8 candidates — not all 700+ notes
+    const candidatas: Nota[] = await Promise.all(
+      candidatasLeanas.map(async (n) => {
+        try {
+          const data = await leerContenido(accessToken, notasId, n.id, { contenido: '', versiones: [] })
+          return { ...n, contenido: data.contenido, versiones: data.versiones }
+        } catch {
+          return { ...n, contenido: '', versiones: [] }
+        }
+      })
+    )
+
+    // Build context array: candidates have full content; all other notes use only their title
+    const candidataIds = new Set(candidatas.map((n) => n.id))
+    const todasParaContexto: Nota[] = indice.map((n) => {
+      const completa = candidataIds.has(n.id) ? candidatas.find((c) => c.id === n.id) : undefined
+      return completa ?? { ...n, contenido: '', versiones: [] }
+    })
 
     let vinculosCreados = 0
     const idxMap = new Map(indice.map((n, i) => [n.id, i]))
@@ -38,7 +54,7 @@ export async function POST(req: NextRequest) {
     for (const nota of candidatas) {
       try {
         const sugerencias = await generateWithRotation(accessToken, (genAI) =>
-          sugerirVinculos(nota, todasCompletas, genAI)
+          sugerirVinculos(nota, todasParaContexto, genAI)
         )
         const altasYMedias = sugerencias.filter((s) => s.confianza !== 'baja')
         if (altasYMedias.length === 0) continue
