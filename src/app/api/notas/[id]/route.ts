@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const ahora = new Date().toISOString()
 
     const notaActualizada = { ...indice[idx], ...body, id, actualizadaEn: ahora }
-    indice[idx] = aLigera(notaActualizada as Nota)
+    indice[idx] = { ...aLigera(notaActualizada as Nota), contenido: newContenido } as unknown as NotaLigera
 
     await Promise.all([
       escribirIndice(accessToken, notasId, indice),

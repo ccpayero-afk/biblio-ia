@@ -1035,6 +1035,8 @@ export default function NotasClient() {
   const [progresoVinc, setProgresoVinc] = useState<{ actual: number; total: number; nuevos: number; ultimoError?: string } | null>(null)
   const [generandoVincPipeline, setGenerandoVincPipeline] = useState(false)
   const [resultadoVincPipeline, setResultadoVincPipeline] = useState<string | null>(null)
+  const [backfillando, setBackfillando] = useState(false)
+  const [resultadoBackfill, setResultadoBackfill] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const convRef = useRef<HTMLDivElement>(null)
 
@@ -1176,6 +1178,33 @@ export default function NotasClient() {
     setProgresoVinc(null)
   }
 
+  async function backfillContenido() {
+    if (backfillando) return
+    setBackfillando(true)
+    setResultadoBackfill(null)
+    let offset = 0
+    let totalActualizado = 0
+    try {
+      for (let i = 0; i < 30; i++) {
+        const data = await fetch('/api/notas/backfill-contenido', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ offset, limit: 50 }),
+        }).then((r) => r.json()) as { actualizado: number; restantes: number; total: number; error?: string }
+        if (data.error) { setResultadoBackfill(`Error: ${data.error}`); break }
+        totalActualizado += data.actualizado
+        setResultadoBackfill(`${totalActualizado} notas sincronizadas…`)
+        if (data.restantes === 0) break
+        offset += 50
+      }
+      setResultadoBackfill(`✓ ${totalActualizado} notas sincronizadas`)
+      if (totalActualizado > 0) await cargar()
+    } catch (e) {
+      setResultadoBackfill(`Error: ${String(e)}`)
+    }
+    setBackfillando(false)
+  }
+
   const etiquetasUnicas = [...new Set(notas.flatMap((n) => n.etiquetas))].sort()
   const conteosPorTipo = notas.reduce<Record<string, number>>((acc, n) => {
     acc[n.tipo] = (acc[n.tipo] ?? 0) + 1
@@ -1298,6 +1327,35 @@ export default function NotasClient() {
             {resultadoVincPipeline && (
               <p className="text-xs text-center" style={{ color: resultadoVincPipeline.startsWith('Error') ? '#f87171' : '#34d399' }}>
                 {resultadoVincPipeline}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Sincronizar contenido en índice */}
+        {notas.some((n) => !n.contenido && n.tipo !== 'efimera') && (
+          <div
+            className="mt-3 rounded-lg p-2 space-y-2"
+            style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}
+          >
+            <p className="text-xs" style={{ color: '#818cf8' }}>
+              ℹ Hay notas sin contenido en índice (afecta Enriquecer y vínculos)
+            </p>
+            <button
+              onClick={backfillContenido}
+              disabled={backfillando}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+              style={{ background: 'rgba(99,102,241,0.12)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)' }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.background = 'rgba(99,102,241,0.22)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(99,102,241,0.12)' }}
+            >
+              {backfillando
+                ? <><Loader2 className="h-3 w-3 animate-spin" /> Sincronizando…</>
+                : <><RefreshCw className="h-3 w-3" /> Sincronizar contenido</>}
+            </button>
+            {resultadoBackfill && (
+              <p className="text-xs text-center" style={{ color: resultadoBackfill.startsWith('Error') ? '#f87171' : '#34d399' }}>
+                {resultadoBackfill}
               </p>
             )}
           </div>

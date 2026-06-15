@@ -4,7 +4,7 @@ import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { Nota, TipoNota } from '@/types'
 import { generarIdZettel } from '@/lib/zettel-id'
-import { leerIndice, aLigera, escribirIndice, escribirContenido } from '@/lib/notas'
+import { leerIndice, aLigera, escribirIndice, escribirContenido, NotaLigera } from '@/lib/notas'
 import { NextRequest, NextResponse } from 'next/server'
 
 function migrarTipo(tipo: string): TipoNota {
@@ -82,7 +82,10 @@ export async function POST(req: NextRequest) {
         contenido: nuevaNota.contenido,
         versiones: [],
       }),
-      escribirIndice(accessToken, notasId, [...indice, aLigera(nuevaNota)]),
+      escribirIndice(accessToken, notasId, [
+        ...indice,
+        { ...aLigera(nuevaNota), contenido: nuevaNota.contenido } as unknown as NotaLigera,
+      ]),
     ])
 
     return NextResponse.json(nuevaNota)
