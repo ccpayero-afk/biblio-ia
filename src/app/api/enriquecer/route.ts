@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth()
     const accessToken = getAccessToken(session)
-    const { texto } = (await req.json()) as { texto: string }
+    const { texto, carpetasIds } = (await req.json()) as { texto: string; carpetasIds?: string[] }
 
     if (!texto?.trim()) return NextResponse.json({ error: 'Texto vacío' }, { status: 400 })
 
@@ -36,7 +36,10 @@ export async function POST(req: NextRequest) {
       leerCitas(accessToken),
       initUserDrive(accessToken),
     ])
-    const documentos = await listPDFs(accessToken, estructura.pdfsId)
+    const todosLosDocumentos = await listPDFs(accessToken, estructura.pdfsId)
+    const documentos = carpetasIds?.length
+      ? todosLosDocumentos.filter((d) => carpetasIds.includes(d.carpetaId ?? ''))
+      : todosLosDocumentos
 
     // Build indexed catalog maps  (short keys → real objects)
     const citasMap = new Map<string, Cita>()

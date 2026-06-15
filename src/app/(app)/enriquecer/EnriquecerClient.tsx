@@ -7,6 +7,7 @@ import {
   Loader2, AlertCircle, ArrowRight, X, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import type { Recomendacion } from '@/app/api/enriquecer/route'
+import { useScope, scopeParam } from '@/lib/scope-context'
 
 const MAX_CHARS = 12000
 
@@ -128,6 +129,7 @@ export default function EnriquecerClient() {
   const [recomendaciones, setRecomendaciones] = useState<Recomendacion[]>([])
   const [yaAnalizado, setYaAnalizado] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const { scope } = useScope()
 
   const cargarArchivo = useCallback(async (file: File) => {
     const nombre = file.name.toLowerCase()
@@ -166,7 +168,7 @@ export default function EnriquecerClient() {
       const res = await fetch('/api/enriquecer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texto }),
+        body: JSON.stringify({ texto, ...scopeParam(scope) }),
       })
       const data = await res.json()
       if (data.error) { setError(data.error); return }

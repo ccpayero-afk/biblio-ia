@@ -15,6 +15,7 @@ function norm(str: string): string {
 export async function GET(req: NextRequest) {
   try {
     const q = norm(req.nextUrl.searchParams.get('q') ?? '').trim()
+    const carpetaId = req.nextUrl.searchParams.get('carpetaId') ?? ''
     if (!q || q.length < 2) {
       return NextResponse.json({ documentos: [], citas: [], notas: [] })
     }
@@ -35,10 +36,13 @@ export async function GET(req: NextRequest) {
 
     const docsFiltrados: Documento[] = documentos
       .filter((d) =>
-        norm(d.nombre).includes(q) ||
-        norm(d.titulo ?? '').includes(q) ||
-        norm(d.autor ?? '').includes(q) ||
-        norm(d.abstract ?? '').includes(q)
+        (!carpetaId || d.carpetaId === carpetaId) &&
+        (
+          norm(d.nombre).includes(q) ||
+          norm(d.titulo ?? '').includes(q) ||
+          norm(d.autor ?? '').includes(q) ||
+          norm(d.abstract ?? '').includes(q)
+        )
       )
       .slice(0, 6)
 

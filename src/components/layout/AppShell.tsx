@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import Sidebar from './Sidebar'
 import Header from './Header'
+import { ScopeProvider } from '@/lib/scope-context'
 
 interface Props {
   children: React.ReactNode
@@ -37,6 +38,7 @@ export default function AppShell({ children, user, apiKeyConfigurada }: Props) {
   }, [])
 
   return (
+    <ScopeProvider>
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
 
       {/* Ambient gradient blobs — fondo decorativo */}
@@ -86,5 +88,6 @@ export default function AppShell({ children, user, apiKeyConfigurada }: Props) {
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
     </div>
+    </ScopeProvider>
   )
 }

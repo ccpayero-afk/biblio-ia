@@ -4,8 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, BookMarked, RotateCcw, MessageSquare, ChevronDown, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { MensajeHistorial } from '@/lib/chat'
-import { CarpetaSelector } from '@/components/CarpetaSelector'
-import type { Carpeta } from '@/types'
+import { useScope } from '@/lib/scope-context'
 
 interface Fuente {
   documentoId: string
@@ -87,8 +86,7 @@ export default function ConsultarClient() {
   const [convId, setConvId] = useState<string>(() => nuevaId())
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([])
   const [panelAbierto, setPanelAbierto] = useState(false)
-  const [carpetas, setCarpetas] = useState<Carpeta[]>([])
-  const [carpetasFiltro, setCarpetasFiltro] = useState<string[]>([])
+  const { scope } = useScope()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -117,11 +115,6 @@ export default function ConsultarClient() {
         })
       })
       .catch(() => { /* offline o sin Drive */ })
-
-    fetch('/api/carpetas')
-      .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setCarpetas(data) })
-      .catch(() => {})
   }, [])
 
   // Cerrar panel al hacer clic fuera
@@ -200,7 +193,7 @@ export default function ConsultarClient() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: texto, historial, carpetasIds: carpetasFiltro.length ? carpetasFiltro : undefined }),
+        body: JSON.stringify({ query: texto, historial, carpetasIds: scope.ids.length ? scope.ids : undefined }),
       })
 
       if (!res.body) throw new Error('Sin respuesta del servidor')
@@ -535,10 +528,6 @@ export default function ConsultarClient() {
               <RotateCcw className="h-3 w-3" /> Nueva conversación
             </button>
           )}
-          {/* Filtro carpetas */}
-          <div className="mb-3">
-            <CarpetaSelector carpetas={carpetas} filtro={carpetasFiltro} onChange={setCarpetasFiltro} />
-          </div>
           <div className="flex gap-3">
             <textarea
               ref={textareaRef}
@@ -571,7 +560,9 @@ export default function ConsultarClient() {
           </div>
           <p className="mt-1.5 text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>
             Busca en{' '}
-            <span style={{ color: 'rgba(148,163,184,0.5)' }}>todos los documentos indexados</span>
+            <span style={{ color: 'rgba(148,163,184,0.5)' }}>
+              {scope.ids.length ? scope.nombres[0] ?? 'carpeta seleccionada' : 'toda la biblioteca'}
+            </span>
             {' '}· Ctrl+Enter para enviar
           </p>
         </div>

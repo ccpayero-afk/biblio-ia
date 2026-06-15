@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, FileText, Quote, StickyNote, X, Loader2 } from 'lucide-react'
 import { Documento, Cita, Nota } from '@/types'
 import { displayNombre, limpiarNombre } from '@/lib/nombre'
+import { useScope } from '@/lib/scope-context'
 
 interface ResultadoBusqueda {
   documentos: Documento[]
@@ -25,6 +26,7 @@ export default function BusquedaUniversal() {
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { scope } = useScope()
 
   // Abrir con Cmd+K / Ctrl+K
   useEffect(() => {
@@ -53,12 +55,14 @@ export default function BusquedaUniversal() {
     if (q.length < 2) { setResultados(null); return }
     setCargando(true)
     try {
-      const res = await fetch(`/api/buscar?q=${encodeURIComponent(q)}`)
+      const carpetaId = scope.ids[0] ?? ''
+      const url = `/api/buscar?q=${encodeURIComponent(q)}${carpetaId ? `&carpetaId=${encodeURIComponent(carpetaId)}` : ''}`
+      const res = await fetch(url)
       const data = await res.json()
       setResultados(data)
     } catch { /* noop */ }
     setCargando(false)
-  }, [])
+  }, [scope.ids])
 
   function onInput(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value

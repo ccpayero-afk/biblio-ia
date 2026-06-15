@@ -9,6 +9,7 @@ import {
   Library, Highlighter, Inbox, BarChart2, Coffee, BookMarked, Map,
   GitCompare, Briefcase, Sparkles,
 } from 'lucide-react'
+import ScopeSelector from '@/components/ScopeSelector'
 
 const NAV_GROUPS = [
   {
@@ -148,6 +149,11 @@ export default function Sidebar({ onClose, colapsada, onToggleColapsar }: Props)
           )}
         </div>
 
+      </div>
+
+      {/* Scope selector */}
+      <div className="pt-2 pb-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <ScopeSelector colapsada={colapsada} />
       </div>
 
       {/* Nav groups */}
