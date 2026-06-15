@@ -1103,20 +1103,21 @@ export default function NotasClient() {
     setGenerandoVincPipeline(true)
     setResultadoVincPipeline(null)
     let total = 0
-    let offset = 0
     try {
-      for (let i = 0; i < 10; i++) {
-        const res = await fetch('/api/procesar/vinculos-lote', {
+      // vincular-batch: 50 notas × 1 llamada Gemini por batch (vs vinculos-lote: 8 notas × 8 llamadas).
+      // Para 800+ notas sin vinculos esto termina en ~2 min en vez de ~40 min.
+      // Corre hasta que no haya más conexiones nuevas o llegue a 25 batches.
+      for (let i = 0; i < 25; i++) {
+        const res = await fetch('/api/notas/ia/vincular-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ offset }),
+          body: JSON.stringify({ soloSinVinculos: true }),
         })
         const data = await res.json()
-        if (!data.ok) break
-        total += data.vinculosCreados ?? 0
-        offset += data.notasProcesadas ?? 0
-        if ((data.restantes ?? 0) === 0 || (data.notasProcesadas ?? 0) === 0) break
-        await new Promise((r) => setTimeout(r, 1000))
+        if (data.error) break
+        total += data.aplicados ?? 0
+        setResultadoVincPipeline(`${total} vínculos… (lote ${i + 1})`)
+        if ((data.aplicados ?? 0) === 0) break
       }
       if (total > 0) await cargar()
       setResultadoVincPipeline(total > 0 ? `${total} vínculos generados` : 'Sin vínculos nuevos')
@@ -1124,7 +1125,7 @@ export default function NotasClient() {
       setResultadoVincPipeline(`Error: ${String(e).slice(0, 80)}`)
     }
     setGenerandoVincPipeline(false)
-    setTimeout(() => setResultadoVincPipeline(null), 4000)
+    setTimeout(() => setResultadoVincPipeline(null), 6000)
   }
 
   async function limpiarTodosVinculos() {

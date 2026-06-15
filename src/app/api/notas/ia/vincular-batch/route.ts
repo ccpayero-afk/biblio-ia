@@ -1,9 +1,9 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { leerTodasCompletas, leerIndice, escribirIndice } from '@/lib/notas'
+import { leerIndice, escribirIndice } from '@/lib/notas'
 import { generateWithRotation } from '@/lib/gemini'
 import { sugerirVinculosBatch } from '@/lib/zettel-ia'
-import { VinculoZettel } from '@/types'
+import { Nota, VinculoZettel } from '@/types'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const maxDuration = 60
@@ -14,7 +14,14 @@ export async function POST(req: NextRequest) {
     const accessToken = getAccessToken(session)
     const { soloSinVinculos } = await req.json() as { soloSinVinculos?: boolean }
 
-    const todasCompletas = await leerTodasCompletas(accessToken)
+    // Use inline contenido from the index (pre-migration notes store content there).
+    // Avoids 800+ individual Drive file lookups that would time out.
+    const { notasId, indice } = await leerIndice(accessToken)
+    const todasCompletas: Nota[] = indice.map((n) => ({
+      ...n,
+      contenido: (n as unknown as { contenido?: string }).contenido ?? '',
+      versiones: [],
+    })) as Nota[]
     const paraAnalizar = todasCompletas.filter((n) => n.tipo !== 'efimera')
     if (paraAnalizar.length < 2) return NextResponse.json({ aplicados: 0, conexiones: 0, notas: paraAnalizar.length })
 
@@ -23,8 +30,6 @@ export async function POST(req: NextRequest) {
     )
     if (conexiones.length === 0) return NextResponse.json({ aplicados: 0, conexiones: 0, notas: paraAnalizar.length })
 
-    // Update vinculos in lean index (vinculos live there, not in content files)
-    const { notasId, indice } = await leerIndice(accessToken)
     const ahora = new Date().toISOString()
     let aplicados = 0
 

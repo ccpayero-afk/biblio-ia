@@ -28,23 +28,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, vinculosCreados: 0, notasProcesadas: 0, restantes: 0 })
     }
 
-    // Load content only for the 8 candidates — not all 700+ notes
+    // Load content for the 8 candidates.
+    // Pre-migration notes store contenido inline in notas.json — pass `n` as fallback so it's used
+    // when no separate nota_${id}.json file exists.
     const candidatas: Nota[] = await Promise.all(
       candidatasLeanas.map(async (n) => {
+        const inlineFallback = n as unknown as { contenido?: string; versiones?: [] }
         try {
-          const data = await leerContenido(accessToken, notasId, n.id, { contenido: '', versiones: [] })
+          const data = await leerContenido(accessToken, notasId, n.id, inlineFallback)
           return { ...n, contenido: data.contenido, versiones: data.versiones }
         } catch {
-          return { ...n, contenido: '', versiones: [] }
+          return { ...n, contenido: inlineFallback.contenido ?? '', versiones: [] }
         }
       })
     )
 
-    // Build context array: candidates have full content; all other notes use only their title
+    // Build context: candidates have loaded content; remaining notes use inline contenido if available
+    // (pre-migration notes have contenido in notas.json; post-migration notes have '' here, which is fine)
     const candidataIds = new Set(candidatas.map((n) => n.id))
     const todasParaContexto: Nota[] = indice.map((n) => {
       const completa = candidataIds.has(n.id) ? candidatas.find((c) => c.id === n.id) : undefined
-      return completa ?? { ...n, contenido: '', versiones: [] }
+      const inlineContenido = (n as unknown as { contenido?: string }).contenido ?? ''
+      return completa ?? { ...n, contenido: inlineContenido, versiones: [] }
     })
 
     let vinculosCreados = 0
