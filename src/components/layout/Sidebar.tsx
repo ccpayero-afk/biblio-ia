@@ -7,7 +7,7 @@ import {
   BookOpen, FileText, MessageSquare, StickyNote, Quote,
   GitFork, GraduationCap, Brain, Users, Upload, Settings,
   Library, Highlighter, Inbox, BarChart2, Coffee, BookMarked, Map,
-  GitCompare, Briefcase,
+  GitCompare, Briefcase, Sparkles,
 } from 'lucide-react'
 
 const NAV_GROUPS = [
@@ -44,6 +44,7 @@ const NAV_GROUPS = [
       { href: '/proyectos',     label: 'Tutor',           icon: Brain },
       { href: '/inteligencia',  label: 'Repaso',          icon: Brain },
       { href: '/interlocutor',  label: 'Interlocutor',    icon: Users },
+      { href: '/enriquecer',    label: 'Enriquecer',      icon: Sparkles },
     ],
   },
   {
