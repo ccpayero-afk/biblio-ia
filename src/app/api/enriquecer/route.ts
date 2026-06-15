@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Documentos — ordenados por relevancia al texto (abstract + título + autor)
+    // Documentos — todos en scope, ordenados por relevancia al texto
     const docsOrdenados = [...documentos]
       .map((d) => ({
         d,
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         ),
       }))
       .sort((a, b) => b.score - a.score)
-      .slice(0, 30)
+      .slice(0, 50)
       .map((x) => x.d)
 
     if (docsOrdenados.length > 0) {
@@ -144,9 +144,9 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Búsqueda semántica sobre el contenido indexado de los documentos en scope
-    const docIdsIndexados = docsOrdenados
-      .filter((d) => d.estado === 'indexado' && d.fragmentos > 0)
+    // Búsqueda semántica: todos los docs indexados en scope
+    const docIdsIndexados = documentos
+      .filter((d) => d.estado === 'indexado')
       .map((d) => d.id)
 
     let fragmentosIncluidos = 0
@@ -161,9 +161,23 @@ export async function POST(req: NextRequest) {
         if (fragmentos.length > 0) {
           partes.push('\n=== EXTRACTOS DE CONTENIDO (texto real indexado de los documentos) ===')
           fragmentos.forEach((f) => {
+            // El doc puede estar en el catálogo (docsOrdenados) o no
             const docIdx = docsOrdenados.findIndex((d) => d.id === f.documentoId)
-            if (docIdx < 0) return
-            const docKey = `d${docIdx + 1}`
+            let docKey: string
+            if (docIdx >= 0) {
+              docKey = `d${docIdx + 1}`
+            } else {
+              // Agregar el doc al catálogo con clave nueva para que Gemini pueda referenciarlo
+              const docExtra = documentos.find((d) => d.id === f.documentoId)
+              if (!docExtra) return
+              const newIdx = docsMap.size + 1
+              docKey = `d${newIdx}`
+              docsMap.set(docKey, docExtra)
+              const info = [docExtra.titulo || docExtra.nombre.replace(/\.pdf$/i, ''), docExtra.autor, docExtra.año]
+                .filter(Boolean)
+                .join(' — ')
+              partes.push(`[${docKey}] ${info}`)
+            }
             const snip = f.texto.slice(0, 400).replace(/\n/g, ' ')
             partes.push(`[${docKey}] p.${f.pagina}: "${snip}"`)
             fragmentosIncluidos++
