@@ -1050,6 +1050,15 @@ export default function NotasClient() {
 
   useEffect(() => { cargar() }, [cargar])
 
+  // Selecciona una nota y carga su contenido si no está en el índice (notas post-migración)
+  async function seleccionarNota(n: Nota) {
+    setNotaSel(n)
+    if (!n.contenido) {
+      const res = await fetch(`/api/notas/${n.id}`)
+      if (res.ok) setNotaSel(await res.json())
+    }
+  }
+
   async function guardarNota(datos: Partial<Nota>) {
     const esNueva = !datos.id
     if (esNueva) {
@@ -1554,7 +1563,7 @@ export default function NotasClient() {
             return (
               <button
                 key={n.id}
-                onClick={() => setNotaSel(n)}
+                onClick={() => seleccionarNota(n)}
                 className="relative block w-full pl-4 pr-3 py-3 text-left transition-all"
                 style={{
                   borderBottom: '1px solid rgba(255,255,255,0.04)',
@@ -1623,7 +1632,7 @@ export default function NotasClient() {
             onEditar={() => setEditando(notaSel)}
             onEliminar={() => eliminarNota(notaSel.id)}
             onSeleccionarNota={(n) => {
-              setNotaSel(n)
+              seleccionarNota(n)
               // sincronizar filtros para que la nota aparezca en la lista
               setBusqueda('')
               setFiltroTipo('')
