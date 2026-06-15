@@ -14,12 +14,15 @@ const MAX_CHARS = 12000
 function badge(tipo: Recomendacion['tipo']) {
   if (tipo === 'cita') return { label: 'Cita', color: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.3)', text: '#c4b5fd', Icon: Quote }
   if (tipo === 'nota') return { label: 'Nota', color: 'rgba(6,182,212,0.1)', border: 'rgba(6,182,212,0.25)', text: '#67e8f9', Icon: StickyNote }
+  if (tipo === 'fragmento') return { label: 'Pasaje', color: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.25)', text: '#6ee7b7', Icon: BookOpen }
   return { label: 'Documento', color: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.25)', text: '#fde68a', Icon: BookOpen }
 }
 
 function linkFor(r: Recomendacion) {
   if (r.tipo === 'cita') return '/citas'
   if (r.tipo === 'nota') return '/notas'
+  if ((r.tipo === 'fragmento' || r.tipo === 'documento') && r.pagina)
+    return `/lector/${r.itemId}?page=${r.pagina}`
   return `/lector/${r.itemId}`
 }
 
@@ -62,7 +65,14 @@ function RecomendacionCard({ r }: { r: Recomendacion }) {
             )}
           </div>
           <p className="mt-1 text-sm font-medium text-white leading-snug truncate">{r.titulo}</p>
-          {r.autor && <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(148,163,184,0.5)' }}>{r.autor}</p>}
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            {r.autor && <span className="text-xs truncate" style={{ color: 'rgba(148,163,184,0.5)' }}>{r.autor}</span>}
+            {r.pagina && (
+              <span className="text-xs rounded px-1.5 py-0.5" style={{ background: 'rgba(16,185,129,0.1)', color: '#6ee7b7' }}>
+                p. {r.pagina}
+              </span>
+            )}
+          </div>
         </div>
         <span className="flex-shrink-0 mt-1" style={{ color: 'rgba(148,163,184,0.35)' }}>
           {expandida ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -112,7 +122,8 @@ function RecomendacionCard({ r }: { r: Recomendacion }) {
             onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#c4b5fd' }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#a78bfa' }}
           >
-            Ver en BiblioIA <ArrowRight className="h-3.5 w-3.5" />
+            {r.tipo === 'fragmento' && r.pagina ? `Ir a p. ${r.pagina}` : 'Ver en BiblioIA'}
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       )}
