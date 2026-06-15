@@ -58,15 +58,20 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const notasRecientes = (indice as NotaLigera[]).slice(0, 40)
+    type NotaConContenido = NotaLigera & { contenido?: string }
+    const notasRecientes = (indice as NotaConContenido[])
+      .filter((n) => n.tipo !== 'efimera')
+      .slice(0, 40)
     if (notasRecientes.length > 0) {
       partes.push('\n=== NOTAS PERSONALES ===')
       notasRecientes.forEach((n, i) => {
         const key = `n${i + 1}`
         notasMap.set(key, n)
         const etiq = n.etiquetas?.length ? ` [${n.etiquetas.join(', ')}]` : ''
-        const coment = n.comentarioPersonal ? ` — "${n.comentarioPersonal.slice(0, 60)}"` : ''
-        partes.push(`[${key}] "${n.titulo}"${etiq}${coment}`)
+        const snippet = n.contenido
+          ? ` — "${n.contenido.slice(0, 100).replace(/\n/g, ' ')}"`
+          : n.comentarioPersonal ? ` — "${n.comentarioPersonal.slice(0, 60)}"` : ''
+        partes.push(`[${key}] "${n.titulo}"${etiq}${snippet}`)
       })
     }
 
@@ -125,9 +130,10 @@ export async function POST(req: NextRequest) {
           return { ...r, itemId: cita.id, fragmento: cita.texto.slice(0, 100), autor: cita.autor }
         }
         if (r.tipo === 'nota') {
-          const nota = notasMap.get(r.itemId)
+          const nota = notasMap.get(r.itemId) as NotaConContenido | undefined
           if (!nota) return null
-          return { ...r, itemId: nota.id }
+          const fragmento = nota.contenido?.slice(0, 120) ?? undefined
+          return { ...r, itemId: nota.id, ...(fragmento ? { fragmento } : {}) }
         }
         if (r.tipo === 'documento') {
           const doc = docsMap.get(r.itemId)
