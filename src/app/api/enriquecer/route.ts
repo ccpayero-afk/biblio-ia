@@ -218,7 +218,7 @@ export async function POST(req: NextRequest) {
       `- Combiná los tipos: no solo citas, incluí también fragmentos y documentos cuando aporten\n` +
       `- Priorizá por relevancia real: 5-10 recomendaciones en total\n` +
       (excluirIds.length > 0 ? `- NO repetir estos recursos ya recomendados (itemIds a evitar): ${excluirIds.join(', ')}\n` : '') +
-      `\n`
+      `\n` +
       `Respondé ÚNICAMENTE con JSON puro:\n` +
       `{"analisis":"2-3 oraciones sobre los temas del texto y qué complementos necesita","recomendaciones":[{"tipo":"fragmento","itemId":"f1","titulo":"título del documento","autor":"apellido","parrafo":"frase del texto del usuario que justifica esta recomendación","razon":"por qué este pasaje complementa ese punto (1-2 oraciones con algo concreto del texto del pasaje)","relevancia":"alta"}]}`
 
