@@ -141,6 +141,10 @@ export default function EnriquecerClient() {
   const [fragmentosIncluidos, setFragmentosIncluidos] = useState(0)
   const [warningFragmentos, setWarningFragmentos] = useState('')
   const [yaAnalizado, setYaAnalizado] = useState(false)
+  const [paginaActual, setPaginaActual] = useState(0)
+  const [cargandoMas, setCargandoMas] = useState(false)
+  const [hayMas, setHayMas] = useState(true)
+  const [todosLosIds, setTodosLosIds] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
   const { scope } = useScope()
 
@@ -179,6 +183,9 @@ export default function EnriquecerClient() {
     setFragmentosIncluidos(0)
     setWarningFragmentos('')
     setYaAnalizado(false)
+    setPaginaActual(0)
+    setHayMas(true)
+    setTodosLosIds([])
     try {
       const res = await fetch('/api/enriquecer', {
         method: 'POST',
@@ -191,10 +198,12 @@ export default function EnriquecerClient() {
       }
       const data = await res.json().catch(() => ({ error: 'Respuesta inválida del servidor. Intentá de nuevo.' }))
       if (data.error) { setError(data.error); return }
+      const recs: Recomendacion[] = data.recomendaciones ?? []
       setAnalisis(data.analisis ?? '')
-      setRecomendaciones(data.recomendaciones ?? [])
+      setRecomendaciones(recs)
       setFragmentosIncluidos(data.fragmentosIncluidos ?? 0)
       setWarningFragmentos(data.warningFragmentos ?? '')
+      setTodosLosIds(recs.map((r) => r.itemId))
       setYaAnalizado(true)
     } catch (e) {
       setError(String(e))
@@ -202,6 +211,31 @@ export default function EnriquecerClient() {
       setAnalizando(false)
     }
   }, [texto, analizando])
+
+  const buscarMas = useCallback(async () => {
+    if (cargandoMas) return
+    setCargandoMas(true)
+    const nuevaPagina = paginaActual + 1
+    try {
+      const res = await fetch('/api/enriquecer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto, ...scopeParam(scope), pagina: nuevaPagina, excluirIds: todosLosIds }),
+      })
+      const data = await res.json().catch(() => ({ error: 'Respuesta inválida del servidor.' }))
+      if (data.error) { setError(data.error); setCargandoMas(false); return }
+      const nuevas: Recomendacion[] = data.recomendaciones ?? []
+      if (nuevas.length === 0) { setHayMas(false); setCargandoMas(false); return }
+      setPaginaActual(nuevaPagina)
+      setRecomendaciones((prev) => [...prev, ...nuevas])
+      setTodosLosIds((prev) => [...prev, ...nuevas.map((r) => r.itemId)])
+      setFragmentosIncluidos((prev) => prev + (data.fragmentosIncluidos ?? 0))
+    } catch (e) {
+      setError(String(e))
+    } finally {
+      setCargandoMas(false)
+    }
+  }, [cargandoMas, paginaActual, texto, scope, todosLosIds])
 
   const altaRel = recomendaciones.filter((r) => r.relevancia === 'alta')
   const mediaRel = recomendaciones.filter((r) => r.relevancia !== 'alta')
@@ -466,8 +500,27 @@ export default function EnriquecerClient() {
                     Complementarios · {mediaRel.length}
                   </p>
                   <div className="space-y-2">
-                    {mediaRel.map((r, i) => <RecomendacionCard key={i} r={r} />)}
+                    {mediaRel.map((r, i) => <RecomendacionCard key={`m${i}`} r={r} />)}
                   </div>
+                </div>
+              )}
+
+              {/* Buscar más */}
+              {hayMas && (
+                <div className="pt-2 flex justify-center">
+                  <button
+                    onClick={buscarMas}
+                    disabled={cargandoMas}
+                    className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
+                    style={{ background: 'rgba(109,40,217,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#a78bfa' }}
+                    onMouseEnter={(e) => { if (!cargandoMas) e.currentTarget.style.background = 'rgba(109,40,217,0.22)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(109,40,217,0.12)' }}
+                  >
+                    {cargandoMas
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Buscando más...</>
+                      : <><Sparkles className="h-4 w-4" /> Buscar 8 más</>
+                    }
+                  </button>
                 </div>
               )}
             </div>

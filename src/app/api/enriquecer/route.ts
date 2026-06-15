@@ -32,7 +32,12 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth()
     const accessToken = getAccessToken(session)
-    const { texto, carpetasIds } = (await req.json()) as { texto: string; carpetasIds?: string[] }
+    const { texto, carpetasIds, pagina = 0, excluirIds = [] } = (await req.json()) as {
+      texto: string
+      carpetasIds?: string[]
+      pagina?: number
+      excluirIds?: string[]
+    }
 
     if (!texto?.trim()) return NextResponse.json({ error: 'Texto vacío' }, { status: 400 })
 
@@ -148,10 +153,13 @@ export async function POST(req: NextRequest) {
 
     if (docIdsIndexados.length > 0) {
       try {
-        const fragmentos = await semanticSearch(textoLimitado.slice(0, 1500), accessToken, {
+        // Para paginar: traer (pagina+1)*8+4 resultados y tomar la "página" pedida
+        const topKTotal = Math.min((pagina + 1) * 8 + 4, 25)
+        const todosFragmentos = await semanticSearch(textoLimitado.slice(0, 1500), accessToken, {
           documentoIds: docIdsIndexados,
-          topK: 8,
+          topK: topKTotal,
         })
+        const fragmentos = todosFragmentos.slice(pagina * 8, (pagina + 1) * 8)
         if (fragmentos.length > 0) {
           partes.push('\n=== PASAJES DE DOCUMENTOS (para recomendaciones de lectura específica) ===')
           fragmentos.forEach((f, i) => {
@@ -208,7 +216,9 @@ export async function POST(req: NextRequest) {
       `  * tipo:"fragmento" — recomendar un PASAJE ESPECÍFICO de un documento con número de página (itemId: f1, f2...) — PREFERIR ESTE TIPO cuando el contenido real del pasaje es relevante\n` +
       `- Si hay PASAJES DE DOCUMENTOS relevantes, SIEMPRE incluílos como tipo:"fragmento"\n` +
       `- Combiná los tipos: no solo citas, incluí también fragmentos y documentos cuando aporten\n` +
-      `- Priorizá por relevancia real: 5-10 recomendaciones en total\n\n` +
+      `- Priorizá por relevancia real: 5-10 recomendaciones en total\n` +
+      (excluirIds.length > 0 ? `- NO repetir estos recursos ya recomendados (itemIds a evitar): ${excluirIds.join(', ')}\n` : '') +
+      `\n`
       `Respondé ÚNICAMENTE con JSON puro:\n` +
       `{"analisis":"2-3 oraciones sobre los temas del texto y qué complementos necesita","recomendaciones":[{"tipo":"fragmento","itemId":"f1","titulo":"título del documento","autor":"apellido","parrafo":"frase del texto del usuario que justifica esta recomendación","razon":"por qué este pasaje complementa ese punto (1-2 oraciones con algo concreto del texto del pasaje)","relevancia":"alta"}]}`
 
@@ -232,6 +242,8 @@ export async function POST(req: NextRequest) {
       analisis: string
       recomendaciones: Array<Recomendacion & { itemId: string }>
     }
+
+    const excluirSet = new Set(excluirIds)
 
     const recomendaciones: Recomendacion[] = parsed.recomendaciones
       .map((r) => {
@@ -265,7 +277,7 @@ export async function POST(req: NextRequest) {
         }
         return null
       })
-      .filter((r): r is Recomendacion => r !== null)
+      .filter((r): r is Recomendacion => r !== null && !excluirSet.has(r.itemId))
 
     return NextResponse.json({
       analisis: parsed.analisis,
