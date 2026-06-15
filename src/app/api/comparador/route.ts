@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     if (!force) {
       const cachedId = await findFile(accessToken, cacheFile, estructura.notasId)
       if (cachedId) {
-        const cached = await readJSON(accessToken, cachedId)
+        const cached = await readJSON<Record<string, unknown>>(accessToken, cachedId)
         return NextResponse.json({ ...cached, fromCache: true })
       }
     }

@@ -1,7 +1,9 @@
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
-import { initUserDrive, findFile, readJSON, writeJSON, updateDocumentMetadata } from '@/lib/drive'
+import { initUserDrive, findFile, readJSON, updateDocumentMetadata } from '@/lib/drive'
 import { leerIndice, aLigera, escribirIndice, escribirContenido } from '@/lib/notas'
+import { leerCitas, escribirCitas } from '@/lib/citas'
+import { leerDatos, escribirDatos } from '@/lib/datos'
 import { FichaLectura, Nota, Cita, Dato } from '@/types'
 import { generarIdZettel } from '@/lib/zettel-id'
 import { NextRequest, NextResponse } from 'next/server'
@@ -21,18 +23,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
     if (!fichaFileId) return NextResponse.json({ error: 'Ficha no encontrada. Generala primero.' }, { status: 404 })
     const ficha = await readJSON<FichaLectura>(accessToken, fichaFileId)
 
-    const [{ notasId, indice }, citasExistentes, datosExistentes] = await Promise.all([
+    const [{ notasId, indice }, { citasId, citas: citasExistentes }, { datos: datosExistentes }] = await Promise.all([
       leerIndice(accessToken),
-      (async () => {
-        const fid = await findFile(accessToken, 'citas.json', estructura.citasId)
-        if (!fid) return [] as Cita[]
-        try { return await readJSON<Cita[]>(accessToken, fid) } catch { return [] as Cita[] }
-      })(),
-      (async () => {
-        const fid = await findFile(accessToken, 'datos.json', estructura.citasId)
-        if (!fid) return [] as Dato[]
-        try { return await readJSON<Dato[]>(accessToken, fid) } catch { return [] as Dato[] }
-      })(),
+      leerCitas(accessToken),
+      leerDatos(accessToken),
     ])
 
     const yaProcessado = indice.some(
@@ -128,9 +122,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ doc
         escribirContenido(accessToken, notasId, n.id, { contenido: n.contenido, versiones: [] })
       ),
       escribirIndice(accessToken, notasId, [...indice, ...nuevaLigeras]),
-      writeJSON(accessToken, estructura.citasId, 'citas.json', [...citasExistentes, ...citasNuevas]),
+      escribirCitas(accessToken, citasId, [...citasExistentes, ...citasNuevas]),
       datosNuevos.length > 0
-        ? writeJSON(accessToken, estructura.citasId, 'datos.json', [...datosExistentes, ...datosNuevos])
+        ? escribirDatos(accessToken, citasId, [...datosExistentes, ...datosNuevos])
         : Promise.resolve(),
     ])
 
