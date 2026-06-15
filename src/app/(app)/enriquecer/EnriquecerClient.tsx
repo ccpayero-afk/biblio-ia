@@ -127,6 +127,8 @@ export default function EnriquecerClient() {
   const [error, setError] = useState('')
   const [analisis, setAnalisis] = useState('')
   const [recomendaciones, setRecomendaciones] = useState<Recomendacion[]>([])
+  const [fragmentosIncluidos, setFragmentosIncluidos] = useState(0)
+  const [warningFragmentos, setWarningFragmentos] = useState('')
   const [yaAnalizado, setYaAnalizado] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const { scope } = useScope()
@@ -163,6 +165,8 @@ export default function EnriquecerClient() {
     setError('')
     setRecomendaciones([])
     setAnalisis('')
+    setFragmentosIncluidos(0)
+    setWarningFragmentos('')
     setYaAnalizado(false)
     try {
       const res = await fetch('/api/enriquecer', {
@@ -174,6 +178,8 @@ export default function EnriquecerClient() {
       if (data.error) { setError(data.error); return }
       setAnalisis(data.analisis ?? '')
       setRecomendaciones(data.recomendaciones ?? [])
+      setFragmentosIncluidos(data.fragmentosIncluidos ?? 0)
+      setWarningFragmentos(data.warningFragmentos ?? '')
       setYaAnalizado(true)
     } catch (e) {
       setError(String(e))
@@ -341,7 +347,13 @@ export default function EnriquecerClient() {
               : 'Recomendaciones'}
           </p>
           <p className="text-xs mt-0.5" style={{ color: 'rgba(148,163,184,0.4)' }}>
-            {yaAnalizado ? 'De tu biblioteca personal' : 'Aparecerán aquí después de analizar'}
+            {yaAnalizado
+              ? fragmentosIncluidos > 0
+                ? `${fragmentosIncluidos} fragmento${fragmentosIncluidos !== 1 ? 's' : ''} de PDFs incluido${fragmentosIncluidos !== 1 ? 's' : ''}`
+                : warningFragmentos
+                  ? 'Solo metadatos de documentos (sin contenido indexado)'
+                  : 'De tu biblioteca personal'
+              : 'Aparecerán aquí después de analizar'}
           </p>
         </div>
 
