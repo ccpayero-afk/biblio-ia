@@ -210,7 +210,10 @@ export async function POST(req: NextRequest) {
 
     const result = await generateWithRotation(accessToken, async (genAI) => {
       const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
-      return model.generateContent(prompt)
+      return model.generateContent({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: 'application/json' },
+      })
     })
 
     let txt = result.response.text().trim()
