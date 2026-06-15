@@ -29,6 +29,7 @@ export default function ImportarClient() {
   const [resultados, setResultados] = useState<ResultadoPDF[]>([])
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
+  const [progreso, setProgreso] = useState<{ actual: number; total: number; nombre: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const pdfRef = useRef<HTMLInputElement>(null)
 
@@ -55,19 +56,31 @@ export default function ImportarClient() {
     if (!archivos.length) return
     setCargando(true)
     setError('')
-    const formData = new FormData()
-    archivos.forEach((f, i) => {
-      formData.append(`file_${i}`, f)
+    setResultados([])
+    const acumulados: ResultadoPDF[] = []
+
+    for (let i = 0; i < archivos.length; i++) {
+      const f = archivos[i]
+      setProgreso({ actual: i + 1, total: archivos.length, nombre: f.name })
+
+      const fd = new FormData()
+      fd.append('file_0', f)
       const meta = metadatos[i]
-      if (meta) formData.append(`meta_file_${i}`, JSON.stringify(meta))
-    })
-    try {
-      const res = await fetch('/api/importar?tipo=pdf', { method: 'POST', body: formData })
-      const data = await res.json()
-      setResultados(data.resultados ?? [])
-    } catch (e) {
-      setError(String(e))
+      if (meta) fd.append('meta_file_0', JSON.stringify(meta))
+
+      try {
+        const res = await fetch('/api/importar?tipo=pdf', { method: 'POST', body: fd })
+        const data = await res.json()
+        const r = data.resultados?.[0] as ResultadoPDF | undefined
+        if (r) acumulados.push(r)
+        else acumulados.push({ nombre: f.name, id: '', ok: false, error: 'Sin respuesta' })
+      } catch (e) {
+        acumulados.push({ nombre: f.name, id: '', ok: false, error: String(e) })
+      }
+      setResultados([...acumulados])
     }
+
+    setProgreso(null)
     setCargando(false)
   }
 
@@ -227,8 +240,26 @@ export default function ImportarClient() {
                 onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 12px rgba(124,58,237,0.3)' }}
               >
                 {cargando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                Subir a Drive
+                {cargando ? 'Subiendo…' : 'Subir a Drive'}
               </button>
+
+              {progreso && (
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs" style={{ color: 'rgba(148,163,184,0.6)' }}>
+                    <span className="truncate max-w-xs">{progreso.nombre}</span>
+                    <span className="flex-shrink-0 ml-2">{progreso.actual}/{progreso.total}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${(progreso.actual / progreso.total) * 100}%`,
+                        background: 'linear-gradient(90deg, #7c3aed, #06b6d4)',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

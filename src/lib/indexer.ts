@@ -154,9 +154,17 @@ export async function indexDocument(
   }
 
   // ── OCR automático via Google Drive si hay páginas escaneadas ───────────────
-  if (sinTexto.length > 0) {
+  // Solo si hay páginas vacías significativas: ≥5 abs. o ≥15% del doc.
+  // Evita OCR en libros digitales con tapa/contratapa escaneadas.
+  const MIN_EMPTY_FOR_OCR = 5
+  const MIN_RATIO_FOR_OCR = 0.15
+  const necesitaOCR =
+    sinTexto.length >= MIN_EMPTY_FOR_OCR ||
+    (total > 0 && sinTexto.length / total >= MIN_RATIO_FOR_OCR)
+
+  if (sinTexto.length > 0 && necesitaOCR) {
     onProgress(
-      `PDF con ${sinTexto.length} págs escaneadas. Aplicando OCR con Google Drive…`,
+      `PDF con ${sinTexto.length} págs escaneadas (${Math.round(sinTexto.length / total * 100)}%). Aplicando OCR…`,
       2, TOTAL
     )
     try {
@@ -178,6 +186,11 @@ export async function indexDocument(
       const msg = e instanceof Error ? e.message.slice(0, 100) : 'error'
       onProgress(`OCR falló (${msg}). Indexando solo págs con texto…`, 2, TOTAL)
     }
+  } else if (sinTexto.length > 0) {
+    onProgress(
+      `${sinTexto.length} pág(s) sin texto (probable tapa/figura). Omitiendo OCR.`,
+      2, TOTAL
+    )
   }
 
   if (allChunks.length === 0) {
