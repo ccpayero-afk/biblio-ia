@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['unpdf', 'pdf-lib', 'pdfjs-dist'],
+  serverExternalPackages: ['unpdf', 'pdf-lib', 'pdfjs-dist', 'mammoth'],
   images: {
     remotePatterns: [
       {
