@@ -120,6 +120,27 @@ function isRateLimit(e: unknown): boolean {
   return msg.includes('429') || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('Too Many Requests')
 }
 
+function isServiceUnavailable(e: unknown): boolean {
+  const msg = String(e)
+  return msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('high demand')
+}
+
+// Retries fn up to maxRetries times on 503, with 1.5s delay between attempts.
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (e) {
+      if (isServiceUnavailable(e) && attempt < maxRetries) {
+        await new Promise((r) => setTimeout(r, 1500))
+        continue
+      }
+      throw e
+    }
+  }
+  throw new Error('unreachable')
+}
+
 export async function generateWithRotation<T>(
   accessToken: string,
   fn: (genAI: GoogleGenerativeAI) => Promise<T>
@@ -129,7 +150,7 @@ export async function generateWithRotation<T>(
   let lastError: unknown
   for (let i = 0; i < keys.length; i++) {
     try {
-      return await fn(new GoogleGenerativeAI(keys[i]))
+      return await withRetry(() => fn(new GoogleGenerativeAI(keys[i])))
     } catch (e) {
       lastError = e
       if (isRateLimit(e) && i < keys.length - 1) continue
