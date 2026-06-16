@@ -1,13 +1,23 @@
 'use client'
 
-import { useState, useRef, useCallback, DragEvent } from 'react'
+import { useState, useRef, useCallback, DragEvent, MouseEvent } from 'react'
 import Link from 'next/link'
 import {
   Sparkles, Upload, FileText, Quote, StickyNote, BookOpen,
   Loader2, AlertCircle, ArrowRight, X, ChevronDown, ChevronUp,
+  Clock, BookmarkPlus, Check,
 } from 'lucide-react'
 import type { Recomendacion } from '@/app/api/enriquecer/route'
 import { useScope, scopeParam } from '@/lib/scope-context'
+
+interface SesionEnriquecer {
+  id: string
+  fecha: string
+  textoGuardado: string
+  analisis: string
+  recomendaciones: Recomendacion[]
+  fragmentosIncluidos: number
+}
 
 const MAX_CHARS = 12000
 
@@ -26,7 +36,17 @@ function linkFor(r: Recomendacion) {
   return `/lector/${r.itemId}`
 }
 
-function RecomendacionCard({ r }: { r: Recomendacion }) {
+function RecomendacionCard({
+  r,
+  onGuardarNota,
+  yaGuardada,
+  guardando,
+}: {
+  r: Recomendacion
+  onGuardarNota?: () => void
+  yaGuardada?: boolean
+  guardando?: boolean
+}) {
   const [expandida, setExpandida] = useState(false)
   const b = badge(r.tipo)
   const Icon = b.Icon
@@ -114,17 +134,38 @@ function RecomendacionCard({ r }: { r: Recomendacion }) {
             </div>
           )}
 
-          {/* Link */}
-          <Link
-            href={linkFor(r)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors"
-            style={{ color: '#a78bfa' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#c4b5fd' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#a78bfa' }}
-          >
-            {r.tipo === 'fragmento' && r.pagina ? `Ir a p. ${r.pagina}` : 'Ver en BiblioIA'}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+          {/* Actions */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <Link
+              href={linkFor(r)}
+              className="inline-flex items-center gap-1.5 text-xs font-medium transition-colors"
+              style={{ color: '#a78bfa' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#c4b5fd' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#a78bfa' }}
+            >
+              {r.tipo === 'fragmento' && r.pagina ? `Ir a p. ${r.pagina}` : 'Ver en BiblioIA'}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+            {onGuardarNota && (
+              yaGuardada ? (
+                <span className="inline-flex items-center gap-1 text-xs" style={{ color: 'rgba(52,211,153,0.7)' }}>
+                  <Check className="h-3 w-3" /> Guardada
+                </span>
+              ) : (
+                <button
+                  onClick={onGuardarNota}
+                  disabled={guardando}
+                  className="inline-flex items-center gap-1 text-xs transition-colors disabled:opacity-50"
+                  style={{ color: 'rgba(148,163,184,0.5)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#e2e8f0' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.5)' }}
+                >
+                  {guardando ? <Loader2 className="h-3 w-3 animate-spin" /> : <BookmarkPlus className="h-3 w-3" />}
+                  Guardar como nota
+                </button>
+              )
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -145,6 +186,11 @@ export default function EnriquecerClient() {
   const [cargandoMas, setCargandoMas] = useState(false)
   const [hayMas, setHayMas] = useState(true)
   const [todosLosIds, setTodosLosIds] = useState<string[]>([])
+  const [mostrandoHistorial, setMostrandoHistorial] = useState(false)
+  const [sesiones, setSesiones] = useState<SesionEnriquecer[]>([])
+  const [cargandoSesiones, setCargandoSesiones] = useState(false)
+  const [notasGuardadas, setNotasGuardadas] = useState<Set<string>>(new Set())
+  const [guardandoNota, setGuardandoNota] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const { scope } = useScope()
 
@@ -205,6 +251,19 @@ export default function EnriquecerClient() {
       setWarningFragmentos(data.warningFragmentos ?? '')
       setTodosLosIds(recs.map((r) => r.itemId))
       setYaAnalizado(true)
+      // Auto-guardar sesión en Drive (fire-and-forget)
+      fetch('/api/enriquecer/sesiones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: `enr_${Date.now()}`,
+          fecha: new Date().toISOString(),
+          textoGuardado: texto.slice(0, 3000),
+          analisis: data.analisis ?? '',
+          recomendaciones: recs,
+          fragmentosIncluidos: data.fragmentosIncluidos ?? 0,
+        }),
+      }).catch(() => {})
     } catch (e) {
       setError(String(e))
     } finally {
@@ -236,6 +295,74 @@ export default function EnriquecerClient() {
       setCargandoMas(false)
     }
   }, [cargandoMas, paginaActual, texto, scope, todosLosIds])
+
+  const verHistorial = useCallback(async () => {
+    if (mostrandoHistorial) { setMostrandoHistorial(false); return }
+    setCargandoSesiones(true)
+    setMostrandoHistorial(true)
+    try {
+      const res = await fetch('/api/enriquecer/sesiones')
+      const data = await res.json()
+      setSesiones(Array.isArray(data) ? data : [])
+    } catch {}
+    finally { setCargandoSesiones(false) }
+  }, [mostrandoHistorial])
+
+  const cargarSesion = useCallback((s: SesionEnriquecer) => {
+    setTexto(s.textoGuardado)
+    setAnalisis(s.analisis)
+    setRecomendaciones(s.recomendaciones)
+    setFragmentosIncluidos(s.fragmentosIncluidos)
+    setTodosLosIds(s.recomendaciones.map((r) => r.itemId))
+    setYaAnalizado(true)
+    setHayMas(true)
+    setPaginaActual(0)
+    setError('')
+    setNotasGuardadas(new Set())
+    setMostrandoHistorial(false)
+  }, [])
+
+  const eliminarSesion = useCallback(async (id: string, e: MouseEvent) => {
+    e.stopPropagation()
+    setSesiones((prev) => prev.filter((s) => s.id !== id))
+    fetch('/api/enriquecer/sesiones', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).catch(() => {})
+  }, [])
+
+  const guardarComoNota = useCallback(async (r: Recomendacion) => {
+    if (guardandoNota === r.itemId) return
+    setGuardandoNota(r.itemId)
+    const lineas = [
+      `**Por qué es relevante:** ${r.razon}`,
+      r.fragmento ? `\n**Fragmento:**\n> ${r.fragmento}` : '',
+      r.parrafo ? `\n**Contexto en mi texto:**\n> ${r.parrafo}` : '',
+    ].filter(Boolean)
+    const body: Record<string, unknown> = {
+      titulo: r.titulo,
+      tipo: 'referencia',
+      contenido: lineas.join('\n'),
+      etiquetas: [],
+    }
+    if (r.tipo === 'fragmento' || r.tipo === 'documento') {
+      body.documentoOrigenId = r.itemId
+      if (r.pagina) body.paginaOrigen = r.pagina
+      if (r.fragmento) body.fragmentoTexto = r.fragmento
+    } else if (r.tipo === 'cita') {
+      body.citaOrigenId = r.itemId
+    }
+    try {
+      const res = await fetch('/api/notas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) setNotasGuardadas((prev) => new Set([...prev, r.itemId]))
+    } catch {}
+    finally { setGuardandoNota(null) }
+  }, [guardandoNota])
 
   const altaRel = recomendaciones.filter((r) => r.relevancia === 'alta')
   const mediaRel = recomendaciones.filter((r) => r.relevancia !== 'alta')
@@ -387,143 +514,234 @@ export default function EnriquecerClient() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <div
-          className="flex-shrink-0 px-5 py-4"
+          className="flex-shrink-0 flex items-center justify-between px-5 py-4"
           style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
         >
-          <p className="text-sm font-semibold text-white">
-            {yaAnalizado
-              ? `${recomendaciones.length} recurso${recomendaciones.length !== 1 ? 's' : ''} recomendado${recomendaciones.length !== 1 ? 's' : ''}`
-              : 'Recomendaciones'}
-          </p>
-          <p className="text-xs mt-0.5" style={{ color: 'rgba(148,163,184,0.4)' }}>
-            {yaAnalizado
-              ? fragmentosIncluidos > 0
-                ? `${fragmentosIncluidos} fragmento${fragmentosIncluidos !== 1 ? 's' : ''} de PDFs incluido${fragmentosIncluidos !== 1 ? 's' : ''}`
-                : warningFragmentos
-                  ? 'Solo metadatos de documentos (sin contenido indexado)'
-                  : 'De tu biblioteca personal'
-              : 'Aparecerán aquí después de analizar'}
-          </p>
+          <div>
+            <p className="text-sm font-semibold text-white">
+              {mostrandoHistorial
+                ? 'Historial de análisis'
+                : yaAnalizado
+                  ? `${recomendaciones.length} recurso${recomendaciones.length !== 1 ? 's' : ''} recomendado${recomendaciones.length !== 1 ? 's' : ''}`
+                  : 'Recomendaciones'}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(148,163,184,0.4)' }}>
+              {mostrandoHistorial
+                ? `${sesiones.length} análisis guardado${sesiones.length !== 1 ? 's' : ''}`
+                : yaAnalizado
+                  ? fragmentosIncluidos > 0
+                    ? `${fragmentosIncluidos} fragmento${fragmentosIncluidos !== 1 ? 's' : ''} de PDFs incluido${fragmentosIncluidos !== 1 ? 's' : ''}`
+                    : warningFragmentos
+                      ? 'Solo metadatos de documentos (sin contenido indexado)'
+                      : 'De tu biblioteca personal'
+                  : 'Aparecerán aquí después de analizar'}
+            </p>
+          </div>
+          <button
+            onClick={verHistorial}
+            title="Historial de análisis"
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: mostrandoHistorial ? '#a78bfa' : 'rgba(148,163,184,0.35)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#a78bfa' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = mostrandoHistorial ? '#a78bfa' : 'rgba(148,163,184,0.35)' }}
+          >
+            <Clock className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
-          {/* Error */}
-          {error && (
-            <div
-              className="flex items-start gap-3 rounded-xl p-4 mb-4 text-sm"
-              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}
-            >
-              <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-              {error}
-            </div>
-          )}
 
-          {/* Loading */}
-          {analizando && (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <div className="relative">
-                <div
-                  className="h-14 w-14 rounded-2xl flex items-center justify-center"
-                  style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(6,182,212,0.1))', border: '1px solid rgba(139,92,246,0.2)' }}
-                >
-                  <Sparkles className="h-7 w-7 animate-pulse" style={{ color: 'rgba(139,92,246,0.8)' }} />
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-white font-medium">Analizando tu texto</p>
-                <p className="text-xs mt-1" style={{ color: 'rgba(148,163,184,0.5)' }}>
-                  Buscando conexiones en tu biblioteca...
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!analizando && !yaAnalizado && !error && (
-            <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-              <div
-                className="h-14 w-14 rounded-2xl flex items-center justify-center mb-4"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
-              >
-                <Sparkles className="h-7 w-7" style={{ color: 'rgba(148,163,184,0.2)' }} />
-              </div>
-              <p className="text-sm font-medium" style={{ color: 'rgba(148,163,184,0.4)' }}>
-                Pegá un texto a la izquierda
-              </p>
-              <p className="text-xs mt-1 max-w-xs leading-relaxed" style={{ color: 'rgba(148,163,184,0.25)' }}>
-                La IA analizará su contenido y buscará qué citas, notas y documentos de tu biblioteca lo pueden enriquecer
-              </p>
-            </div>
-          )}
-
-          {/* Results */}
-          {!analizando && yaAnalizado && (
-            <div className="space-y-5">
-              {/* Analisis general */}
-              {analisis && (
-                <div
-                  className="rounded-2xl p-4"
-                  style={{ background: 'rgba(109,40,217,0.07)', border: '1px solid rgba(139,92,246,0.15)' }}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(139,92,246,0.6)' }}>
-                    Análisis del texto
-                  </p>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(203,213,225,0.85)' }}>{analisis}</p>
+          {/* ── Historial panel ─────────────────────────────────────────── */}
+          {mostrandoHistorial && (
+            <div className="space-y-3">
+              {cargandoSesiones && (
+                <div className="flex items-center justify-center py-16">
+                  <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'rgba(139,92,246,0.5)' }} />
                 </div>
               )}
-
-              {/* No recommendations */}
-              {recomendaciones.length === 0 && (
-                <div className="text-center py-8">
+              {!cargandoSesiones && sesiones.length === 0 && (
+                <div className="text-center py-16">
+                  <Clock className="h-8 w-8 mx-auto mb-3" style={{ color: 'rgba(148,163,184,0.15)' }} />
                   <p className="text-sm" style={{ color: 'rgba(148,163,184,0.4)' }}>
-                    No se encontraron recursos relevantes en tu biblioteca para este texto.
+                    Todavía no hay análisis guardados
                   </p>
                 </div>
               )}
-
-              {/* Alta relevancia */}
-              {altaRel.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(52,211,153,0.6)' }}>
-                    Alta relevancia · {altaRel.length}
-                  </p>
-                  <div className="space-y-2">
-                    {altaRel.map((r, i) => <RecomendacionCard key={i} r={r} />)}
+              {sesiones.map((s) => (
+                <div
+                  key={s.id}
+                  className="rounded-xl p-4 cursor-pointer transition-all"
+                  style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+                  onClick={() => cargarSesion(s)}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(139,92,246,0.3)' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)' }}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs mb-1" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                        {new Date(s.fecha).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        {' · '}{s.recomendaciones.length} recomendaciones
+                        {s.fragmentosIncluidos > 0 && ` · ${s.fragmentosIncluidos} fragmentos`}
+                      </p>
+                      <p className="text-sm leading-snug line-clamp-2" style={{ color: 'rgba(203,213,225,0.75)' }}>
+                        {s.textoGuardado.slice(0, 180)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => eliminarSesion(s.id, e)}
+                      className="flex-shrink-0 p-1 rounded transition-colors"
+                      style={{ color: 'rgba(148,163,184,0.25)' }}
+                      onMouseEnter={(ev) => { ev.currentTarget.style.color = '#f87171' }}
+                      onMouseLeave={(ev) => { ev.currentTarget.style.color = 'rgba(148,163,184,0.25)' }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
-              )}
-
-              {/* Media relevancia */}
-              {mediaRel.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(148,163,184,0.4)' }}>
-                    Complementarios · {mediaRel.length}
-                  </p>
-                  <div className="space-y-2">
-                    {mediaRel.map((r, i) => <RecomendacionCard key={`m${i}`} r={r} />)}
-                  </div>
-                </div>
-              )}
-
-              {/* Buscar más */}
-              {hayMas && (
-                <div className="pt-2 flex justify-center">
-                  <button
-                    onClick={buscarMas}
-                    disabled={cargandoMas}
-                    className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
-                    style={{ background: 'rgba(109,40,217,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#a78bfa' }}
-                    onMouseEnter={(e) => { if (!cargandoMas) e.currentTarget.style.background = 'rgba(109,40,217,0.22)' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(109,40,217,0.12)' }}
-                  >
-                    {cargandoMas
-                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Buscando más...</>
-                      : <><Sparkles className="h-4 w-4" /> Buscar 8 más</>
-                    }
-                  </button>
-                </div>
-              )}
+              ))}
             </div>
+          )}
+
+          {/* ── Normal results ───────────────────────────────────────────── */}
+          {!mostrandoHistorial && (
+            <>
+              {/* Error */}
+              {error && (
+                <div
+                  className="flex items-start gap-3 rounded-xl p-4 mb-4 text-sm"
+                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}
+                >
+                  <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  {error}
+                </div>
+              )}
+
+              {/* Loading */}
+              {analizando && (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div
+                    className="h-14 w-14 rounded-2xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.2), rgba(6,182,212,0.1))', border: '1px solid rgba(139,92,246,0.2)' }}
+                  >
+                    <Sparkles className="h-7 w-7 animate-pulse" style={{ color: 'rgba(139,92,246,0.8)' }} />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-white font-medium">Analizando tu texto</p>
+                    <p className="text-xs mt-1" style={{ color: 'rgba(148,163,184,0.5)' }}>
+                      Buscando conexiones en tu biblioteca...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!analizando && !yaAnalizado && !error && (
+                <div className="flex flex-col items-center justify-center py-20 text-center px-4">
+                  <div
+                    className="h-14 w-14 rounded-2xl flex items-center justify-center mb-4"
+                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    <Sparkles className="h-7 w-7" style={{ color: 'rgba(148,163,184,0.2)' }} />
+                  </div>
+                  <p className="text-sm font-medium" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                    Pegá un texto a la izquierda
+                  </p>
+                  <p className="text-xs mt-1 max-w-xs leading-relaxed" style={{ color: 'rgba(148,163,184,0.25)' }}>
+                    La IA analizará su contenido y buscará qué citas, notas y documentos de tu biblioteca lo pueden enriquecer
+                  </p>
+                </div>
+              )}
+
+              {/* Results */}
+              {!analizando && yaAnalizado && (
+                <div className="space-y-5">
+                  {/* Analisis general */}
+                  {analisis && (
+                    <div
+                      className="rounded-2xl p-4"
+                      style={{ background: 'rgba(109,40,217,0.07)', border: '1px solid rgba(139,92,246,0.15)' }}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'rgba(139,92,246,0.6)' }}>
+                        Análisis del texto
+                      </p>
+                      <p className="text-sm leading-relaxed" style={{ color: 'rgba(203,213,225,0.85)' }}>{analisis}</p>
+                    </div>
+                  )}
+
+                  {/* No recommendations */}
+                  {recomendaciones.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-sm" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                        No se encontraron recursos relevantes en tu biblioteca para este texto.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Alta relevancia */}
+                  {altaRel.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(52,211,153,0.6)' }}>
+                        Alta relevancia · {altaRel.length}
+                      </p>
+                      <div className="space-y-2">
+                        {altaRel.map((r, i) => (
+                          <RecomendacionCard
+                            key={i} r={r}
+                            onGuardarNota={() => guardarComoNota(r)}
+                            yaGuardada={notasGuardadas.has(r.itemId)}
+                            guardando={guardandoNota === r.itemId}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Media relevancia */}
+                  {mediaRel.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                        Complementarios · {mediaRel.length}
+                      </p>
+                      <div className="space-y-2">
+                        {mediaRel.map((r, i) => (
+                          <RecomendacionCard
+                            key={`m${i}`} r={r}
+                            onGuardarNota={() => guardarComoNota(r)}
+                            yaGuardada={notasGuardadas.has(r.itemId)}
+                            guardando={guardandoNota === r.itemId}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Paginación */}
+                  <div className="pt-2 flex justify-center">
+                    {hayMas ? (
+                      <button
+                        onClick={buscarMas}
+                        disabled={cargandoMas}
+                        className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all disabled:opacity-50"
+                        style={{ background: 'rgba(109,40,217,0.12)', border: '1px solid rgba(139,92,246,0.25)', color: '#a78bfa' }}
+                        onMouseEnter={(e) => { if (!cargandoMas) e.currentTarget.style.background = 'rgba(109,40,217,0.22)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(109,40,217,0.12)' }}
+                      >
+                        {cargandoMas
+                          ? <><Loader2 className="h-4 w-4 animate-spin" /> Buscando más...</>
+                          : <><Sparkles className="h-4 w-4" /> Buscar 8 más</>
+                        }
+                      </button>
+                    ) : (
+                      recomendaciones.length > 0 && (
+                        <p className="text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>
+                          No hay más resultados disponibles
+                        </p>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
