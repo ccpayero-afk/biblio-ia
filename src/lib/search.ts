@@ -24,6 +24,10 @@ interface VectorizeResult {
   matches: VectorizeMatch[]
 }
 
+// Vectorize soporta máx 1536 dims; gemini-embedding-2 genera 3072.
+// Los embeddings Gemini son matryoshka: truncar preserva la semántica.
+const VECTORIZE_DIMS = 1536
+
 const LOAD_BATCH = 30
 
 export async function semanticSearch(
@@ -68,7 +72,7 @@ async function semanticSearchVectorize(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${workerSecret}`,
     },
-    body: JSON.stringify({ vector: queryEmbedding, topK: requestTopK }),
+    body: JSON.stringify({ vector: queryEmbedding.slice(0, VECTORIZE_DIMS), topK: requestTopK }),
   })
 
   if (!res.ok) {

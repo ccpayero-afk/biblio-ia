@@ -134,8 +134,9 @@ async function main() {
   let fragmentosTotal = 0
   let archivosOk = 0
   let archivosError = 0
-  const FILE_BATCH = 5   // parallelismo Drive
-  const VEC_BATCH = 100  // límite Vectorize por request
+  const FILE_BATCH = 5     // parallelismo Drive
+  const VEC_BATCH = 100    // límite Vectorize por request
+  const VEC_DIMS  = 1536   // Vectorize máx 1536; truncamos desde 3072 (matryoshka)
 
   for (let i = 0; i < archivos.length; i += FILE_BATCH) {
     const lote = archivos.slice(i, i + FILE_BATCH)
@@ -150,10 +151,9 @@ async function main() {
         if (!DRY_RUN) {
           const vectors = fragmentos.map((f) => ({
             id: f.id,
-            values: f.embedding,
+            values: f.embedding.slice(0, VEC_DIMS),
             metadata: {
               documentoId: f.documentoId,
-              // Truncar a 500 chars — Vectorize limita el tamaño de metadata
               texto: f.texto.slice(0, 500),
               pagina: f.pagina,
             },

@@ -135,7 +135,7 @@ export async function removeFromIndex(accessToken: string, documentoIds: string[
         try {
           const fragmentos = await readJSON<Fragmento[]>(accessToken, fileId)
           if (Array.isArray(fragmentos) && fragmentos.length > 0) {
-            const ids = fragmentos.map((f) => f.id)
+            const ids = (fragmentos as Fragmento[]).map((f) => f.id)
             for (let i = 0; i < ids.length; i += 100) {
               await fetch(`${vectorizeUrl}/delete`, {
                 method: 'DELETE',
@@ -251,13 +251,14 @@ export async function indexDocument(
   ])
 
   // Sincronizar con Vectorize si está configurado (no bloquea la indexación si falla)
+  // Vectorize soporta máx 1536 dims; truncamos desde 3072 (matryoshka — preserva semántica)
   const vectorizeUrl = process.env.VECTORIZE_WORKER_URL
   const workerSecret = process.env.WORKER_SECRET
   if (vectorizeUrl && workerSecret) {
     try {
       const vectors = fragmentos.map((f) => ({
         id: f.id,
-        values: f.embedding,
+        values: f.embedding.slice(0, 1536),
         metadata: { documentoId: f.documentoId, texto: f.texto.slice(0, 500), pagina: f.pagina },
       }))
       for (let i = 0; i < vectors.length; i += 100) {
