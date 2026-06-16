@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { GEMINI_MODEL_EMBEDDING, getDecryptedKeys } from './gemini'
-import { initUserDrive, writeJSON, findFile, trashPDF, updateDocumentMetadata } from './drive'
+import { initUserDrive, writeJSON, findFile, readJSON, trashPDF, updateDocumentMetadata } from './drive'
 import { ocrWithGoogleDrive } from './ocr-drive'
 import { Fragmento } from '@/types'
 
@@ -119,13 +119,40 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return normA && normB ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0
 }
 
-// Elimina archivos de embeddings por documento
+// Elimina archivos de embeddings por documento y sincroniza con Vectorize
 export async function removeFromIndex(accessToken: string, documentoIds: string[]): Promise<void> {
   const estructura = await initUserDrive(accessToken)
+  const vectorizeUrl = process.env.VECTORIZE_WORKER_URL
+  const workerSecret = process.env.WORKER_SECRET
+
   await Promise.allSettled(
     documentoIds.map(async (id) => {
       const fileId = await findFile(accessToken, `emb_${id}.json`, estructura.indexId)
-      if (fileId) await trashPDF(accessToken, fileId)
+      if (!fileId) return
+
+      // Leer IDs de fragmentos antes de borrar el archivo
+      if (vectorizeUrl && workerSecret) {
+        try {
+          const fragmentos = await readJSON<Fragmento[]>(accessToken, fileId)
+          if (Array.isArray(fragmentos) && fragmentos.length > 0) {
+            const ids = fragmentos.map((f) => f.id)
+            for (let i = 0; i < ids.length; i += 100) {
+              await fetch(`${vectorizeUrl}/delete`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${workerSecret}`,
+                },
+                body: JSON.stringify({ ids: ids.slice(i, i + 100) }),
+              })
+            }
+          }
+        } catch (e) {
+          console.error('[Vectorize] removeFromIndex failed:', e)
+        }
+      }
+
+      await trashPDF(accessToken, fileId)
     })
   )
 }
@@ -222,6 +249,31 @@ export async function indexDocument(
     writeJSON(accessToken, estructura.indexId, `emb_${documentoId}.json`, fragmentos),
     writeJSON(accessToken, estructura.indexId, `txt_${documentoId}.json`, textosPorPagina),
   ])
+
+  // Sincronizar con Vectorize si está configurado (no bloquea la indexación si falla)
+  const vectorizeUrl = process.env.VECTORIZE_WORKER_URL
+  const workerSecret = process.env.WORKER_SECRET
+  if (vectorizeUrl && workerSecret) {
+    try {
+      const vectors = fragmentos.map((f) => ({
+        id: f.id,
+        values: f.embedding,
+        metadata: { documentoId: f.documentoId, texto: f.texto.slice(0, 500), pagina: f.pagina },
+      }))
+      for (let i = 0; i < vectors.length; i += 100) {
+        await fetch(`${vectorizeUrl}/upsert`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${workerSecret}`,
+          },
+          body: JSON.stringify({ vectors: vectors.slice(i, i + 100) }),
+        })
+      }
+    } catch (e) {
+      console.error('[Vectorize] indexDocument sync failed:', e)
+    }
+  }
 
   onProgress('Actualizando metadatos…', 5, TOTAL)
   await updateDocumentMetadata(accessToken, documentoId, {
