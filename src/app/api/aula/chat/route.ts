@@ -1,3 +1,5 @@
+export const maxDuration = 60
+
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { cargarCurso, guardarCurso } from '@/lib/aula'

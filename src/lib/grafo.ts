@@ -1,14 +1,12 @@
-import { Documento, Grafo, NodoGrafo, AristaGrafo, FichaLectura } from '@/types'
+import { Grafo, NodoGrafo, AristaGrafo, FichaLectura } from '@/types'
 import { initUserDrive, readJSON, listPDFs, writeJSON, listFilesInFolder } from './drive'
+
+const FICHA_CONCURRENCY = 20  // Drive API calls en paralelo
 
 export async function buildGrafo(accessToken: string): Promise<Grafo> {
   const estructura = await initUserDrive(accessToken)
   const documentos = await listPDFs(accessToken, estructura.pdfsId)
   const indexados = documentos.filter((d) => d.estado === 'indexado')
-
-  const nodos: NodoGrafo[] = []
-  const aristas: AristaGrafo[] = []
-  const autoresVistos = new Set<string>()
 
   // Una sola llamada para listar todas las fichas — Map para O(1) lookup
   const fichaFiles = await listFilesInFolder(accessToken, estructura.notasId, 'ficha_')
@@ -17,6 +15,24 @@ export async function buildGrafo(accessToken: string): Promise<Grafo> {
     const match = f.name.match(/^ficha_(.+)\.json$/)
     if (match) fichaMap.set(match[1], f.id)
   }
+
+  // Leer fichas en paralelo (lotes de FICHA_CONCURRENCY para no saturar Drive)
+  const docsConFicha = indexados.filter((d) => fichaMap.has(d.id))
+  const fichaData = new Map<string, FichaLectura>()
+  for (let i = 0; i < docsConFicha.length; i += FICHA_CONCURRENCY) {
+    const lote = docsConFicha.slice(i, i + FICHA_CONCURRENCY)
+    const results = await Promise.allSettled(
+      lote.map((d) => readJSON<FichaLectura>(accessToken, fichaMap.get(d.id)!))
+    )
+    results.forEach((r, j) => {
+      if (r.status === 'fulfilled') fichaData.set(lote[j].id, r.value)
+    })
+  }
+
+  const nodos: NodoGrafo[] = []
+  const aristas: AristaGrafo[] = []
+  const autoresMap = new Map<string, NodoGrafo>()  // autorId → nodo (O(1) lookup)
+  const conceptosMap = new Map<string, NodoGrafo>() // conceptoId → nodo (O(1) lookup)
 
   for (const doc of indexados) {
     nodos.push({
@@ -27,45 +43,39 @@ export async function buildGrafo(accessToken: string): Promise<Grafo> {
       carpetaId: doc.carpetaId,
     })
 
-    // Nodo autor + arista autor→doc
+    // Nodo autor + arista doc→autor
     if (doc.autor) {
       const apellido = doc.autor.split(',')[0].trim()
       const autorId = `autor_${apellido}`
-      if (!autoresVistos.has(autorId)) {
-        autoresVistos.add(autorId)
-        nodos.push({ id: autorId, tipo: 'autor', label: apellido, peso: 1 })
+      let autorNodo = autoresMap.get(autorId)
+      if (!autorNodo) {
+        autorNodo = { id: autorId, tipo: 'autor', label: apellido, peso: 1 }
+        nodos.push(autorNodo)
+        autoresMap.set(autorId, autorNodo)
       }
+      autorNodo.peso += 1
       aristas.push({ source: doc.id, target: autorId, tipo: 'citacion', peso: 1 })
-      const autorNodo = nodos.find((n) => n.id === autorId)
-      if (autorNodo) autorNodo.peso += 1
     }
 
-    // Aristas doc→concepto desde ficha (si existe)
-    const fichaFileId = fichaMap.get(doc.id)
-    if (fichaFileId) {
-      try {
-        const ficha = await readJSON<FichaLectura>(accessToken, fichaFileId)
-        for (const ck of (ficha.conceptosClave ?? []).slice(0, 5)) {
-          const conceptoId = `concepto_${ck.concepto.toLowerCase().replace(/\s+/g, '_')}`
-          const existing = nodos.find((n) => n.id === conceptoId)
-          if (!existing) {
-            nodos.push({ id: conceptoId, tipo: 'concepto', label: ck.concepto, peso: 1 })
-          } else {
-            existing.peso += 1
-          }
-          aristas.push({
-            source: doc.id,
-            target: conceptoId,
-            tipo: 'conceptual',
-            label: ck.concepto,
-            peso: 1,
-          })
+    // Aristas doc→concepto desde ficha
+    const ficha = fichaData.get(doc.id)
+    if (ficha) {
+      for (const ck of (ficha.conceptosClave ?? []).slice(0, 5)) {
+        const conceptoId = `concepto_${ck.concepto.toLowerCase().replace(/\s+/g, '_')}`
+        let conceptoNodo = conceptosMap.get(conceptoId)
+        if (!conceptoNodo) {
+          conceptoNodo = { id: conceptoId, tipo: 'concepto', label: ck.concepto, peso: 1 }
+          nodos.push(conceptoNodo)
+          conceptosMap.set(conceptoId, conceptoNodo)
+        } else {
+          conceptoNodo.peso += 1
         }
-      } catch { /* ficha ilegible — ignorar */ }
+        aristas.push({ source: doc.id, target: conceptoId, tipo: 'conceptual', label: ck.concepto, peso: 1 })
+      }
     }
   }
 
-  // Aristas doc→doc compartiendo autor (O(n) por autor, no O(n²) global)
+  // Aristas doc↔doc compartiendo autor (O(n) por autor)
   const docsPorAutor = new Map<string, string[]>()
   for (const doc of indexados) {
     if (!doc.autor) continue

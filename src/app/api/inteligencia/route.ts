@@ -1,3 +1,5 @@
+export const maxDuration = 60
+
 import { auth } from '@/auth'
 import { getAccessToken } from '@/lib/auth-helpers'
 import { initUserDrive, listPDFs, findFile, readJSON } from '@/lib/drive'
