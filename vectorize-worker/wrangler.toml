@@ -8,4 +8,4 @@ index_name = "biblio-ia-embeddings"
 
 [[kv_namespaces]]
 binding = "BIBLIO_KV"
-id = "REEMPLAZAR_con_id_del_namespace"
+id = "104b779c7e1d459d88fac47928090b20"
