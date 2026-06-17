@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Brain, Loader2, RefreshCw, Lightbulb, TrendingUp, Users, AlertCircle } from 'lucide-react'
+import { useEffect, useState, useCallback } from 'react'
+import { Brain, Loader2, RefreshCw, Lightbulb, TrendingUp, Users, AlertCircle, Folder } from 'lucide-react'
+import { useScope } from '@/lib/scope-context'
 
 interface IntelData {
   stats: {
@@ -21,12 +22,15 @@ export default function InteligenciaClient() {
   const [data, setData] = useState<IntelData | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const { scope } = useScope()
 
-  async function cargar() {
+  const cargar = useCallback(async () => {
     setCargando(true)
     setError('')
     try {
-      const res = await fetch('/api/inteligencia')
+      const params = new URLSearchParams()
+      for (const id of scope.ids) params.append('carpetasIds', id)
+      const res = await fetch(`/api/inteligencia?${params}`)
       const d = await res.json()
       if (d.error) setError(d.error)
       else setData(d)
@@ -34,9 +38,9 @@ export default function InteligenciaClient() {
       setError(String(e))
     }
     setCargando(false)
-  }
+  }, [scope])
 
-  useEffect(() => { cargar() }, [])
+  useEffect(() => { cargar() }, [cargar])
 
   if (cargando) {
     return (
@@ -73,7 +77,14 @@ export default function InteligenciaClient() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-white">Panel de inteligencia</h1>
-          <p className="mt-1 text-sm" style={{ color: 'rgba(148,163,184,0.55)' }}>Análisis automático de tu biblioteca académica.</p>
+          <div className="mt-1 flex items-center gap-1.5">
+            {scope.ids.length > 0 && <Folder className="h-3 w-3" style={{ color: 'rgba(139,92,246,0.7)' }} />}
+            <p className="text-sm" style={{ color: 'rgba(148,163,184,0.55)' }}>
+              {scope.ids.length > 0
+                ? `Análisis de: ${scope.nombres.join(', ')}`
+                : 'Análisis automático de tu biblioteca académica.'}
+            </p>
+          </div>
         </div>
         <button
           onClick={cargar}

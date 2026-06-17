@@ -145,18 +145,33 @@ async function upsertBatch(
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const res = await fetch(`${WORKER_URL}/upsert`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${SECRET}`,
-      },
-      body: JSON.stringify({ vectors }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SECRET}` },
+      // noKv: true — KV se puebla al final en un solo paso por documento
+      body: JSON.stringify({ vectors, noKv: true }),
     })
     if (res.ok) return
     const text = await res.text()
     if ((res.status !== 503 && res.status !== 429) || attempt === MAX_RETRIES - 1) {
       throw new Error(`Worker upsert ${res.status}: ${text.slice(0, 200)}`)
     }
-    await sleep(300 * Math.pow(2, attempt)) // 300ms, 600ms, 1200ms
+    await sleep(300 * Math.pow(2, attempt))
+  }
+}
+
+async function populateKV(documentoId: string, ids: string[]): Promise<void> {
+  const MAX_RETRIES = 3
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const res = await fetch(`${WORKER_URL}/kv-populate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SECRET}` },
+      body: JSON.stringify({ documentoId, ids }),
+    })
+    if (res.ok) return
+    if (attempt === MAX_RETRIES - 1) {
+      const text = await res.text()
+      console.error(`\n   ⚠ KV populate falló para ${documentoId}: ${text.slice(0, 100)}`)
+    }
+    await sleep(200 * Math.pow(2, attempt))
   }
 }
 
@@ -186,10 +201,13 @@ async function main() {
   let fragmentosTotal = 0
   let archivosOk = 0
   let archivosError = 0
-  const FILE_BATCH = 1     // secuencial — evita saturar Vectorize
-  const VEC_BATCH = 50     // vectores por request — más chico evita 503 en archivos grandes
-  const VEC_PAUSE = 50     // ms entre batches del mismo archivo
-  const VEC_DIMS  = 1536   // Vectorize máx 1536; truncamos desde 3072 (matryoshka)
+  const FILE_BATCH = 1    // secuencial — evita saturar Vectorize
+  const VEC_BATCH = 50    // vectores por request
+  const VEC_PAUSE = 50    // ms entre batches del mismo archivo
+  const VEC_DIMS  = 1536  // Vectorize máx 1536; truncamos desde 3072 (matryoshka)
+
+  // Acumula IDs por doc para poblar KV al final (1 write por doc en vez de N batches)
+  const kvPendiente = new Map<string, string[]>()
 
   for (let i = 0; i < archivos.length; i += FILE_BATCH) {
     const lote = archivos.slice(i, i + FILE_BATCH)
@@ -209,7 +227,7 @@ async function main() {
             values: f.embedding.slice(0, VEC_DIMS),
             metadata: {
               documentoId: f.documentoId,
-              texto: f.texto.slice(0, 500),
+              texto: f.texto.slice(0, 1000),
               pagina: f.pagina,
               documentoNombre: meta.nombre,
               autor: meta.autor,
@@ -221,6 +239,11 @@ async function main() {
             await upsertBatch(vectors.slice(j, j + VEC_BATCH))
             if (j + VEC_BATCH < vectors.length) await sleep(VEC_PAUSE)
           }
+
+          // Acumular IDs para KV (1 write por doc al final)
+          const ids = fragmentos.map((f) => f.id)
+          const prev = kvPendiente.get(docId) ?? []
+          kvPendiente.set(docId, [...prev, ...ids])
         }
 
         archivosOk++
@@ -232,6 +255,20 @@ async function main() {
         console.error(`\n   ✗ Error en ${archivo.name}: ${e}`)
       }
     }))
+  }
+
+  // Poblar KV — un write por documento (dentro del límite gratuito de 1000/día)
+  if (!DRY_RUN && kvPendiente.size > 0) {
+    console.log(`\n\n📝 Poblando KV para ${kvPendiente.size} documentos...`)
+    let kvOk = 0
+    const KV_PAUSE = 20 // ms entre escrituras KV para no saturar
+    for (const [docId, ids] of kvPendiente.entries()) {
+      await populateKV(docId, ids)
+      kvOk++
+      if (kvOk % 50 === 0) process.stdout.write(`\r   KV: ${kvOk}/${kvPendiente.size}`)
+      await sleep(KV_PAUSE)
+    }
+    console.log(`\r   KV: ${kvOk}/${kvPendiente.size} ✓`)
   }
 
   console.log(`\n\n${DRY_RUN ? '📊 Conteo' : '✅ Migración completada'}:`)

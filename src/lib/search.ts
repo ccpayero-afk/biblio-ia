@@ -39,7 +39,7 @@ export async function semanticSearch(
   accessToken: string,
   opciones?: { documentoIds?: string[]; topK?: number; maxFiles?: number }
 ): Promise<FragmentoConDocumento[]> {
-  const { topK = 8, documentoIds, maxFiles } = opciones ?? {}
+  const { topK = 12, documentoIds, maxFiles } = opciones ?? {}
 
   // Generar embedding de la query
   const queryEmbedding = await generateWithRotation(accessToken, async (genAI) => {
@@ -67,8 +67,9 @@ async function semanticSearchVectorize(
 ): Promise<FragmentoConDocumento[]> {
   const { topK, documentoIds, vectorizeUrl, workerSecret } = opts
 
-  // Solicitar más resultados cuando hay filtro por docs para compensar la reducción
-  const requestTopK = documentoIds?.length ? topK * 3 : topK
+  // Pedir más resultados de los que se van a devolver para poder diversificar por documento
+  const MAX_PER_DOC = 2
+  const requestTopK = documentoIds?.length ? topK * 4 : topK * 3
 
   const res = await fetch(`${vectorizeUrl}/query`, {
     method: 'POST',
@@ -93,7 +94,15 @@ async function semanticSearchVectorize(
     matches = matches.filter((m) => m.metadata?.documentoId && allowed.has(m.metadata.documentoId as string))
   }
 
-  matches = matches.slice(0, topK)
+  // Diversificar: máximo MAX_PER_DOC fragmentos por documento, preservando orden de relevancia
+  const countPerDoc = new Map<string, number>()
+  matches = matches.filter((m) => {
+    const docId = (m.metadata?.documentoId as string) ?? ''
+    const count = countPerDoc.get(docId) ?? 0
+    if (count >= MAX_PER_DOC) return false
+    countPerDoc.set(docId, count + 1)
+    return true
+  }).slice(0, topK)
 
   if (matches.length === 0) return []
 

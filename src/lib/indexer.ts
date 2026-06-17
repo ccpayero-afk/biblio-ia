@@ -177,7 +177,7 @@ async function syncToVectorize(
     values: f.embedding.slice(0, VECTORIZE_DIMS),
     metadata: {
       documentoId: f.documentoId,
-      texto: f.texto.slice(0, 500),
+      texto: f.texto.slice(0, 1000),
       pagina: f.pagina,
       documentoNombre: docMeta.nombre,
       autor: docMeta.autor,

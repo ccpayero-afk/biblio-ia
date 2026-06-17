@@ -34,6 +34,24 @@ function checkAuth(request: Request, env: Env): Response | null {
   return null
 }
 
+async function updateKV(env: Env, byDoc: Map<string, string[]>): Promise<{ kvOk: boolean }> {
+  try {
+    await Promise.all(
+      Array.from(byDoc.entries()).map(async ([docId, newIds]) => {
+        const key = `doc:${docId}`
+        const existing = await env.BIBLIO_KV.get(key)
+        const prev: string[] = existing ? JSON.parse(existing) : []
+        const merged = Array.from(new Set([...prev, ...newIds]))
+        await env.BIBLIO_KV.put(key, JSON.stringify(merged))
+      })
+    )
+    return { kvOk: true }
+  } catch {
+    // KV failures (rate limits, etc.) don't invalidate the Vectorize upsert
+    return { kvOk: false }
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     if (request.method === 'OPTIONS') {
@@ -47,35 +65,46 @@ export default {
 
     try {
       // POST /upsert — inserta vectores y registra IDs en KV por documento
+      // Body: { vectors, noKv?: boolean }
       if (request.method === 'POST' && pathname === '/upsert') {
-        const { vectors } = (await request.json()) as {
+        const { vectors, noKv = false } = (await request.json()) as {
           vectors: Array<{ id: string; values: number[]; metadata: VectorMetadata }>
+          noKv?: boolean
         }
         await env.VECTORIZE.upsert(vectors)
 
-        // Agrupar IDs por documentoId y actualizar KV
-        const byDoc = new Map<string, string[]>()
-        for (const v of vectors) {
-          const docId = v.metadata.documentoId
-          if (!byDoc.has(docId)) byDoc.set(docId, [])
-          byDoc.get(docId)!.push(v.id)
+        let kvOk = true
+        if (!noKv) {
+          const byDoc = new Map<string, string[]>()
+          for (const v of vectors) {
+            const docId = v.metadata.documentoId
+            if (!byDoc.has(docId)) byDoc.set(docId, [])
+            byDoc.get(docId)!.push(v.id)
+          }
+          ;({ kvOk } = await updateKV(env, byDoc))
         }
-        await Promise.all(
-          Array.from(byDoc.entries()).map(async ([docId, newIds]) => {
-            const key = `doc:${docId}`
-            const existing = await env.BIBLIO_KV.get(key)
-            const prev: string[] = existing ? JSON.parse(existing) : []
-            const merged = Array.from(new Set([...prev, ...newIds]))
-            await env.BIBLIO_KV.put(key, JSON.stringify(merged))
-          })
-        )
 
-        return json({ inserted: vectors.length })
+        return json({ inserted: vectors.length, kvOk })
+      }
+
+      // POST /kv-populate — escribe IDs en KV sin tocar Vectorize (para migración bulk)
+      // Body: { documentoId, ids }
+      if (request.method === 'POST' && pathname === '/kv-populate') {
+        const { documentoId, ids } = (await request.json()) as {
+          documentoId: string
+          ids: string[]
+        }
+        const key = `doc:${documentoId}`
+        const existing = await env.BIBLIO_KV.get(key)
+        const prev: string[] = existing ? JSON.parse(existing) : []
+        const merged = Array.from(new Set([...prev, ...ids]))
+        await env.BIBLIO_KV.put(key, JSON.stringify(merged))
+        return json({ ok: true, total: merged.length })
       }
 
       // POST /query
       if (request.method === 'POST' && pathname === '/query') {
-        const { vector, topK = 8 } = (await request.json()) as {
+        const { vector, topK = 12 } = (await request.json()) as {
           vector: number[]
           topK?: number
         }
@@ -91,11 +120,10 @@ export default {
         const { documentoId } = (await request.json()) as { documentoId: string }
         const key = `doc:${documentoId}`
         const stored = await env.BIBLIO_KV.get(key)
-        if (!stored) return json({ deleted: 0 })
+        if (!stored) return json({ deleted: 0, kvMissing: true })
 
         const ids: string[] = JSON.parse(stored)
         if (ids.length > 0) {
-          // Vectorize tiene límite por llamada — procesar en lotes de 1000
           const BATCH = 1000
           for (let i = 0; i < ids.length; i += BATCH) {
             await env.VECTORIZE.deleteByIds(ids.slice(i, i + BATCH))
