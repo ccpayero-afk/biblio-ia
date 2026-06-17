@@ -17,13 +17,44 @@
 
 const DRY_RUN = process.argv.includes('--dry-run')
 
-const ACCESS_TOKEN = process.env.MIGRATION_ACCESS_TOKEN
 const WORKER_URL = process.env.VECTORIZE_WORKER_URL?.replace(/\/$/, '')
 const SECRET = process.env.WORKER_SECRET
+const REFRESH_TOKEN = process.env.MIGRATION_REFRESH_TOKEN
+const CLIENT_ID = process.env.AUTH_GOOGLE_ID
+const CLIENT_SECRET = process.env.AUTH_GOOGLE_SECRET
 
-if (!ACCESS_TOKEN) { console.error('Error: MIGRATION_ACCESS_TOKEN requerido'); process.exit(1) }
 if (!WORKER_URL) { console.error('Error: VECTORIZE_WORKER_URL requerido'); process.exit(1) }
 if (!DRY_RUN && !SECRET) { console.error('Error: WORKER_SECRET requerido (o usá --dry-run)'); process.exit(1) }
+if (!REFRESH_TOKEN || !CLIENT_ID || !CLIENT_SECRET) {
+  console.error('Error: MIGRATION_REFRESH_TOKEN, AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET requeridos')
+  process.exit(1)
+}
+
+// ── Token management ─────────────────────────────────────────────────────────
+
+let currentAccessToken = process.env.MIGRATION_ACCESS_TOKEN ?? ''
+let tokenExpiresAt = currentAccessToken ? Date.now() + 55 * 60 * 1000 : 0
+
+async function getAccessToken(): Promise<string> {
+  if (Date.now() < tokenExpiresAt && currentAccessToken) return currentAccessToken
+  console.log('\n   🔄 Renovando access token...')
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID!,
+      client_secret: CLIENT_SECRET!,
+      grant_type: 'refresh_token',
+      refresh_token: REFRESH_TOKEN!,
+    }),
+  })
+  const data = await res.json() as { access_token: string; expires_in: number; error?: string }
+  if (!res.ok) throw new Error(`Token refresh failed: ${data.error}`)
+  currentAccessToken = data.access_token
+  tokenExpiresAt = Date.now() + (data.expires_in - 60) * 1000
+  console.log('   ✓ Token renovado')
+  return currentAccessToken
+}
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -46,8 +77,9 @@ interface DocMeta {
 // ── Drive helpers (fetch directo — sin googleapis) ────────────────────────────
 
 async function driveRequest<T>(path: string): Promise<T> {
+  const token = await getAccessToken()
   const res = await fetch(`https://www.googleapis.com/drive/v3${path}`, {
-    headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+    headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) {
     const text = await res.text()
