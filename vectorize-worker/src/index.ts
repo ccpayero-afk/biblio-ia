@@ -1,5 +1,6 @@
 interface Env {
   VECTORIZE: VectorizeIndex
+  BIBLIO_KV: KVNamespace
   WORKER_SECRET: string
 }
 
@@ -7,6 +8,9 @@ interface VectorMetadata {
   documentoId: string
   texto: string
   pagina: number
+  documentoNombre: string
+  autor: string
+  año: string
 }
 
 const CORS_HEADERS: Record<string, string> = {
@@ -32,7 +36,6 @@ function checkAuth(request: Request, env: Env): Response | null {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS })
     }
@@ -43,31 +46,66 @@ export default {
     const { pathname } = new URL(request.url)
 
     try {
-      // POST /upsert
+      // POST /upsert — inserta vectores y registra IDs en KV por documento
       if (request.method === 'POST' && pathname === '/upsert') {
         const { vectors } = (await request.json()) as {
           vectors: Array<{ id: string; values: number[]; metadata: VectorMetadata }>
         }
         await env.VECTORIZE.upsert(vectors)
+
+        // Agrupar IDs por documentoId y actualizar KV
+        const byDoc = new Map<string, string[]>()
+        for (const v of vectors) {
+          const docId = v.metadata.documentoId
+          if (!byDoc.has(docId)) byDoc.set(docId, [])
+          byDoc.get(docId)!.push(v.id)
+        }
+        await Promise.all(
+          Array.from(byDoc.entries()).map(async ([docId, newIds]) => {
+            const key = `doc:${docId}`
+            const existing = await env.BIBLIO_KV.get(key)
+            const prev: string[] = existing ? JSON.parse(existing) : []
+            const merged = Array.from(new Set([...prev, ...newIds]))
+            await env.BIBLIO_KV.put(key, JSON.stringify(merged))
+          })
+        )
+
         return json({ inserted: vectors.length })
       }
 
       // POST /query
       if (request.method === 'POST' && pathname === '/query') {
-        const { vector, topK = 8, filter } = (await request.json()) as {
+        const { vector, topK = 8 } = (await request.json()) as {
           vector: number[]
           topK?: number
-          filter?: Record<string, string>
         }
         const matches = await env.VECTORIZE.query(vector, {
           topK,
           returnMetadata: 'all',
-          ...(filter ? { filter } : {}),
         })
         return json(matches)
       }
 
-      // DELETE /delete — elimina por IDs
+      // DELETE /delete-by-doc — elimina todos los fragmentos de un documento via KV
+      if (request.method === 'DELETE' && pathname === '/delete-by-doc') {
+        const { documentoId } = (await request.json()) as { documentoId: string }
+        const key = `doc:${documentoId}`
+        const stored = await env.BIBLIO_KV.get(key)
+        if (!stored) return json({ deleted: 0 })
+
+        const ids: string[] = JSON.parse(stored)
+        if (ids.length > 0) {
+          // Vectorize tiene límite por llamada — procesar en lotes de 1000
+          const BATCH = 1000
+          for (let i = 0; i < ids.length; i += BATCH) {
+            await env.VECTORIZE.deleteByIds(ids.slice(i, i + BATCH))
+          }
+        }
+        await env.BIBLIO_KV.delete(key)
+        return json({ deleted: ids.length })
+      }
+
+      // DELETE /delete — elimina por IDs explícitos (uso interno/migración)
       if (request.method === 'DELETE' && pathname === '/delete') {
         const { ids } = (await request.json()) as { ids: string[] }
         await env.VECTORIZE.deleteByIds(ids)

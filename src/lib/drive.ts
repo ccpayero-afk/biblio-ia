@@ -125,6 +125,20 @@ export async function listPDFs(accessToken: string, pdfsId: string): Promise<Doc
   })
 }
 
+export async function getDocumentMetadata(
+  accessToken: string,
+  documentoId: string
+): Promise<{ nombre: string; autor: string; año: string }> {
+  const drive = getDriveClient(accessToken)
+  const res = await drive.files.get({ fileId: documentoId, fields: 'name,properties' })
+  const props = res.data.properties ?? {}
+  return {
+    nombre: res.data.name ?? '',
+    autor: props.autor ?? '',
+    año: props.anio ?? '',
+  }
+}
+
 export async function uploadPDF(accessToken: string, pdfsId: string, file: File): Promise<string> {
   const drive = getDriveClient(accessToken)
   const buffer = Buffer.from(await file.arrayBuffer())

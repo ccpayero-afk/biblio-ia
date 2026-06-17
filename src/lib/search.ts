@@ -1,5 +1,6 @@
 import { Fragmento, Documento } from '@/types'
 import { initUserDrive, findFile, readJSON, listPDFs, listFilesInFolder } from './drive'
+// listPDFs is used only by the Drive fallback path below
 import { generateWithRotation, GEMINI_MODEL_EMBEDDING } from './gemini'
 import { cosineSimilarity } from './indexer'
 
@@ -16,6 +17,9 @@ interface VectorizeMatch {
     documentoId?: string
     texto?: string
     pagina?: number
+    documentoNombre?: string
+    autor?: string
+    año?: string
     [key: string]: unknown
   }
 }
@@ -93,24 +97,16 @@ async function semanticSearchVectorize(
 
   if (matches.length === 0) return []
 
-  // Enriquecer con metadatos del documento
-  const documentos = await listPDFs(accessToken, (await initUserDrive(accessToken)).pdfsId)
-  const docMap = new Map<string, Documento>(documentos.map((d) => [d.id, d]))
-
-  return matches.map((m) => {
-    const documentoId = (m.metadata?.documentoId as string) ?? ''
-    const doc = docMap.get(documentoId)
-    return {
-      id: m.id,
-      documentoId,
-      texto: (m.metadata?.texto as string) ?? '',
-      pagina: (m.metadata?.pagina as number) ?? 0,
-      embedding: [],  // no se retorna desde Vectorize para ahorrar ancho de banda
-      documentoNombre: doc?.nombre ?? 'Documento desconocido',
-      autor: doc?.autor ?? '',
-      año: doc?.año ?? '',
-    }
-  })
+  return matches.map((m) => ({
+    id: m.id,
+    documentoId: (m.metadata?.documentoId as string) ?? '',
+    texto: (m.metadata?.texto as string) ?? '',
+    pagina: (m.metadata?.pagina as number) ?? 0,
+    embedding: [],  // no se retorna desde Vectorize para ahorrar ancho de banda
+    documentoNombre: (m.metadata?.documentoNombre as string) || 'Documento desconocido',
+    autor: (m.metadata?.autor as string) ?? '',
+    año: (m.metadata?.año as string) ?? '',
+  }))
 }
 
 // ── Fallback Drive ────────────────────────────────────────────────────────────

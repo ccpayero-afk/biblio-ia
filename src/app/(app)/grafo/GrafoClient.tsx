@@ -154,6 +154,14 @@ function ForceGraphSVG({
   const nMap = useMemo(() => new Map(nodesRef.current.map(n => [n.id, n])), [nodesRef.current.length])
   const showLabels = zoom >= 0.6
 
+  const MAX_RENDER_NODES = 500
+  const nodosParaRender = nodesRef.current
+  const truncated = nodosParaRender.length > MAX_RENDER_NODES
+  const nodosVisibles = truncated
+    ? [...nodosParaRender].sort((a, b) => b.val - a.val).slice(0, MAX_RENDER_NODES)
+    : nodosParaRender
+  const idsVisibles = new Set(nodosVisibles.map(n => n.id))
+
   return (
     <div className="relative" style={{ width, height }}>
       <svg
@@ -177,6 +185,7 @@ function ForceGraphSVG({
               const s = typeof l.source === 'object' ? l.source as GNode : nMap.get(l.source as string)
               const t = typeof l.target === 'object' ? l.target as GNode : nMap.get(l.target as string)
               if (!s || !t || s.x == null || t.x == null) return null
+              if (!idsVisibles.has(s.id) || !idsVisibles.has(t.id)) return null
               const isActive = selectedId && (s.id === selectedId || t.id === selectedId)
               return (
                 <line
@@ -191,7 +200,7 @@ function ForceGraphSVG({
           </g>
           {/* Nodes */}
           <g>
-            {nodesRef.current.map((n) => {
+            {nodosVisibles.map((n) => {
               if (n.x == null || n.y == null) return null
               const r = Math.sqrt(n.val) * 6 + 5
               const isSelected = n.id === selectedId
@@ -255,6 +264,16 @@ function ForceGraphSVG({
         )
       })()}
 
+      {/* Advertencia de truncado */}
+      {truncated && (
+        <div
+          className="pointer-events-none absolute bottom-16 left-4 rounded-lg px-3 py-1.5 text-xs"
+          style={{ background: 'rgba(10,10,22,0.9)', border: '1px solid rgba(245,158,11,0.3)', color: 'rgba(245,158,11,0.8)' }}
+        >
+          Grafo muy grande — mostrando top {MAX_RENDER_NODES} nodos por peso
+        </div>
+      )}
+
       {/* Zoom controls */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-1">
         {[{ label: '+', fn: () => zoomBy(1.5) }, { label: '⌂', fn: resetZoom }, { label: '−', fn: () => zoomBy(0.67) }].map(({ label, fn }) => (
@@ -291,6 +310,9 @@ export default function GrafoClient() {
     new Set(['documento', 'autor', 'concepto', 'nota'] as NodoGrafo['tipo'][])
   )
   const [enfocarNodo, setEnfocarNodo] = useState(false)
+  const [subgrafoData, setSubgrafoData] = useState<{ nodes: GNode[]; links: GLink[] } | null>(null)
+  const [gradosSubgrafo, setGradosSubgrafo] = useState<1 | 2 | 3>(2)
+  const [cargandoSubgrafo, setCargandoSubgrafo] = useState(false)
   const [dimensiones, setDimensiones] = useState({ width: 900, height: 650 })
 
   useEffect(() => {
@@ -329,6 +351,25 @@ export default function GrafoClient() {
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
+
+  const fetchSubgrafo = useCallback(async (nodoId: string, grados: number) => {
+    setCargandoSubgrafo(true)
+    try {
+      const res = await fetch(`/api/grafo/subgrafo?nodoId=${encodeURIComponent(nodoId)}&grados=${grados}`)
+      const data = await res.json() as Grafo
+      const nodeSet = new Set(data.nodos.map((n) => n.id))
+      setSubgrafoData({
+        nodes: data.nodos.map((n) => ({
+          id: n.id, label: n.label, tipo: n.tipo, val: n.peso,
+          color: COLOR_NODO[n.tipo] ?? '#888',
+        })),
+        links: data.aristas
+          .filter((a) => nodeSet.has(a.source) && nodeSet.has(a.target))
+          .map((a) => ({ source: a.source, target: a.target, value: a.peso, color: '#374151' })),
+      })
+    } catch { /* ignorar — mantener grafo completo */ }
+    setCargandoSubgrafo(false)
+  }, [])
 
   function toggleTipo(key: string) {
     setTiposActivos((prev) => {
@@ -417,7 +458,9 @@ export default function GrafoClient() {
       })),
   }
 
-  const graphDataBase = modo === 'zettelkasten' ? graphDataZettel : graphDataBiblio
+  const graphDataBase = modo === 'zettelkasten'
+    ? graphDataZettel
+    : (subgrafoData && nodoSel ? subgrafoData : graphDataBiblio)
 
   // Filtro "solo vecinos" — cuando está activo y hay nodo seleccionado, muestra solo el nodo + sus vecinos directos
   const graphData = (() => {
@@ -682,7 +725,15 @@ export default function GrafoClient() {
               width={dimensiones.width - 176 - (nodoSel ? 256 : 0)}
               height={dimensiones.height}
               selectedId={nodoSel?.id ?? null}
-              onNodeClick={(id, tipo) => setNodoSel(prev => prev?.id === id ? null : { id, tipo })}
+              onNodeClick={(id, tipo) => {
+                if (nodoSel?.id === id) {
+                  setNodoSel(null)
+                  setSubgrafoData(null)
+                } else {
+                  setNodoSel({ id, tipo })
+                  if (modo === 'bibliografico') fetchSubgrafo(id, gradosSubgrafo)
+                }
+              }}
             />
           </ErrorBoundary>
         </div>
@@ -757,6 +808,37 @@ export default function GrafoClient() {
                 <p className="mt-1 text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>
                   Conexiones: {(grafo?.aristas ?? []).filter(a => a.source === nodoBiblioSel.id || a.target === nodoBiblioSel.id).length}
                 </p>
+
+                {/* Selector de grados de subgrafo */}
+                <div className="mt-4">
+                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                    Grados de vecindad
+                  </p>
+                  <div className="flex gap-1">
+                    {([1, 2, 3] as const).map((g) => (
+                      <button
+                        key={g}
+                        onClick={() => {
+                          setGradosSubgrafo(g)
+                          fetchSubgrafo(nodoBiblioSel.id, g)
+                        }}
+                        className="flex-1 rounded-lg py-1 text-xs transition-all"
+                        style={gradosSubgrafo === g
+                          ? { background: 'rgba(139,92,246,0.25)', border: '1px solid rgba(139,92,246,0.5)', color: '#a78bfa' }
+                          : { border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.5)' }
+                        }
+                      >{g}</button>
+                    ))}
+                  </div>
+                  {cargandoSubgrafo && (
+                    <p className="mt-1.5 text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>Cargando subgrafo…</p>
+                  )}
+                  {subgrafoData && !cargandoSubgrafo && (
+                    <p className="mt-1.5 text-xs" style={{ color: 'rgba(148,163,184,0.4)' }}>
+                      {subgrafoData.nodes.length} nodos · {subgrafoData.links.length} aristas
+                    </p>
+                  )}
+                </div>
               </>
             )}
           </div>
