@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Eye, EyeOff, CheckCircle, XCircle, ExternalLink, Download, RefreshCw, FileText, Trash2, Plus, Key } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { Eye, EyeOff, CheckCircle, XCircle, ExternalLink, Download, RefreshCw, FileText, Trash2, Plus, Key, Cpu } from 'lucide-react'
 import type { ZoteroItem, ZoteroImportResult } from '@/lib/zotero'
 
 interface PropuestaRenombrado {
@@ -71,6 +71,48 @@ export default function ConfiguracionClient({ apiKeyConfigurada: inicial, emails
   const [importResult, setImportResult] = useState<ZoteroImportResult | null>(null)
   const [importados, setImportados] = useState<ZoteroItem[]>([])
   const [mostrarImportados, setMostrarImportados] = useState(false)
+
+  // ── Migración de embeddings de notas ────────────────────────────────────────
+  const [embStats, setEmbStats] = useState<{ total: number; sinEmbedding: number; conEmbedding: number } | null>(null)
+  const [migrandoEmb, setMigrandoEmb] = useState(false)
+  const [embProcesadas, setEmbProcesadas] = useState(0)
+  const [embError, setEmbError] = useState('')
+
+  const cargarEstadoEmb = useCallback(async () => {
+    try {
+      const res = await fetch('/api/notas/migrar-embeddings')
+      const data = await res.json()
+      if (res.ok) setEmbStats(data)
+    } catch { /* ignore */ }
+  }, [])
+
+  useEffect(() => { cargarEstadoEmb() }, [cargarEstadoEmb])
+
+  async function migrarEmbeddings() {
+    setMigrandoEmb(true)
+    setEmbProcesadas(0)
+    setEmbError('')
+    let restantes = 1
+    let procesadasAcum = 0
+    try {
+      while (restantes > 0) {
+        const res = await fetch('/api/notas/migrar-embeddings', { method: 'POST' })
+        const data = await res.json()
+        if (!res.ok) { setEmbError(data.error ?? 'Error al migrar'); break }
+        procesadasAcum += data.procesadas
+        setEmbProcesadas(procesadasAcum)
+        restantes = data.restantes
+        if (data.restantes > 0) {
+          // brief pause between calls to avoid hammering the API
+          await new Promise((r) => setTimeout(r, 500))
+        }
+      }
+    } catch (e) {
+      setEmbError(String(e))
+    }
+    await cargarEstadoEmb()
+    setMigrandoEmb(false)
+  }
 
   // ── Renombrar archivos ───────────────────────────────────────────────────────
   const [propuestasRenombrado, setPropuestasRenombrado] = useState<PropuestaRenombrado[]>([])

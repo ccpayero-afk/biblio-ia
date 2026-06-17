@@ -5,6 +5,7 @@ import {
   leerIndice, leerContenido, leerNota, aLigera,
   escribirIndice, escribirContenido, eliminarArchivoContenido, NotaLigera,
 } from '@/lib/notas'
+import { guardarEmbeddingNota, eliminarEmbeddingNota } from '@/lib/notas-emb'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -62,6 +63,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }),
     ])
 
+    // Regenerate embedding if semantically relevant fields changed
+    const tipoFinal = (notaActualizada as Nota).tipo
+    if (tipoFinal !== 'efimera' && (body.titulo !== undefined || body.contenido !== undefined)) {
+      const tituloFinal = (notaActualizada as Nota).titulo ?? indice[idx].titulo
+      guardarEmbeddingNota(accessToken, id, tituloFinal, newContenido).catch(() => {})
+    }
+
     return NextResponse.json({ ...indice[idx], contenido: newContenido, versiones: newVersiones })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
@@ -96,6 +104,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
       escribirIndice(accessToken, notasId, nuevaLista),
       eliminarArchivoContenido(accessToken, notasId, id),
     ])
+    eliminarEmbeddingNota(accessToken, id).catch(() => {})
     return NextResponse.json({ ok: true })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })

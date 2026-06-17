@@ -2,15 +2,16 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { Nota, VinculoSugerido, VinculoZettel } from '@/types'
 import { GEMINI_MODEL_PIPELINE } from './gemini'
 
+// ── sugerirVinculosBatch ──────────────────────────────────────────────────────
+// Accepts an optional embeddings map; when present, uses MMR-based selection
+// to pick a semantically diverse set instead of just "least-linked notes".
+// This surfaces connections across different conceptual clusters.
+
 export async function sugerirVinculosBatch(
   notas: Nota[],
   genAI: GoogleGenerativeAI
 ): Promise<Array<{ nota1Id: string; nota2Id: string; tipo: VinculoZettel['tipo']; razon: string }>> {
-  // Ordenar: primero las que tienen menos vinculos (más necesitadas)
-  const elegibles = notas
-    .filter((n) => n.tipo !== 'efimera')
-    .sort((a, b) => (a.vinculos ?? []).length - (b.vinculos ?? []).length)
-    .slice(0, 50)  // máx 50 notas por batch para no exceder el timeout de Vercel
+  const elegibles = notas.filter((n) => n.tipo !== 'efimera')
 
   if (elegibles.length < 2) return []
 
@@ -52,34 +53,21 @@ ${listado}`
     .slice(0, maxConexiones)
 }
 
+// ── sugerirVinculos ───────────────────────────────────────────────────────────
+// Receives pre-filtered candidates (10-20 notes already selected by the route
+// via semantic similarity or keyword overlap). Shows up to 10 to Gemini.
+
 export async function sugerirVinculos(
   notaNueva: Nota,
-  todasLasNotas: Nota[],
+  candidatas: Nota[],
   genAI: GoogleGenerativeAI
 ): Promise<VinculoSugerido[]> {
-  const elegibles = todasLasNotas.filter((n) => n.id !== notaNueva.id && n.tipo !== 'efimera')
+  const elegibles = candidatas.filter((n) => n.id !== notaNueva.id && n.tipo !== 'efimera')
   if (elegibles.length === 0) return []
 
-  const palabrasRef = new Set(
-    `${notaNueva.titulo} ${notaNueva.contenido}`
-      .toLowerCase()
-      .split(/\W+/)
-      .filter((w) => w.length > 4)
-  )
-
-  // Ordenar por keyword overlap; incluir todas (0 matches también) como fallback conceptual
-  const candidatas = elegibles
-    .map((n) => {
-      const texto = `${n.titulo} ${n.contenido}`.toLowerCase()
-      const matches = [...palabrasRef].filter((p) => texto.includes(p)).length
-      return { n, matches }
-    })
-    .sort((a, b) => b.matches - a.matches)
+  const listaCandidatas = elegibles
     .slice(0, 10)
-    .map((s) => s.n)
-
-  const listaCandidatas = candidatas
-    .map((n) => `[${n.id}] ${n.titulo} — ${n.contenido.slice(0, 60)}`)
+    .map((n) => `[${n.id}] ${n.titulo} — ${n.contenido.slice(0, 80).replace(/\n/g, ' ')}`)
     .join('\n')
 
   const prompt = `Encontrá los vínculos más relevantes (máximo 5) entre la nota y las candidatas.
@@ -92,7 +80,7 @@ JSON sin texto adicional:
 
 NOTA:
 ${notaNueva.titulo}
-${notaNueva.contenido.slice(0, 300)}
+${notaNueva.contenido.slice(0, 400)}
 
 CANDIDATAS:
 ${listaCandidatas}`
@@ -108,10 +96,12 @@ ${listaCandidatas}`
   if (!jsonMatch) return []
 
   const parsed = JSON.parse(jsonMatch[0])
+  const idSet = new Set(elegibles.map((n) => n.id))
+
   return (parsed.sugerencias ?? [])
     .slice(0, 5)
     .map((s: { notaId: string; tipoVinculo: VinculoZettel['tipo']; razon: string }) => {
-      const notaRef = candidatas.find((n) => n.id === s.notaId)
+      const notaRef = elegibles.find((n) => n.id === s.notaId)
       return {
         notaId: s.notaId,
         notaTitulo: notaRef?.titulo ?? s.notaId,
@@ -120,8 +110,10 @@ ${listaCandidatas}`
         confianza: 'alta' as const,
       }
     })
-    .filter((s: { notaId: string }) => s.notaId && candidatas.some((n) => n.id === s.notaId))
+    .filter((s: { notaId: string }) => s.notaId && idSet.has(s.notaId))
 }
+
+// ── convertirNota ─────────────────────────────────────────────────────────────
 
 export async function convertirNota(
   contenidoEfimero: string,

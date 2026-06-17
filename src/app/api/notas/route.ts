@@ -5,6 +5,7 @@ import { getAccessToken } from '@/lib/auth-helpers'
 import { Nota, TipoNota } from '@/types'
 import { generarIdZettel } from '@/lib/zettel-id'
 import { leerIndice, aLigera, escribirIndice, escribirContenido, NotaLigera } from '@/lib/notas'
+import { guardarEmbeddingNota } from '@/lib/notas-emb'
 import { NextRequest, NextResponse } from 'next/server'
 
 function migrarTipo(tipo: string): TipoNota {
@@ -87,6 +88,11 @@ export async function POST(req: NextRequest) {
         { ...aLigera(nuevaNota), contenido: nuevaNota.contenido } as unknown as NotaLigera,
       ]),
     ])
+
+    // Fire-and-forget: generate semantic embedding for future vinculos suggestions
+    if (nuevaNota.tipo !== 'efimera') {
+      guardarEmbeddingNota(accessToken, nuevaNota.id, nuevaNota.titulo, nuevaNota.contenido).catch(() => {})
+    }
 
     return NextResponse.json(nuevaNota)
   } catch (e) {
