@@ -16,6 +16,7 @@
  */
 
 const DRY_RUN = process.argv.includes('--dry-run')
+const PENDING_ONLY = process.argv.includes('--pending-only')
 
 const WORKER_URL = process.env.VECTORIZE_WORKER_URL?.replace(/\/$/, '')
 const SECRET = process.env.WORKER_SECRET
@@ -222,8 +223,21 @@ async function main() {
   console.log(`   Documentos encontrados: ${docMetaMap.size}`)
 
   console.log('📋 Listando archivos emb_*...')
-  const archivos = await listFilesInFolder(indexId, 'emb_')
-  console.log(`   Encontrados: ${archivos.length} archivos\n`)
+  let archivos = await listFilesInFolder(indexId, 'emb_')
+
+  if (PENDING_ONLY) {
+    const fs = await import('fs')
+    const path = await import('path')
+    const pendingFile = path.join(process.cwd(), 'scripts', 'pending-vectorize.txt')
+    const pendingIds = new Set(fs.readFileSync(pendingFile, 'utf8').split('\n').map(s => s.trim()).filter(Boolean))
+    archivos = archivos.filter(a => {
+      const id = a.name.replace('emb_', '').replace('.json', '')
+      return pendingIds.has(id)
+    })
+    console.log(`   Modo --pending-only: ${archivos.length} archivos pendientes\n`)
+  } else {
+    console.log(`   Encontrados: ${archivos.length} archivos\n`)
+  }
 
   if (archivos.length === 0) {
     console.log('⚠️  No hay archivos emb_ para migrar.')
