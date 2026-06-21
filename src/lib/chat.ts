@@ -33,10 +33,13 @@ export async function* askLibrary(
   accessToken: string,
   historial: MensajeHistorial[] = []
 ): AsyncGenerator<string> {
+  if (!fragmentos.length) {
+    yield 'No encontré fragmentos relevantes en tu biblioteca para esta pregunta. Verificá que los documentos estén indexados desde la sección Biblioteca.'
+    return
+  }
+
   const contexto = construirContexto(fragmentos)
-  const promptConContexto = fragmentos.length
-    ? `FRAGMENTOS RELEVANTES DE LA BIBLIOTECA:\n\n${contexto}\n\n---\nPREGUNTA: ${query}`
-    : `No encontré fragmentos relevantes en la biblioteca para esta pregunta.\n\nPREGUNTA: ${query}`
+  const promptConContexto = `FRAGMENTOS RELEVANTES DE LA BIBLIOTECA:\n\n${contexto}\n\n---\nPREGUNTA: ${query}`
 
   const history = historial.map((m) => ({
     role: m.rol === 'user' ? 'user' : 'model' as 'user' | 'model',
