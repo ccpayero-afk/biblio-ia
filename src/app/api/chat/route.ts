@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
         .map((d) => d.id)
     }
 
-    // Búsqueda semántica — topK alto para cubrir más documentos de la biblioteca
-    const fragmentos = await semanticSearch(query, accessToken, { documentoIds: filteredDocIds, topK: 20 })
+    // Búsqueda semántica — multi-query expansion cubre ~20 documentos distintos
+    const fragmentos = await semanticSearch(query, accessToken, { documentoIds: filteredDocIds, topK: 60 })
 
     // Streaming de la respuesta
     const encoder = new TextEncoder()

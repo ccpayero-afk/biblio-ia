@@ -1,7 +1,6 @@
 import { Fragmento, Documento } from '@/types'
 import { initUserDrive, findFile, readJSON, listPDFs, listFilesInFolder } from './drive'
-// listPDFs is used only by the Drive fallback path below
-import { generateWithRotation, GEMINI_MODEL_EMBEDDING } from './gemini'
+import { generateWithRotation, GEMINI_MODEL_EMBEDDING, GEMINI_MODEL_PIPELINE } from './gemini'
 import { cosineSimilarity } from './indexer'
 
 export interface FragmentoConDocumento extends Fragmento {
@@ -31,29 +30,25 @@ interface VectorizeResult {
 // Vectorize soporta máx 1536 dims; gemini-embedding-2 genera 3072.
 // Los embeddings Gemini son matryoshka: truncar preserva la semántica.
 const VECTORIZE_DIMS = 1536
+// Vectorize acepta máx 100 resultados por query
+const VECTORIZE_MAX_TOPK = 100
 
 const LOAD_BATCH = 30
+const MAX_PER_DOC = 6
 
 export async function semanticSearch(
   query: string,
   accessToken: string,
   opciones?: { documentoIds?: string[]; topK?: number; maxFiles?: number }
 ): Promise<FragmentoConDocumento[]> {
-  const { topK = 12, documentoIds, maxFiles } = opciones ?? {}
-
-  // Generar embedding de la query
-  const queryEmbedding = await generateWithRotation(accessToken, async (genAI) => {
-    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_EMBEDDING })
-    return (await model.embedContent(query)).embedding.values
-  })
+  const { topK = 60, documentoIds, maxFiles } = opciones ?? {}
 
   const vectorizeUrl = process.env.VECTORIZE_WORKER_URL
   const workerSecret = process.env.WORKER_SECRET
 
   if (vectorizeUrl && workerSecret) {
     try {
-      const results = await semanticSearchVectorize(queryEmbedding, accessToken, { topK, documentoIds, vectorizeUrl, workerSecret })
-      // Si hay resultados con texto real, usarlos; si no (metadata ausente o vacía), usar Drive
+      const results = await semanticSearchMultiQuery(query, accessToken, { topK, documentoIds, vectorizeUrl, workerSecret })
       if (results.length > 0 && results.some((r) => r.texto.trim().length > 0)) return results
       console.warn('[search] Vectorize sin metadata útil — fallback a Drive')
     } catch (e) {
@@ -61,48 +56,86 @@ export async function semanticSearch(
     }
   }
 
+  // Fallback: búsqueda directa en Drive con el embedding original
+  const queryEmbedding = await generateWithRotation(accessToken, async (genAI) => {
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_EMBEDDING })
+    return (await model.embedContent(query)).embedding.values
+  })
   return semanticSearchDrive(queryEmbedding, accessToken, { topK, documentoIds, maxFiles: maxFiles ?? 15 })
 }
 
-// ── Path Vectorize ────────────────────────────────────────────────────────────
+// ── Query expansion: genera variantes semánticas para ampliar cobertura ────────
 
-async function semanticSearchVectorize(
-  queryEmbedding: number[],
+async function generateAlternativeQueries(query: string, accessToken: string): Promise<string[]> {
+  try {
+    const text = await generateWithRotation(accessToken, async (genAI) => {
+      const model = genAI.getGenerativeModel({
+        model: GEMINI_MODEL_PIPELINE,
+        generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as object,
+      })
+      const res = await model.generateContent(
+        `Dado este tema de investigación académica: "${query}"\n` +
+        `Generá 3 frases de búsqueda alternativas en español, orientadas a conceptos clave, que complementen la búsqueda original.\n` +
+        `Respondé SOLO con las 3 frases, una por línea, sin numeración ni explicaciones.`
+      )
+      return res.response.text()
+    })
+    const alternatives = text.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 3)
+    return alternatives.length > 0 ? [query, ...alternatives] : [query]
+  } catch {
+    return [query]
+  }
+}
+
+// ── Multi-query search con Vectorize ─────────────────────────────────────────
+
+async function semanticSearchMultiQuery(
+  query: string,
   accessToken: string,
   opts: { topK: number; documentoIds?: string[]; vectorizeUrl: string; workerSecret: string }
 ): Promise<FragmentoConDocumento[]> {
   const { topK, documentoIds, vectorizeUrl, workerSecret } = opts
 
-  // Pedir más resultados de los que se van a devolver para poder diversificar por documento
-  const MAX_PER_DOC = 4
-  const requestTopK = documentoIds?.length ? topK * 4 : topK * 3
+  // Generar queries alternativas y embeddings en paralelo
+  const [queries] = await Promise.all([generateAlternativeQueries(query, accessToken)])
 
-  const res = await fetch(`${vectorizeUrl}/query`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${workerSecret}`,
-    },
-    body: JSON.stringify({ vector: queryEmbedding.slice(0, VECTORIZE_DIMS), topK: requestTopK }),
-  })
+  const embeddings = await Promise.all(
+    queries.map((q) =>
+      generateWithRotation(accessToken, async (genAI) => {
+        const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_EMBEDDING })
+        return (await model.embedContent(q)).embedding.values
+      })
+    )
+  )
 
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Vectorize query failed: ${res.status} ${text.slice(0, 200)}`)
+  // Búsquedas paralelas en Vectorize (máx VECTORIZE_MAX_TOPK por query)
+  const perQueryTopK = Math.min(VECTORIZE_MAX_TOPK, Math.ceil(topK * 1.5))
+  const allMatchArrays = await Promise.allSettled(
+    embeddings.map((emb) => queryVectorize(emb, perQueryTopK, vectorizeUrl, workerSecret))
+  )
+
+  // Fusionar y deduplicar por ID conservando el score más alto
+  const bestByid = new Map<string, VectorizeMatch>()
+  for (const res of allMatchArrays) {
+    if (res.status !== 'fulfilled') continue
+    for (const m of res.value) {
+      const existing = bestByid.get(m.id)
+      if (!existing || m.score > existing.score) bestByid.set(m.id, m)
+    }
   }
 
-  const result: VectorizeResult = await res.json()
-  let matches = result.matches ?? []
+  // Ordenar por score descendente
+  let merged = [...bestByid.values()].sort((a, b) => b.score - a.score)
 
   // Filtrar por documentoIds si aplica
   if (documentoIds?.length) {
     const allowed = new Set(documentoIds)
-    matches = matches.filter((m) => m.metadata?.documentoId && allowed.has(m.metadata.documentoId as string))
+    merged = merged.filter((m) => m.metadata?.documentoId && allowed.has(m.metadata.documentoId as string))
   }
 
-  // Diversificar: máximo MAX_PER_DOC fragmentos por documento, preservando orden de relevancia
+  // Diversificar: máx MAX_PER_DOC por documento, tomar topK finales
   const countPerDoc = new Map<string, number>()
-  matches = matches.filter((m) => {
+  const diversified = merged.filter((m) => {
     const docId = (m.metadata?.documentoId as string) ?? ''
     const count = countPerDoc.get(docId) ?? 0
     if (count >= MAX_PER_DOC) return false
@@ -110,18 +143,37 @@ async function semanticSearchVectorize(
     return true
   }).slice(0, topK)
 
-  if (matches.length === 0) return []
+  if (diversified.length === 0) return []
 
-  return matches.map((m) => ({
+  return diversified.map((m) => ({
     id: m.id,
     documentoId: (m.metadata?.documentoId as string) ?? '',
     texto: (m.metadata?.texto as string) ?? '',
     pagina: (m.metadata?.pagina as number) ?? 0,
-    embedding: [],  // no se retorna desde Vectorize para ahorrar ancho de banda
+    embedding: [],
     documentoNombre: (m.metadata?.documentoNombre as string) || 'Documento desconocido',
     autor: (m.metadata?.autor as string) ?? '',
     año: (m.metadata?.año as string) ?? '',
   }))
+}
+
+async function queryVectorize(
+  embedding: number[],
+  topK: number,
+  vectorizeUrl: string,
+  workerSecret: string
+): Promise<VectorizeMatch[]> {
+  const res = await fetch(`${vectorizeUrl}/query`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${workerSecret}` },
+    body: JSON.stringify({ vector: embedding.slice(0, VECTORIZE_DIMS), topK }),
+  })
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Vectorize query failed: ${res.status} ${text.slice(0, 200)}`)
+  }
+  const result: VectorizeResult = await res.json()
+  return result.matches ?? []
 }
 
 // ── Fallback Drive ────────────────────────────────────────────────────────────

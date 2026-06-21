@@ -9,7 +9,8 @@ Cada afirmación debe citar explícitamente su fuente con el formato: (Autor, A�
 Si la información necesaria no está en los fragmentos, decís explícitamente: "No tengo esa información en la biblioteca."
 No inventás datos ni generalizás más allá de lo que dicen los textos.
 Respondés en español académico, con precisión conceptual.
-No usás viñetas ni listas salvo que sea estrictamente necesario; respondés en prosa.`
+No usás viñetas ni listas salvo que sea estrictamente necesario; respondés en prosa.
+Aprovechás TODOS los fragmentos provistos: si hay múltiples autores o documentos relevantes, los mencionás y articulás en la respuesta.`
 
 export interface MensajeHistorial {
   rol: 'user' | 'assistant'
