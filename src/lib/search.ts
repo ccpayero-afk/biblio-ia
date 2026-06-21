@@ -74,7 +74,7 @@ async function semanticSearchVectorize(
   const { topK, documentoIds, vectorizeUrl, workerSecret } = opts
 
   // Pedir más resultados de los que se van a devolver para poder diversificar por documento
-  const MAX_PER_DOC = 2
+  const MAX_PER_DOC = 4
   const requestTopK = documentoIds?.length ? topK * 4 : topK * 3
 
   const res = await fetch(`${vectorizeUrl}/query`, {

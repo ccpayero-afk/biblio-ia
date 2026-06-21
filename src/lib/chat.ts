@@ -50,6 +50,9 @@ export async function* askLibrary(
     const model = genAI.getGenerativeModel({
       model: GEMINI_MODEL_GENERATION,
       systemInstruction: SISTEMA,
+      generationConfig: {
+        thinkingConfig: { thinkingBudget: 0 },
+      } as object,
     })
     const chat = model.startChat({ history })
     const result = await chat.sendMessageStream(promptConContexto)
