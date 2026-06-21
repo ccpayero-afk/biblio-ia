@@ -51,10 +51,14 @@ export async function semanticSearch(
   const workerSecret = process.env.WORKER_SECRET
 
   if (vectorizeUrl && workerSecret) {
-    const results = await semanticSearchVectorize(queryEmbedding, accessToken, { topK, documentoIds, vectorizeUrl, workerSecret })
-    // Si hay resultados con texto real, usarlos; si no (metadata ausente o vacía), usar Drive
-    if (results.length > 0 && results.some((r) => r.texto.trim().length > 0)) return results
-    console.warn('[search] Vectorize sin metadata útil — fallback a Drive')
+    try {
+      const results = await semanticSearchVectorize(queryEmbedding, accessToken, { topK, documentoIds, vectorizeUrl, workerSecret })
+      // Si hay resultados con texto real, usarlos; si no (metadata ausente o vacía), usar Drive
+      if (results.length > 0 && results.some((r) => r.texto.trim().length > 0)) return results
+      console.warn('[search] Vectorize sin metadata útil — fallback a Drive')
+    } catch (e) {
+      console.warn('[search] Vectorize error — fallback a Drive:', e)
+    }
   }
 
   return semanticSearchDrive(queryEmbedding, accessToken, { topK, documentoIds, maxFiles: maxFiles ?? 15 })
