@@ -142,21 +142,19 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Búsqueda semántica: los 15 docs indexados más relevantes (ya ordenados por keyword)
-    // Limitar a 15 para no saturar Drive y evitar timeout de 60s en Vercel
-    const docIdsIndexados = docsOrdenados
-      .filter((d) => d.estado === 'indexado')
-      .map((d) => d.id)
-      .slice(0, 15)
+    // Búsqueda semántica en toda la biblioteca via Vectorize (query expansion incluida)
+    // No filtramos por keyword — Vectorize encuentra los más relevantes entre todos
+    const carpetaDocIds = carpetasIds?.length
+      ? documentos.filter((d) => carpetasIds.includes(d.carpetaId ?? '')).map((d) => d.id)
+      : undefined
     let fragmentosIncluidos = 0
     let errorFragmentos: string | null = null
 
-    if (docIdsIndexados.length > 0) {
+    {
       try {
-        // Para paginar: traer (pagina+1)*8+4 resultados y tomar la "página" pedida
-        const topKTotal = Math.min((pagina + 1) * 8 + 4, 25)
-        const todosFragmentos = await semanticSearch(textoLimitado.slice(0, 1500), accessToken, {
-          documentoIds: docIdsIndexados,
+        const topKTotal = Math.min((pagina + 1) * 8 + 4, 40)
+        const todosFragmentos = await semanticSearch(textoLimitado.slice(0, 2000), accessToken, {
+          documentoIds: carpetaDocIds,
           topK: topKTotal,
         })
         const fragmentos = todosFragmentos.slice(pagina * 8, (pagina + 1) * 8)
