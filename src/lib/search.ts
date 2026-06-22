@@ -57,16 +57,16 @@ const MAX_PER_DOC = 6
 export async function semanticSearch(
   query: string,
   accessToken: string,
-  opciones?: { documentoIds?: string[]; topK?: number; maxFiles?: number }
+  opciones?: { documentoIds?: string[]; topK?: number; maxFiles?: number; añoDesde?: string; añoHasta?: string }
 ): Promise<FragmentoConDocumento[]> {
-  const { topK = 60, documentoIds, maxFiles } = opciones ?? {}
+  const { topK = 60, documentoIds, maxFiles, añoDesde, añoHasta } = opciones ?? {}
 
   const vectorizeUrl = process.env.VECTORIZE_WORKER_URL
   const workerSecret = process.env.WORKER_SECRET
 
   if (vectorizeUrl && workerSecret) {
     try {
-      const results = await semanticSearchMultiQuery(query, accessToken, { topK, documentoIds, vectorizeUrl, workerSecret })
+      const results = await semanticSearchMultiQuery(query, accessToken, { topK, documentoIds, vectorizeUrl, workerSecret, añoDesde, añoHasta })
       if (results.length > 0 && results.some((r) => r.texto.trim().length > 0)) return results
       console.warn('[search] Vectorize sin metadata útil — fallback a Drive')
     } catch (e) {
@@ -110,9 +110,9 @@ async function generateAlternativeQueries(query: string, accessToken: string): P
 async function semanticSearchMultiQuery(
   query: string,
   accessToken: string,
-  opts: { topK: number; documentoIds?: string[]; vectorizeUrl: string; workerSecret: string }
+  opts: { topK: number; documentoIds?: string[]; vectorizeUrl: string; workerSecret: string; añoDesde?: string; añoHasta?: string }
 ): Promise<FragmentoConDocumento[]> {
-  const { topK, documentoIds, vectorizeUrl, workerSecret } = opts
+  const { topK, documentoIds, vectorizeUrl, workerSecret, añoDesde, añoHasta } = opts
 
   // Generar queries alternativas y embeddings en paralelo
   const [queries] = await Promise.all([generateAlternativeQueries(query, accessToken)])
@@ -153,13 +153,25 @@ async function semanticSearchMultiQuery(
 
   // Diversificar: máx MAX_PER_DOC por documento, tomar topK finales
   const countPerDoc = new Map<string, number>()
-  const diversified = merged.filter((m) => {
+  let diversified = merged.filter((m) => {
     const docId = (m.metadata?.documentoId as string) ?? ''
     const count = countPerDoc.get(docId) ?? 0
     if (count >= MAX_PER_DOC) return false
     countPerDoc.set(docId, count + 1)
     return true
   }).slice(0, topK)
+
+  // Filtrar por rango de año si se especifica
+  if (añoDesde || añoHasta) {
+    const desde = añoDesde ?? ''
+    const hasta = añoHasta ?? '9999'
+    const filtered = diversified.filter((m) => {
+      const año = ((m.metadata?.año as string) ?? '').trim()
+      if (!año || !/^\d{4}$/.test(año)) return true
+      return año >= desde && año <= hasta
+    })
+    if (filtered.length > 0) diversified = filtered
+  }
 
   if (diversified.length === 0) return []
 

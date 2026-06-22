@@ -12,11 +12,13 @@ export async function POST(req: NextRequest) {
     const session = await auth()
     const accessToken = getAccessToken(session)
 
-    const { query, documentoIds, carpetasIds, historial = [] } = await req.json() as {
+    const { query, documentoIds, carpetasIds, historial = [], añoDesde, añoHasta } = await req.json() as {
       query: string
       documentoIds?: string[]
       carpetasIds?: string[]
       historial?: MensajeHistorial[]
+      añoDesde?: string
+      añoHasta?: string
     }
 
     if (!query?.trim()) {
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Búsqueda semántica — multi-query expansion cubre ~20 documentos distintos
-    const fragmentos = await semanticSearch(query, accessToken, { documentoIds: filteredDocIds, topK: 60 })
+    const fragmentos = await semanticSearch(query, accessToken, { documentoIds: filteredDocIds, topK: 60, añoDesde, añoHasta })
 
     // Streaming de la respuesta
     const encoder = new TextEncoder()

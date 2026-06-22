@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Send, BookMarked, RotateCcw, MessageSquare, ChevronDown, Plus, Trash2, Download } from 'lucide-react'
+import { Send, BookMarked, RotateCcw, MessageSquare, ChevronDown, Plus, Trash2, Download, SlidersHorizontal } from 'lucide-react'
 import Link from 'next/link'
 import { MensajeHistorial } from '@/lib/chat'
 import { useScope } from '@/lib/scope-context'
@@ -86,6 +86,9 @@ export default function ConsultarClient() {
   const [convId, setConvId] = useState<string>(() => nuevaId())
   const [conversaciones, setConversaciones] = useState<Conversacion[]>([])
   const [panelAbierto, setPanelAbierto] = useState(false)
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false)
+  const [añoDesde, setAñoDesde] = useState('')
+  const [añoHasta, setAñoHasta] = useState('')
   const { scope } = useScope()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -146,7 +149,7 @@ export default function ConsultarClient() {
     })
   }, [turnos, convId])
 
-  const historial: MensajeHistorial[] = turnos.flatMap((t) => [
+  const historial: MensajeHistorial[] = turnos.slice(-4).flatMap((t) => [
     { rol: 'user' as const, contenido: t.pregunta },
     { rol: 'assistant' as const, contenido: t.respuesta },
   ])
@@ -193,7 +196,13 @@ export default function ConsultarClient() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: texto, historial, carpetasIds: scope.ids.length ? scope.ids : undefined }),
+        body: JSON.stringify({
+          query: texto,
+          historial,
+          carpetasIds: scope.ids.length ? scope.ids : undefined,
+          añoDesde: añoDesde || undefined,
+          añoHasta: añoHasta || undefined,
+        }),
       })
 
       if (!res.body) throw new Error('Sin respuesta del servidor')
@@ -380,7 +389,7 @@ export default function ConsultarClient() {
       </div>
 
       {/* Historial de turnos */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+      <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6 space-y-8">
         {turnos.length === 0 && !consultando && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <div
@@ -404,7 +413,7 @@ export default function ConsultarClient() {
             <p className="mt-2 max-w-sm text-sm" style={{ color: 'rgba(148,163,184,0.55)' }}>
               Hacé una pregunta en lenguaje natural. Gemini buscará en tus documentos indexados y responderá citando las fuentes.
             </p>
-            <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2 max-w-xl w-full">
+            <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-2 max-w-xl w-full px-2 sm:px-0">
               {[
                 '¿Cuáles son los argumentos centrales sobre hegemonía cultural?',
                 '¿Qué dicen los textos sobre informalidad laboral en América Latina?',
@@ -556,7 +565,7 @@ export default function ConsultarClient() {
 
       {/* Input */}
       <div
-        className="px-6 py-4"
+        className="px-3 py-3 sm:px-6 sm:py-4"
         style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(3,3,8,0.7)' }}
       >
         <div className="mx-auto max-w-3xl">
@@ -571,7 +580,43 @@ export default function ConsultarClient() {
               <RotateCcw className="h-3 w-3" /> Nueva conversación
             </button>
           )}
-          <div className="flex gap-3">
+
+          {/* Filtro por año */}
+          {filtrosAbiertos && (
+            <div className="mb-2 flex items-center gap-2 flex-wrap">
+              <span className="text-xs" style={{ color: 'rgba(148,163,184,0.5)' }}>Año:</span>
+              <input
+                type="number"
+                placeholder="Desde"
+                value={añoDesde}
+                onChange={(e) => setAñoDesde(e.target.value)}
+                className="w-20 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+              />
+              <span className="text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>—</span>
+              <input
+                type="number"
+                placeholder="Hasta"
+                value={añoHasta}
+                onChange={(e) => setAñoHasta(e.target.value)}
+                className="w-20 rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
+              />
+              {(añoDesde || añoHasta) && (
+                <button
+                  onClick={() => { setAñoDesde(''); setAñoHasta('') }}
+                  className="text-xs transition-colors"
+                  style={{ color: 'rgba(239,68,68,0.5)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = '#f87171' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(239,68,68,0.5)' }}
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-2 sm:gap-3">
             <textarea
               ref={textareaRef}
               value={query}
@@ -579,34 +624,53 @@ export default function ConsultarClient() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) consultar()
               }}
-              placeholder="Hacé una pregunta sobre tu biblioteca… (Ctrl+Enter para enviar)"
+              placeholder="Hacé una pregunta… (Ctrl+Enter)"
               rows={3}
               disabled={consultando}
-              className="flex-1 resize-none rounded-xl px-4 py-3 text-sm text-white placeholder-neutral-600 focus:outline-none disabled:opacity-50"
+              className="flex-1 resize-none rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-sm text-white placeholder-neutral-600 focus:outline-none disabled:opacity-50"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
               onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.5)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(124,58,237,0.1)' }}
               onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.boxShadow = '' }}
             />
-            <button
-              onClick={consultar}
-              disabled={!query.trim() || consultando}
-              className="flex h-12 w-12 flex-shrink-0 self-end items-center justify-center rounded-xl text-white transition-all disabled:opacity-40"
-              style={{
-                background: 'linear-gradient(135deg, #7c3aed, #0891b2)',
-                boxShadow: '0 0 16px rgba(124,58,237,0.3)',
-              }}
-              onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.boxShadow = '0 0 24px rgba(124,58,237,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(124,58,237,0.3)'; e.currentTarget.style.transform = '' }}
-            >
-              <Send className="h-4 w-4" />
-            </button>
+            <div className="flex flex-col gap-2 self-end">
+              <button
+                onClick={() => setFiltrosAbiertos((v) => !v)}
+                title="Filtrar por año"
+                className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl transition-all"
+                style={{
+                  background: filtrosAbiertos || añoDesde || añoHasta ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${filtrosAbiertos || añoDesde || añoHasta ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                  color: filtrosAbiertos || añoDesde || añoHasta ? '#a78bfa' : 'rgba(148,163,184,0.5)',
+                }}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={consultar}
+                disabled={!query.trim() || consultando}
+                className="flex h-9 w-9 sm:h-12 sm:w-12 items-center justify-center rounded-xl text-white transition-all disabled:opacity-40"
+                style={{
+                  background: 'linear-gradient(135deg, #7c3aed, #0891b2)',
+                  boxShadow: '0 0 16px rgba(124,58,237,0.3)',
+                }}
+                onMouseEnter={(e) => { if (!e.currentTarget.disabled) { e.currentTarget.style.boxShadow = '0 0 24px rgba(124,58,237,0.5)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 0 16px rgba(124,58,237,0.3)'; e.currentTarget.style.transform = '' }}
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-          <p className="mt-1.5 text-xs" style={{ color: 'rgba(148,163,184,0.3)' }}>
+          <p className="mt-1.5 text-xs hidden sm:block" style={{ color: 'rgba(148,163,184,0.3)' }}>
             Busca en{' '}
             <span style={{ color: 'rgba(148,163,184,0.5)' }}>
               {scope.ids.length ? scope.nombres[0] ?? 'carpeta seleccionada' : 'toda la biblioteca'}
             </span>
-            {' '}· Ctrl+Enter para enviar
+            {(añoDesde || añoHasta) && (
+              <span style={{ color: 'rgba(139,92,246,0.6)' }}>
+                {' '}· {añoDesde || '…'}–{añoHasta || 'hoy'}
+              </span>
+            )}
+            {' '}· Ctrl+Enter
           </p>
         </div>
       </div>

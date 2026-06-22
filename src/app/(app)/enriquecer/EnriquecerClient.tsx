@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   Sparkles, Upload, FileText, Quote, StickyNote, BookOpen,
   Loader2, AlertCircle, ArrowRight, X, ChevronDown, ChevronUp,
-  Clock, BookmarkPlus, Check,
+  Clock, BookmarkPlus, Check, Download,
 } from 'lucide-react'
 import type { Recomendacion } from '@/app/api/enriquecer/route'
 import { useScope, scopeParam } from '@/lib/scope-context'
@@ -223,6 +223,7 @@ export default function EnriquecerClient() {
   const analizar = useCallback(async () => {
     if (!texto.trim() || analizando) return
     setAnalizando(true)
+    setTabMobile('resultados')
     setError('')
     setRecomendaciones([])
     setAnalisis('')
@@ -364,18 +365,80 @@ export default function EnriquecerClient() {
     finally { setGuardandoNota(null) }
   }, [guardandoNota])
 
+  const [tabMobile, setTabMobile] = useState<'editor' | 'resultados'>('editor')
+
   const altaRel = recomendaciones.filter((r) => r.relevancia === 'alta')
   const mediaRel = recomendaciones.filter((r) => r.relevancia !== 'alta')
 
   const porcentaje = Math.min(100, Math.round((texto.length / MAX_CHARS) * 100))
 
+  function exportarResultados() {
+    if (!yaAnalizado || recomendaciones.length === 0) return
+    const fecha = new Date().toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+    const lineas: string[] = [
+      `# Enriquecimiento bibliográfico — BiblioIA`,
+      `**Fecha:** ${fecha}\n`,
+      `## Análisis del texto\n\n${analisis}\n`,
+    ]
+    if (altaRel.length > 0) {
+      lineas.push(`## Alta relevancia\n`)
+      altaRel.forEach((r) => {
+        lineas.push(`### ${r.titulo}`)
+        if (r.autor) lineas.push(`**Autor:** ${r.autor}${r.pagina ? ` — p. ${r.pagina}` : ''}`)
+        lineas.push(`**Por qué:** ${r.razon}`)
+        if (r.fragmento) lineas.push(`> "${r.fragmento}…"\n`)
+        else lineas.push('')
+      })
+    }
+    if (mediaRel.length > 0) {
+      lineas.push(`## Complementarios\n`)
+      mediaRel.forEach((r) => {
+        lineas.push(`### ${r.titulo}`)
+        if (r.autor) lineas.push(`**Autor:** ${r.autor}${r.pagina ? ` — p. ${r.pagina}` : ''}`)
+        lineas.push(`**Por qué:** ${r.razon}`)
+        if (r.fragmento) lineas.push(`> "${r.fragmento}…"\n`)
+        else lineas.push('')
+      })
+    }
+    lineas.push(`---\n*Exportado desde BiblioIA*`)
+    const blob = new Blob([lineas.join('\n')], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `enriquecimiento_${Date.now()}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
-    <div className="flex h-full overflow-hidden" style={{ background: '#080812' }}>
+    <div className="flex flex-col h-full overflow-hidden" style={{ background: '#080812' }}>
+
+      {/* ── Tabs mobile ──────────────────────────────────────────────────── */}
+      <div
+        className="flex md:hidden flex-shrink-0"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+      >
+        {(['editor', 'resultados'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setTabMobile(tab)}
+            className="flex-1 py-2.5 text-xs font-semibold capitalize transition-colors"
+            style={tabMobile === tab
+              ? { color: '#a78bfa', borderBottom: '2px solid #a78bfa' }
+              : { color: 'rgba(148,163,184,0.4)', borderBottom: '2px solid transparent' }
+            }
+          >
+            {tab === 'editor' ? 'Tu texto' : `Recomendaciones${recomendaciones.length > 0 ? ` (${recomendaciones.length})` : ''}`}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
 
       {/* ── LEFT: Editor de texto ─────────────────────────────────────────── */}
       <div
-        className="flex flex-col"
-        style={{ width: '52%', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+        className={`${tabMobile === 'editor' ? 'flex' : 'hidden'} md:flex flex-col md:border-r w-full md:w-[52%] flex-shrink-0`}
+        style={{ borderColor: 'rgba(255,255,255,0.06)' }}
       >
         {/* Header */}
         <div
@@ -511,7 +574,7 @@ export default function EnriquecerClient() {
       </div>
 
       {/* ── RIGHT: Resultados ─────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className={`${tabMobile === 'resultados' ? 'flex' : 'hidden'} md:flex flex-1 flex-col overflow-hidden`}>
         {/* Header */}
         <div
           className="flex-shrink-0 flex items-center justify-between px-5 py-4"
@@ -537,16 +600,30 @@ export default function EnriquecerClient() {
                   : 'Aparecerán aquí después de analizar'}
             </p>
           </div>
-          <button
-            onClick={verHistorial}
-            title="Historial de análisis"
-            className="p-1.5 rounded-lg transition-colors"
-            style={{ color: mostrandoHistorial ? '#a78bfa' : 'rgba(148,163,184,0.35)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = '#a78bfa' }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = mostrandoHistorial ? '#a78bfa' : 'rgba(148,163,184,0.35)' }}
-          >
-            <Clock className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {yaAnalizado && recomendaciones.length > 0 && (
+              <button
+                onClick={exportarResultados}
+                title="Exportar como Markdown"
+                className="p-1.5 rounded-lg transition-colors"
+                style={{ color: 'rgba(34,211,238,0.5)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = '#22d3ee' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(34,211,238,0.5)' }}
+              >
+                <Download className="h-4 w-4" />
+              </button>
+            )}
+            <button
+              onClick={verHistorial}
+              title="Historial de análisis"
+              className="p-1.5 rounded-lg transition-colors"
+              style={{ color: mostrandoHistorial ? '#a78bfa' : 'rgba(148,163,184,0.35)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#a78bfa' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = mostrandoHistorial ? '#a78bfa' : 'rgba(148,163,184,0.35)' }}
+            >
+              <Clock className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
@@ -745,6 +822,7 @@ export default function EnriquecerClient() {
           )}
         </div>
       </div>
+      </div>{/* end flex wrapper */}
     </div>
   )
 }

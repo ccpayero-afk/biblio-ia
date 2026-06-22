@@ -119,7 +119,10 @@ Respondé ÚNICAMENTE con JSON puro, sin bloques de código, sin explicaciones a
 }`
 
     const result = await generateWithRotation(accessToken, async (genAI) => {
-      const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_GENERATION })
+      const model = genAI.getGenerativeModel({
+        model: GEMINI_MODEL_GENERATION,
+        generationConfig: { thinkingConfig: { thinkingBudget: 0 } } as object,
+      })
       return model.generateContent(prompt)
     })
     const text = result.response.text()
