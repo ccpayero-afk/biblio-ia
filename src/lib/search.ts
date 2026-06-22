@@ -27,6 +27,24 @@ interface VectorizeResult {
   matches: VectorizeMatch[]
 }
 
+// Corrige doble-encoding UTF-8/Latin-1 en metadatos de Vectorize
+// "Ã±" → "ñ", "Ã©" → "é", etc.
+function fixEncoding(str: string): string {
+  if (!str) return str
+  try {
+    return decodeURIComponent(escape(str))
+  } catch {
+    return str
+  }
+}
+
+// Descarta fragmentos con texto OCR ilegible (< 60 chars o < 50% letras reales)
+function isValidFragment(text: string): boolean {
+  if (!text || text.trim().length < 60) return false
+  const letters = (text.match(/[a-záéíóúüñA-ZÁÉÍÓÚÜÑ]/g) ?? []).length
+  return letters / text.length >= 0.45
+}
+
 // Vectorize soporta máx 1536 dims; gemini-embedding-2 genera 3072.
 // Los embeddings Gemini son matryoshka: truncar preserva la semántica.
 const VECTORIZE_DIMS = 1536
@@ -145,16 +163,18 @@ async function semanticSearchMultiQuery(
 
   if (diversified.length === 0) return []
 
-  return diversified.map((m) => ({
-    id: m.id,
-    documentoId: (m.metadata?.documentoId as string) ?? '',
-    texto: (m.metadata?.texto as string) ?? '',
-    pagina: (m.metadata?.pagina as number) ?? 0,
-    embedding: [],
-    documentoNombre: (m.metadata?.documentoNombre as string) || 'Documento desconocido',
-    autor: (m.metadata?.autor as string) ?? '',
-    año: (m.metadata?.año as string) ?? '',
-  }))
+  return diversified
+    .map((m) => ({
+      id: m.id,
+      documentoId: (m.metadata?.documentoId as string) ?? '',
+      texto: fixEncoding((m.metadata?.texto as string) ?? ''),
+      pagina: (m.metadata?.pagina as number) ?? 0,
+      embedding: [],
+      documentoNombre: fixEncoding((m.metadata?.documentoNombre as string) || 'Documento desconocido'),
+      autor: fixEncoding((m.metadata?.autor as string) ?? ''),
+      año: fixEncoding((m.metadata?.año as string) ?? ''),
+    }))
+    .filter((f) => isValidFragment(f.texto))
 }
 
 async function queryVectorize(

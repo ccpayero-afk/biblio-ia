@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Send, BookMarked, RotateCcw, MessageSquare, ChevronDown, Plus, Trash2 } from 'lucide-react'
+import { Send, BookMarked, RotateCcw, MessageSquare, ChevronDown, Plus, Trash2, Download } from 'lucide-react'
 import Link from 'next/link'
 import { MensajeHistorial } from '@/lib/chat'
 import { useScope } from '@/lib/scope-context'
@@ -246,6 +246,37 @@ export default function ConsultarClient() {
     }
   }, [query, consultando, historial])
 
+  function exportarTurno(turno: Turno) {
+    const fecha = new Date().toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+    const fuentesUnicas = turno.fuentes.reduce<Fuente[]>((acc, f) => {
+      if (!acc.some((x) => x.documentoId === f.documentoId)) acc.push(f)
+      return acc
+    }, [])
+    const biblio = fuentesUnicas
+      .map((f) => {
+        const titulo = f.documentoNombre.replace(/\.pdf$/i, '')
+        return `- ${f.autor || 'Autor desconocido'} (${f.año || 's.f.'}). *${titulo}*. p. ${f.pagina}`
+      })
+      .join('\n')
+
+    const md = [
+      `# Consulta BiblioIA\n`,
+      `**Fecha:** ${fecha}\n`,
+      `## Pregunta\n\n${turno.pregunta}\n`,
+      `## Respuesta\n\n${turno.respuesta}\n`,
+      biblio ? `## Fuentes citadas\n\n${biblio}\n` : '',
+      `---\n*Exportado desde BiblioIA*`,
+    ].join('\n')
+
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `consulta_${Date.now()}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function guardarComoNota(turno: Turno) {
     const nota = {
       id: `nota_consulta_${Date.now()}`,
@@ -443,15 +474,27 @@ export default function ConsultarClient() {
                   })}
                 </div>
               )}
-              <button
-                onClick={() => guardarComoNota(turno)}
-                className="flex items-center gap-1.5 text-xs pl-1 transition-colors"
-                style={{ color: 'rgba(148,163,184,0.35)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(167,139,250,0.7)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.35)' }}
-              >
-                Guardar como nota
-              </button>
+              <div className="flex items-center gap-4 pl-1">
+                <button
+                  onClick={() => guardarComoNota(turno)}
+                  className="flex items-center gap-1.5 text-xs transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.35)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(167,139,250,0.7)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.35)' }}
+                >
+                  Guardar como nota
+                </button>
+                <button
+                  onClick={() => exportarTurno(turno)}
+                  className="flex items-center gap-1.5 text-xs transition-colors"
+                  style={{ color: 'rgba(148,163,184,0.35)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(34,211,238,0.7)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(148,163,184,0.35)' }}
+                >
+                  <Download className="h-3 w-3" />
+                  Exportar .md
+                </button>
+              </div>
             </div>
           </div>
         ))}
