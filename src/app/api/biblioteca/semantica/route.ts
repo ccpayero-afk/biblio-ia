@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const session = await auth()
     const accessToken = getAccessToken(session)
 
-    const resultados = await semanticSearch(q, accessToken, { topK: 20 })
+    const resultados = await semanticSearch(q, accessToken, { topK: 30 })
 
     // Collapse fragments → documents (first occurrence = best rank since results are sorted)
     const seen = new Map<string, number>()

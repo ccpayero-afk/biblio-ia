@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     // 1. Semantic search — top 20 fragments (returns [] if no index or no API key)
     let fragmentos: Awaited<ReturnType<typeof semanticSearch>> = []
     try {
-      fragmentos = await semanticSearch(tema, accessToken, { topK: 20 })
+      fragmentos = await semanticSearch(tema, accessToken, { topK: 40 })
     } catch { /* no index or Gemini key not configured */ }
 
     // 2. Collapse to unique documents — best score per doc, take top 8

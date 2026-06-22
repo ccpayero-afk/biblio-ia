@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       docIdsToUse = documentoIds
     } else {
       // Búsqueda semántica — colapsar por doc, mejor score, top 6
-      const fragmentos = await semanticSearch(problema.trim(), accessToken, { topK: 12 })
+      const fragmentos = await semanticSearch(problema.trim(), accessToken, { topK: 40 })
       const mejorScore = new Map<string, number>()
       for (const f of fragmentos) {
         // semanticSearch ya los devuelve ordenados por similitud, usamos el primero (mayor)

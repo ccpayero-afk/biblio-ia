@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Búsqueda semántica
-    const fragmentos = await semanticSearch(tema, accessToken, { topK: 25 })
+    const fragmentos = await semanticSearch(tema, accessToken, { topK: 40 })
 
     // 2. Agrupar por documentoId, top 8 más frecuentes
     const frecuencia = new Map<string, number>()

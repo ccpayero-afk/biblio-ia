@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       searchDocIds = [documentoId]
     }
 
-    const fragmentos = await semanticSearch(query, accessToken, { topK: 6, documentoIds: searchDocIds })
+    const fragmentos = await semanticSearch(query, accessToken, { topK: 15, documentoIds: searchDocIds })
     const contexto = fragmentos
       .map((f, i) => `[${i + 1}] ${f.autor || 'Autor'} (${f.año || 's.f.'}), p.${f.pagina}:\n"${f.texto}"`)
       .join('\n\n')
