@@ -1,7 +1,7 @@
 import { auth } from '@/auth'
 import { NextResponse } from 'next/server'
 
-const PUBLIC_PATHS = ['/', '/acceso-denegado']
+const PUBLIC_PATHS = ['/', '/login', '/acceso-denegado']
 
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl
